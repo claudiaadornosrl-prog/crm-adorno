@@ -274,6 +274,19 @@ a { color: inherit; text-decoration: none; }
   border-radius: 20px; font-size: 12px; font-weight: 700;
 }
 .btn-listo:hover { background: var(--listo); color: white; }
+.btn-completar { background: #f3f4f6; color: #374151; border: 2px solid #d1d5db; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-completar:hover { background: #374151; color: white; border-color: #374151; }
+.btn-quick-avisar { background: #dbeafe; color: #1e40af; border: 2px solid #bfdbfe; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-quick-avisar:hover { background: #1e40af; color: white; border-color: #1e40af; }
+
+/* Age indicators */
+.pedido-card.edad-warn { border-left: 4px solid #f59e0b; }
+.pedido-card.edad-alert { border-left: 4px solid #ef4444; }
+
+/* Vendedora filter row */
+.filter-row2 { display: flex; align-items: center; gap: 8px; padding: 0 0 8px; }
+.vendedora-select { padding: 5px 14px; border-radius: 20px; border: 2px solid var(--border); background: white; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; outline: none; }
+.vendedora-select:hover, .vendedora-select:focus { border-color: var(--accent); color: var(--accent); }
 
 /* ── Alertas ── */
 .alert-card { border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 12px; overflow: hidden; border: 2px solid #a7f3d0; background: white; }
@@ -522,6 +535,12 @@ a { color: inherit; text-decoration: none; }
         <div class="filter-chip" data-f="todos" onclick="setFilter(this)">Todos</div>
         <button class="sort-btn" id="sort-btn" onclick="toggleSort()">🔽 Más nuevo</button>
       </div>
+      <div class="filter-row2" id="vendedora-filter-row" style="display:none">
+        <span style="font-size:12px;font-weight:600;color:var(--muted)">👤 Vendedora:</span>
+        <select class="vendedora-select" id="vendedora-select" onchange="setVendedoraFilter(this.value)">
+          <option value="todas">Todas</option>
+        </select>
+      </div>
       <div class="search-bar">
         <span class="search-icon">🔍</span>
         <input type="search" id="pedidos-search" placeholder="Buscar por nombre, teléfono, mail o SKU…" oninput="onSearchInput(this.value)" autocomplete='off'>
@@ -646,6 +665,7 @@ let currentSortOrder = 'desc';
 let selectedSku = null;  // usado solo por el modal de edición
 let skuLines = [];       // [{id, sku, descripcion, cantidad}] para el form nuevo
 let adminLocalFilter = 'todos';
+let currentVendedoraFilter = 'todas';
 
 // ═══════════════════════════════════════════════════════
 //  Supabase helpers
@@ -1123,7 +1143,35 @@ function toggleSort() {
 
 function renderPedidos() {
   const el = document.getElementById('pedidos-list');
+  const now = new Date();
+
+  // ── Vendedora dropdown ──────────────────────────────────
+  const vSelect = document.getElementById('vendedora-select');
+  const vRow = document.getElementById('vendedora-filter-row');
+  if (vSelect) {
+    const vendedoras = [...new Set(pedidosCache.map(p => p.vendedora).filter(Boolean))].sort();
+    if (vendedoras.length > 0) {
+      vSelect.innerHTML = '<option value="todas">Todas</option>' +
+        vendedoras.map(v => `<option value="${escHtml(v)}"${v === currentVendedoraFilter ? ' selected' : ''}>${escHtml(v)}</option>`).join('');
+      vRow.style.display = 'flex';
+    } else {
+      vRow.style.display = 'none';
+    }
+  }
+
+  // ── Chip counters ───────────────────────────────────────
+  const CHIP_LABELS = { 'Pendiente': 'Pendiente', 'Avisado': 'Avisado', 'Completado': 'Completado', 'Cancelado': 'Cancelado', 'todos': 'Todos' };
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    const f = chip.dataset.f;
+    if (!f) return;
+    const base = pedidosCache.filter(p => currentVendedoraFilter === 'todas' || p.vendedora === currentVendedoraFilter);
+    const count = f === 'todos' ? base.length : base.filter(p => p.estado === f).length;
+    chip.textContent = (CHIP_LABELS[f] || f) + (count > 0 ? ` (${count})` : '');
+  });
+
+  // ── Filtering ───────────────────────────────────────────
   let items = pedidosCache;
+  if (currentVendedoraFilter !== 'todas') items = items.filter(p => p.vendedora === currentVendedoraFilter);
   if (currentFilter !== 'todos') items = items.filter(p => p.estado === currentFilter);
   if (currentSearch) {
     const q = currentSearch;
@@ -1153,7 +1201,12 @@ function renderPedidos() {
     const actions = pedidoActions(p);
     const skuDisplay = p.sku_resuelto || p.sku || '—';
     const skuOrig = (p.sku_resuelto && p.sku && p.sku_resuelto !== p.sku) ? `<span class="sku-orig" title="SKU vendedora">${escHtml(p.sku)}</span>` : '';
-    return `<div class="pedido-card">
+    // Age indicator
+    const daysDiff = p.created_at ? (now - new Date(p.created_at)) / 86400000 : 0;
+    const ageClass = (p.estado === 'Pendiente' || p.estado === 'Listo para avisar' || p.estado === 'Avisado')
+      ? (daysDiff >= 15 ? ' edad-alert' : daysDiff >= 7 ? ' edad-warn' : '')
+      : '';
+    return `<div class="pedido-card${ageClass}">
       <div class="pedido-header">
         <span class="pedido-sku">${escHtml(skuDisplay)}${skuOrig}</span>
         <div class="pedido-info">
@@ -1172,26 +1225,44 @@ function renderPedidos() {
 }
 
 function pedidoActions(p) {
+  const id = p.id;
+  const estado = p.estado;
   const waUrl = buildWa(p);
-  const waBtn = waUrl ? `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="onWaClick(${p.id})">
-    ${waSvg()} Avisar
-  </a>` : '';
+  let btns = '';
 
-  const estadoActual = p.estado;
+  if (estado === 'Pendiente') {
+    // Quick: "Ya hay stock" (→ Listo para avisar)
+    btns += `<button class="btn-listo" onclick="markListo(${id})">✓ Stock</button>`;
+    // WA: open chat + mark Avisado directly (skip Listo step)
+    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="markEstado(${id},'Avisado')">${waSvg()} WA</a>`;
+
+  } else if (estado === 'Listo para avisar') {
+    // WA: open chat + auto-mark Avisado
+    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="onWaClick(${id})">${waSvg()} Avisar por WA</a>`;
+    // Quick: mark Avisado without WA
+    btns += `<button class="btn-quick-avisar" onclick="markEstado(${id},'Avisado')">✓ Avisar</button>`;
+
+  } else if (estado === 'Avisado') {
+    // WA: re-open chat (no auto-mark)
+    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank">${waSvg()}</a>`;
+    // Quick: "Ya retiró" (→ Completado)
+    btns += `<button class="btn-completar" onclick="markEstado(${id},'Completado')">✔ Ya retiró</button>`;
+  }
+
+  // Estado dropdown always available
   const todos = ['Pendiente', 'Listo para avisar', 'Avisado', 'Completado', 'Cancelado'];
-  const otros = todos.filter(e => e !== estadoActual);
-
-  const estadoSelect = `<select class="estado-select" onchange="markEstado(${p.id}, this.value); this.value=''">
+  const otros = todos.filter(e => e !== estado);
+  btns += `<select class="estado-select" onchange="markEstado(${id}, this.value); this.value=''">
     <option value="" disabled selected>Estado ▾</option>
     ${otros.map(e => `<option value="${e}">${e}</option>`).join('')}
   </select>`;
 
-  // Botón "Ya hay stock" sólo cuando está Pendiente
-  const listoBtn = estadoActual === 'Pendiente'
-    ? `<button class="btn-listo" onclick="markListo(${p.id})">✓ Ya hay stock</button>`
-    : '';
+  return btns;
+}
 
-  return waBtn + listoBtn + estadoSelect;
+function setVendedoraFilter(v) {
+  currentVendedoraFilter = v;
+  renderPedidos();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1612,80 +1683,4 @@ function buildWa(p) {
   if (digits.startsWith('0')) digits = digits.slice(1);
   // Si tiene 15 después del código de área (ej: 1115... donde 11 es el área y 15 el prefijo móvil)
   // Área codes de 2 dígitos: 11 → quitar 15 si aparece en posición 2
-  // Área codes de 3 dígitos: 221, 341, 351 → quitar 15 si aparece en posición 3
-  // Área codes de 4 dígitos: 2202, 3405 → quitar 15 si aparece en posición 4
-  if (digits.length >= 10) {
-    const match2 = digits.match(/^(\d{2})(15)(\d{8})$/);
-    const match3 = digits.match(/^(\d{3})(15)(\d{7})$/);
-    const match4 = digits.match(/^(\d{4})(15)(\d{6})$/);
-    if (match2) digits = match2[1] + match2[3];
-    else if (match3) digits = match3[1] + match3[3];
-    else if (match4) digits = match4[1] + match4[3];
-  }
-  return WA_PREFIX + '549' + digits + '?text=' + waMsg(p);
-}
-
-function buildWaConfirm(nombre, celular, lines) {
-  if (!celular) return null;
-  let digits = celular.replace(/\D/g, '');
-  if (digits.startsWith('0')) digits = digits.slice(1);
-  const match2 = digits.match(/^(\d{2})(15)(\d{8})$/);
-  const match3 = digits.match(/^(\d{3})(15)(\d{7})$/);
-  const match4 = digits.match(/^(\d{4})(15)(\d{6})$/);
-  if (match2) digits = match2[1] + match2[3];
-  else if (match3) digits = match3[1] + match3[3];
-  else if (match4) digits = match4[1] + match4[3];
-  const phone = digits.startsWith('549') ? digits : '549' + digits;
-  const primerNombre = (nombre || '').split(' ')[0];
-  // Build article list (support both array of lines and legacy single sku object)
-  let articuloTxt = '';
-  if (Array.isArray(lines)) {
-    const nombres = lines.map(l => l.descripcion || l.sku).filter(Boolean);
-    if (nombres.length === 1) articuloTxt = nombres[0];
-    else if (nombres.length === 2) articuloTxt = nombres.join(' y ');
-    else articuloTxt = nombres.slice(0, -1).join(', ') + ' y ' + nombres[nombres.length - 1];
-  } else {
-    articuloTxt = (lines && lines.descripcion) ? lines.descripcion : (lines && lines.sku) ? lines.sku : '';
-  }
-  const plural = Array.isArray(lines) && lines.length > 1;
-  const msg = encodeURIComponent(
-    `Hola ${primerNombre}! Te confirmamos que tu pedido en Claudia Adorno quedo registrado: ${articuloTxt}. En cuanto ${plural ? 'esten disponibles' : 'este disponible'} te avisamos. Gracias!`
-  );
-  return `${WA_PREFIX}${phone}?text=${msg}`;
-}
-
-function waMsg(p) {
-  const nombre = (p.nombre_cliente || '').split(' ')[0]; // Solo el primer nombre
-  const articulo = p.descripcion_sku || p.sku || '';
-  const txt = `Hola ${nombre}! Te escribimos de Claudia Adorno con buenas noticias: el ${articulo} que estabas esperando ya está disponible en el local. Cuando quieras pasate a buscarlo, te esperamos!`;
-  return encodeURIComponent(txt);
-}
-
-function formatDate(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit' }) +
-         ' ' + d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
-}
-
-function escHtml(str) {
-  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function waSvg() {
-  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-  </svg>`;
-}
-
-let toastTimer;
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
-}
-</script>
-</body>
-</html>
+  // Área codes de 3 dígitos: 221, 341, 351 → quitar 15 si aparece en posici
