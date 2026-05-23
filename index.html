@@ -1416,6 +1416,10 @@ function openEditModal(id) {
   editingId = id;
   editSelectedSku = p.sku ? { sku: p.sku, descripcion: p.descripcion_sku || '' } : null;
 
+  // Cancelar cualquier búsqueda pendiente del modal anterior
+  clearTimeout(editSkuSearchTimer);
+  editSkuSearchTimer = null;
+
   const partesNombre = (p.nombre_cliente || '').split(' ');
   document.getElementById('edit-nombre').value   = partesNombre[0] || '';
   document.getElementById('edit-apellido').value = partesNombre.slice(1).join(' ') || '';
@@ -1424,9 +1428,12 @@ function openEditModal(id) {
   document.getElementById('edit-motivo').value   = p.motivo || 'Avisar cuando ingrese';
   document.getElementById('edit-cantidad').value = p.cantidad || 1;
 
-  // Mostrar SKU seleccionado
+  // Resetear siempre el input de búsqueda
   const inp = document.getElementById('edit-sku-input');
   const sel = document.getElementById('edit-sku-selected');
+  inp.value = '';
+  document.getElementById('edit-sku-dropdown').classList.add('hidden');
+
   if (editSelectedSku) {
     inp.style.display = 'none';
     sel.innerHTML = `<div class="sku-selected-tag">
@@ -1436,10 +1443,8 @@ function openEditModal(id) {
     </div>`;
   } else {
     inp.style.display = '';
-    inp.value = '';
     sel.innerHTML = '';
   }
-  document.getElementById('edit-sku-dropdown').classList.add('hidden');
   document.getElementById('edit-modal').style.display = 'block';
 }
 
