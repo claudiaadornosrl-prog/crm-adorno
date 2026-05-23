@@ -192,8 +192,15 @@ a { color: inherit; text-decoration: none; }
 .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── Pedidos list ── */
-.filter-row { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
+.filter-row { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 2px; }
 .filter-row::-webkit-scrollbar { display: none; }
+.search-bar { position: relative; margin-bottom: 14px; }
+.search-bar input { width: 100%; box-sizing: border-box; padding: 9px 14px 9px 36px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 14px; font-family: inherit; outline: none; transition: border-color .2s; }
+.search-bar input:focus { border-color: var(--accent); }
+.search-bar input::placeholder { color: var(--muted); }
+.search-bar .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 15px; pointer-events: none; opacity: .5; }
+.search-bar .clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px; color: var(--muted); padding: 0; display: none; }
+.search-bar input:not(:placeholder-shown) ~ .clear-btn { display: block; }
 .filter-chip {
   flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: 2px solid var(--border);
   background: white; font-size: 12px; font-weight: 600; color: var(--muted); transition: all 0.15s;
@@ -511,6 +518,11 @@ a { color: inherit; text-decoration: none; }
         <div class="filter-chip" data-f="Cancelado" onclick="setFilter(this)">Cancelado</div>
         <div class="filter-chip" data-f="todos" onclick="setFilter(this)">Todos</div>
       </div>
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="search" id="pedidos-search" placeholder="Buscar por nombre, teléfono, mail o SKU…" oninput="onSearchInput(this.value)" autocomplete='off'>
+        <button class="clear-btn" onclick="clearSearch()">✕</button>
+      </div>
       <div id="pedidos-list"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
     </div>
 
@@ -625,6 +637,7 @@ let session = { local_id: null, nombre: null, isAdmin: false };
 let articulos = [];  // {sku, descripcion, local_id}
 let pedidosCache = [];
 let currentFilter = 'Pendiente';
+let currentSearch = '';
 let selectedSku = null;  // usado solo por el modal de edición
 let skuLines = [];       // [{id, sku, descripcion, cantidad}] para el form nuevo
 let adminLocalFilter = 'todos';
@@ -813,7 +826,8 @@ async function searchArticulos(q) {
 
 async function loadPedidos() {
   try {
-    const params = { select: '*', order: 'created_at.desc' };
+    const unYear = new Date(); unYear.setFullYear(unYear.getFullYear() - 1);
+    const params = { select: '*', order: 'created_at.desc', created_at: 'gte.' + unYear.toISOString() };
     if (!session.isAdmin && session.local_id) params['local_id'] = 'eq.' + session.local_id;
     pedidosCache = await supaGet('pedidos', params);
     updateAlertBadge();
@@ -1062,10 +1076,32 @@ function setFilter(el) {
   renderPedidos();
 }
 
+function onSearchInput(val) {
+  currentSearch = val.trim().toLowerCase();
+  renderPedidos();
+}
+
+function clearSearch() {
+  currentSearch = '';
+  const inp = document.getElementById('pedidos-search');
+  if (inp) inp.value = '';
+  renderPedidos();
+}
+
 function renderPedidos() {
   const el = document.getElementById('pedidos-list');
   let items = pedidosCache;
   if (currentFilter !== 'todos') items = items.filter(p => p.estado === currentFilter);
+  if (currentSearch) {
+    const q = currentSearch;
+    items = items.filter(p =>
+      (p.nombre_cliente || '').toLowerCase().includes(q) ||
+      (p.celular || '').toLowerCase().includes(q) ||
+      (p.email_cliente || '').toLowerCase().includes(q) ||
+      (p.sku || '').toLowerCase().includes(q) ||
+      (p.sku_resuelto || '').toLowerCase().includes(q)
+    );
+  }
 
   if (!items.length) {
     el.innerHTML = `<div class="empty"><div class="icon">📭</div><p>No hay pedidos${currentFilter !== 'todos' ? ' con estado "' + currentFilter + '"' : ''}</p></div>`;
