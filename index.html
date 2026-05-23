@@ -1117,7 +1117,8 @@ function renderPedidos() {
       (p.celular || '').toLowerCase().includes(q) ||
       (p.email_cliente || '').toLowerCase().includes(q) ||
       (p.sku || '').toLowerCase().includes(q) ||
-      (p.sku_resuelto || '').toLowerCase().includes(q)
+      (p.sku_resuelto || '').toLowerCase().includes(q) ||
+      (p.motivo || '').toLowerCase().includes(q)
     );
   }
 
