@@ -833,7 +833,7 @@ async function searchArticulos(q) {
       'order': 'sku.asc',
       'limit': '60',
     };
-    if (session.local_id) params['local_id'] = 'eq.' + session.local_id;
+    if (session.local_id) params['local_id'] = 'ilike.' + session.local_id;
     const data = await supaGet('articulos', params);
     // Dedupe por sku
     const seen = new Set();
@@ -854,7 +854,7 @@ async function loadPedidos() {
   try {
     const unYear = new Date(); unYear.setFullYear(unYear.getFullYear() - 1);
     const params = { select: '*', order: 'created_at.desc', created_at: 'gte.' + unYear.toISOString() };
-    if (!session.isAdmin && session.local_id) params['local_id'] = 'eq.' + session.local_id;
+    if (!session.isAdmin && session.local_id) params['local_id'] = 'ilike.' + session.local_id;
     pedidosCache = await supaGet('pedidos', params);
     updateAlertBadge();
     renderPedidos();
