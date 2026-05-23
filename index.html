@@ -1451,6 +1451,8 @@ function openEditModal(id) {
 function closeEditModal() {
   document.getElementById('edit-modal').style.display = 'none';
   editingId = null;
+  editSkuSearchTimer = null; // invalida cualquier búsqueda en vuelo
+  document.getElementById('edit-sku-dropdown').classList.add('hidden');
 }
 
 // Cerrar tocando el fondo
@@ -1475,8 +1477,12 @@ function onEditSkuInput(val) {
   dd.innerHTML = '<div class="sku-opt"><span class="sku-desc" style="color:#aaa">Buscando…</span></div>';
   dd.classList.remove('hidden');
   clearTimeout(editSkuSearchTimer);
-  editSkuSearchTimer = setTimeout(async () => {
+  const thisSearch = Symbol();
+  editSkuSearchTimer = thisSearch;
+  setTimeout(async () => {
+    if (editSkuSearchTimer !== thisSearch) return; // fue cancelado o reemplazado
     const matches = await searchArticulos(q);
+    if (editSkuSearchTimer !== thisSearch) return; // modal se cerró/cambió mientras esperábamos
     if (!matches.length) { dd.innerHTML = '<div class="sku-opt"><span class="sku-desc">Sin resultados</span></div>'; return; }
     dd.innerHTML = matches.map((a, i) =>
       `<div class="sku-opt" data-i="${i}" onclick="selectEditSku('${a.sku}','${escHtml(a.descripcion||'')}')">
