@@ -984,11 +984,16 @@ function onLineSkuInput(id, val) {
     if (!freshDd) return;
     if (!matches.length) { freshDd.innerHTML = '<div class="sku-opt"><span class="sku-desc">Sin resultados</span></div>'; return; }
     freshDd.innerHTML = matches.map((a, i) =>
-      `<div class="sku-opt" data-i="${i}" onclick="selectSkuLine(${id},'${a.sku}','${escHtml(a.descripcion||'')}')">
+      `<div class="sku-opt" data-i="${i}" data-sku="${escHtml(a.sku)}" data-desc="${escHtml(a.descripcion||'')}">
         <span class="sku-code">${escHtml(a.sku)}</span>
         <span class="sku-desc">${escHtml(a.descripcion||'')}</span>
       </div>`
     ).join('');
+    freshDd.onmousedown = function(ev) {
+      ev.preventDefault();
+      const opt = ev.target.closest('[data-sku]');
+      if (opt) selectSkuLine(id, opt.dataset.sku, opt.dataset.desc);
+    };
     lineFocusIdx[id] = -1;
   }, 300);
 }
@@ -1568,11 +1573,17 @@ function onEditSkuInput(val) {
     if (!freshEditDd) return;
     if (!matches.length) { freshEditDd.innerHTML = '<div class="sku-opt"><span class="sku-desc">Sin resultados</span></div>'; return; }
     freshEditDd.innerHTML = matches.map((a, i) =>
-      `<div class="sku-opt" data-i="${i}" onmousedown="event.preventDefault(); selectEditSku('${a.sku}','${escHtml(a.descripcion||'')}')">
+      `<div class="sku-opt" data-i="${i}" data-sku="${escHtml(a.sku)}" data-desc="${escHtml(a.descripcion||'')}">
         <span class="sku-code">${escHtml(a.sku)}</span>
         <span class="sku-desc">${escHtml(a.descripcion||'')}</span>
       </div>`
     ).join('');
+    // Event delegation: un solo handler en el contenedor, sin escaping de strings en onclick
+    freshEditDd.onmousedown = function(ev) {
+      ev.preventDefault();
+      const opt = ev.target.closest('[data-sku]');
+      if (opt) selectEditSku(opt.dataset.sku, opt.dataset.desc);
+    };
     editSkuFocusIdx = -1;
   }, 300);
 }
