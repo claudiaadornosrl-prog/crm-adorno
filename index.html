@@ -201,6 +201,8 @@ a { color: inherit; text-decoration: none; }
 .search-bar .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 15px; pointer-events: none; opacity: .5; }
 .search-bar .clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px; color: var(--muted); padding: 0; display: none; }
 .search-bar input:not(:placeholder-shown) ~ .clear-btn { display: block; }
+.sort-btn { flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: 2px solid var(--border); background: white; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.sort-btn:hover { border-color: var(--accent); color: var(--accent); }
 .filter-chip {
   flex-shrink: 0; padding: 6px 14px; border-radius: 20px; border: 2px solid var(--border);
   background: white; font-size: 12px; font-weight: 600; color: var(--muted); transition: all 0.15s;
@@ -517,6 +519,7 @@ a { color: inherit; text-decoration: none; }
         <div class="filter-chip" data-f="Completado" onclick="setFilter(this)">Completado</div>
         <div class="filter-chip" data-f="Cancelado" onclick="setFilter(this)">Cancelado</div>
         <div class="filter-chip" data-f="todos" onclick="setFilter(this)">Todos</div>
+        <button class="sort-btn" id="sort-btn" onclick="toggleSort()">🔽 Más nuevo</button>
       </div>
       <div class="search-bar">
         <span class="search-icon">🔍</span>
@@ -638,6 +641,7 @@ let articulos = [];  // {sku, descripcion, local_id}
 let pedidosCache = [];
 let currentFilter = 'Pendiente';
 let currentSearch = '';
+let currentSortOrder = 'desc';
 let selectedSku = null;  // usado solo por el modal de edición
 let skuLines = [];       // [{id, sku, descripcion, cantidad}] para el form nuevo
 let adminLocalFilter = 'todos';
@@ -1088,6 +1092,13 @@ function clearSearch() {
   renderPedidos();
 }
 
+function toggleSort() {
+  currentSortOrder = currentSortOrder === 'desc' ? 'asc' : 'desc';
+  const btn = document.getElementById('sort-btn');
+  if (btn) btn.textContent = currentSortOrder === 'desc' ? '🔽 Más nuevo' : '🔼 Más viejo';
+  renderPedidos();
+}
+
 function renderPedidos() {
   const el = document.getElementById('pedidos-list');
   let items = pedidosCache;
@@ -1102,6 +1113,11 @@ function renderPedidos() {
       (p.sku_resuelto || '').toLowerCase().includes(q)
     );
   }
+
+  items = [...items].sort((a, b) => {
+    const da = new Date(a.created_at), db = new Date(b.created_at);
+    return currentSortOrder === 'desc' ? db - da : da - db;
+  });
 
   if (!items.length) {
     el.innerHTML = `<div class="empty"><div class="icon">📭</div><p>No hay pedidos${currentFilter !== 'todos' ? ' con estado "' + currentFilter + '"' : ''}</p></div>`;
