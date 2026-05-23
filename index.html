@@ -847,14 +847,14 @@ async function loadArticulos() {
 async function searchArticulos(q) {
   if (!q || q.length < 1) return [];
   try {
+    // Sin filtro de local_id: el catálogo de artículos es compartido entre locales
     const params = {
       select: 'sku,descripcion',
       'activo': 'eq.true',
       'or': `(sku.ilike.*${q}*,descripcion.ilike.*${q}*)`,
       'order': 'sku.asc',
-      'limit': '60',
+      'limit': '100',
     };
-    if (session.local_id) params['local_id'] = 'ilike.' + session.local_id;
     const data = await supaGet('articulos', params);
     // Dedupe por sku
     const seen = new Set();
@@ -864,7 +864,7 @@ async function searchArticulos(q) {
     const tier1 = deduped.filter(a => a.sku.toUpperCase().startsWith(qu));
     const tier2 = deduped.filter(a => !a.sku.toUpperCase().startsWith(qu) && a.sku.toUpperCase().includes(qu));
     const tier3 = deduped.filter(a => !a.sku.toUpperCase().includes(qu));
-    return [...tier1, ...tier2, ...tier3].slice(0, 20);
+    return [...tier1, ...tier2, ...tier3].slice(0, 40);
   } catch(e) {
     console.error('searchArticulos:', e);
     return [];
