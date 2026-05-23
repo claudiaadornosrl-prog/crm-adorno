@@ -1563,9 +1563,12 @@ function onEditSkuInput(val) {
     if (editSkuSearchTimer !== thisSearch) return; // fue cancelado o reemplazado
     const matches = await searchArticulos(q);
     if (editSkuSearchTimer !== thisSearch) return; // modal se cerró/cambió mientras esperábamos
-    if (!matches.length) { dd.innerHTML = '<div class="sku-opt"><span class="sku-desc">Sin resultados</span></div>'; return; }
-    dd.innerHTML = matches.map((a, i) =>
-      `<div class="sku-opt" data-i="${i}" onclick="selectEditSku('${a.sku}','${escHtml(a.descripcion||'')}')">
+    // Re-fetch por si el modal se re-renderizó mientras esperábamos
+    const freshEditDd = document.getElementById('edit-sku-dropdown');
+    if (!freshEditDd) return;
+    if (!matches.length) { freshEditDd.innerHTML = '<div class="sku-opt"><span class="sku-desc">Sin resultados</span></div>'; return; }
+    freshEditDd.innerHTML = matches.map((a, i) =>
+      `<div class="sku-opt" data-i="${i}" onmousedown="event.preventDefault(); selectEditSku('${a.sku}','${escHtml(a.descripcion||'')}')">
         <span class="sku-code">${escHtml(a.sku)}</span>
         <span class="sku-desc">${escHtml(a.descripcion||'')}</span>
       </div>`
@@ -1585,6 +1588,7 @@ function onEditSkuKey(e) {
 }
 
 function selectEditSku(sku, desc) {
+  editSkuSearchTimer = Symbol(); // cancela cualquier búsqueda en vuelo
   editSelectedSku = { sku, descripcion: desc };
   document.getElementById('edit-sku-input').style.display = 'none';
   document.getElementById('edit-sku-dropdown').classList.add('hidden');
