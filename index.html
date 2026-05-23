@@ -708,7 +708,7 @@ function checkSetupReady() {
   if (urlLocal && LOCALES[urlLocal]) {
     session = { local_id: urlLocal, nombre: LOCALES[urlLocal].nombre, isAdmin: false, fromUrl: true };
     localStorage.setItem('ca_session', JSON.stringify(session));
-    enterApp();
+    setTimeout(enterApp, 0); // defer para que let/const del script estén inicializados
     return;
   }
   const saved = localStorage.getItem('ca_session');
@@ -717,7 +717,7 @@ function checkSetupReady() {
       const s = JSON.parse(saved);
       if (s.local_id && s.nombre) {
         session = s;
-        enterApp();
+        setTimeout(enterApp, 0);
       }
     } catch(e) {}
   }
