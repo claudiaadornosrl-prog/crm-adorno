@@ -972,10 +972,17 @@ function onLineSkuInput(id, val) {
   dd.innerHTML = '<div class="sku-opt"><span class="sku-desc" style="color:#aaa">Buscando…</span></div>';
   dd.classList.remove('hidden');
   clearTimeout(lineSearchTimers[id]);
-  lineSearchTimers[id] = setTimeout(async () => {
+  const thisSearch = Symbol();
+  lineSearchTimers[id] = thisSearch;
+  setTimeout(async () => {
+    if (lineSearchTimers[id] !== thisSearch) return;
     const matches = await searchArticulos(q);
-    if (!matches.length) { dd.innerHTML = '<div class="sku-opt"><span class="sku-desc">Sin resultados</span></div>'; return; }
-    dd.innerHTML = matches.map((a, i) =>
+    if (lineSearchTimers[id] !== thisSearch) return;
+    // Re-fetch el elemento por si renderSkuLines() lo recreó mientras esperábamos
+    const freshDd = document.getElementById(`line-dd-${id}`);
+    if (!freshDd) return;
+    if (!matches.length) { freshDd.innerHTML = '<div class="sku-opt"><span class="sku-desc">Sin resultados</span></div>'; return; }
+    freshDd.innerHTML = matches.map((a, i) =>
       `<div class="sku-opt" data-i="${i}" onclick="selectSkuLine(${id},'${a.sku}','${escHtml(a.descripcion||'')}')">
         <span class="sku-code">${escHtml(a.sku)}</span>
         <span class="sku-desc">${escHtml(a.descripcion||'')}</span>
@@ -1502,7 +1509,9 @@ function openEditModal(id) {
   const inp = document.getElementById('edit-sku-input');
   const sel = document.getElementById('edit-sku-selected');
   inp.value = '';
-  document.getElementById('edit-sku-dropdown').classList.add('hidden');
+  const editDd = document.getElementById('edit-sku-dropdown');
+  editDd.innerHTML = '';
+  editDd.classList.add('hidden');
 
   if (editSelectedSku) {
     inp.style.display = 'none';
