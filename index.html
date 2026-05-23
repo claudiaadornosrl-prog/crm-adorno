@@ -859,12 +859,13 @@ async function searchArticulos(q) {
     // Dedupe por sku
     const seen = new Set();
     const deduped = data.filter(a => { if (seen.has(a.sku)) return false; seen.add(a.sku); return true; });
-    // Priorizar: SKU empieza con q > SKU contiene q > solo descripción contiene q
+    // Priorizar: SKU exacto > SKU empieza con q > SKU contiene q > solo descripción contiene q
     const qu = q.toUpperCase();
-    const tier1 = deduped.filter(a => a.sku.toUpperCase().startsWith(qu));
+    const tier0 = deduped.filter(a => a.sku.toUpperCase() === qu);
+    const tier1 = deduped.filter(a => a.sku.toUpperCase() !== qu && a.sku.toUpperCase().startsWith(qu));
     const tier2 = deduped.filter(a => !a.sku.toUpperCase().startsWith(qu) && a.sku.toUpperCase().includes(qu));
     const tier3 = deduped.filter(a => !a.sku.toUpperCase().includes(qu));
-    return [...tier1, ...tier2, ...tier3].slice(0, 40);
+    return [...tier0, ...tier1, ...tier2, ...tier3].slice(0, 40);
   } catch(e) {
     console.error('searchArticulos:', e);
     return [];
