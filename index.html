@@ -701,8 +701,16 @@ function checkSetupReady() {
   document.getElementById('setup-btn').disabled = !localSel;
 }
 
-// Restore session from localStorage
+// Restore session from localStorage or URL param
 (function restoreSession() {
+  // URL param tiene prioridad: ?local=unicenter o ?local=alcorta
+  const urlLocal = new URLSearchParams(window.location.search).get('local');
+  if (urlLocal && LOCALES[urlLocal]) {
+    session = { local_id: urlLocal, nombre: LOCALES[urlLocal].nombre, isAdmin: false, fromUrl: true };
+    localStorage.setItem('ca_session', JSON.stringify(session));
+    enterApp();
+    return;
+  }
   const saved = localStorage.getItem('ca_session');
   if (saved) {
     try {
@@ -738,10 +746,17 @@ function startAdmin() {
 }
 
 function logout() {
+  const fromUrl = session.fromUrl;
+  const localId = session.local_id;
   localStorage.removeItem('ca_session');
   session = { local_id: null, nombre: null, isAdmin: false };
   pedidosCache = [];
   articulos = [];
+  // Si entró por link de local, volver al mismo link
+  if (fromUrl && localId) {
+    window.location.href = window.location.pathname + '?local=' + localId;
+    return;
+  }
   // Reset setup form
   document.querySelectorAll('.local-opt').forEach(e => e.classList.remove('selected'));
   document.getElementById('setup-btn').disabled = true;
