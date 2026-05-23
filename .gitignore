@@ -1,0 +1,19 @@
+# Archivos de migración (no van al repo)
+run_part_*.js
+insert_part_*.sql
+p3_batches.json
+p3_full_b64.txt
+p3_c*.txt
+p3_fixed_c*.txt
+p2_c*.txt
+all_chunks.json
+
+# Archivos temporales
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+
+# El archivo duplicado (usamos index.html)
+vendedoras.html
+znube_page1.html
