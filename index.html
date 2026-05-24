@@ -448,6 +448,22 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .stat-canc .stat-num  { color: var(--danger); }
 
 /* Ranking tables */
+
+/* Demanda no satisfecha (panel admin) */
+.demanda-row { display: grid; grid-template-columns: 90px 1fr 70px 70px 70px 70px; gap: 8px; align-items: center; padding: 10px 12px; background: white; border-radius: 8px; box-shadow: var(--shadow); margin-bottom: 6px; font-size: 12px; }
+.demanda-row.header { background: #f4f5f9; box-shadow: none; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; font-size: 10px; padding: 6px 12px; margin-bottom: 4px; }
+.demanda-sku { font-family: monospace; font-weight: 700; color: var(--accent); font-size: 12px; }
+.demanda-desc { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.demanda-num { text-align: center; font-weight: 600; color: var(--text); }
+.demanda-num.pend { color: var(--accent); }
+.demanda-num.list { color: #10b981; }
+.demanda-num.avis { color: #f59e0b; }
+.demanda-num.tot { color: var(--text); font-weight: 800; font-size: 14px; }
+@media (max-width: 600px) {
+  .demanda-row { grid-template-columns: 80px 1fr 50px 50px; font-size: 11px; }
+  .demanda-row .col-listo, .demanda-row .col-aviso { display: none; }
+}
+
 .ranking-section { margin-bottom: 14px; }
 .ranking-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
 .ranking-row { background: white; border-radius: 10px; box-shadow: var(--shadow); padding: 10px 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
@@ -1970,6 +1986,55 @@ setTimeout(() => {
 }, 0);
 
 
+// ═══════════════════════════════════════════════════════
+//  Demanda no satisfecha (admin) — SKUs con más pedidos pendientes
+// ═══════════════════════════════════════════════════════
+function renderDemandaNoSatisfecha(items) {
+  // Filtrar pedidos NO completados / NO cancelados con SKU
+  const activos = items.filter(p => p.sku && ['Pendiente', 'Listo para avisar', 'Avisado'].includes(p.estado));
+  if (!activos.length) return '';
+
+  // Agrupar por SKU
+  const bySku = {};
+  activos.forEach(p => {
+    const sku = (p.sku || '').toUpperCase();
+    if (!bySku[sku]) {
+      bySku[sku] = { sku, descripcion: p.descripcion_sku || '', pend: 0, list: 0, avis: 0, total: 0, last: null };
+    }
+    const g = bySku[sku];
+    g.total++;
+    if (p.estado === 'Pendiente')        g.pend++;
+    if (p.estado === 'Listo para avisar') g.list++;
+    if (p.estado === 'Avisado')           g.avis++;
+    if (!g.last || p.created_at > g.last) g.last = p.created_at;
+    if (!g.descripcion && p.descripcion_sku) g.descripcion = p.descripcion_sku;
+  });
+
+  const ranked = Object.values(bySku).sort((a, b) => b.total - a.total).slice(0, 20);
+  if (!ranked.length) return '';
+
+  return `<div class="ranking-section">
+    <div class="ranking-title">📦 Demanda no satisfecha (top SKUs pedidos)</div>
+    <div class="demanda-row header">
+      <span>SKU</span>
+      <span>Descripción</span>
+      <span class="col-pend">Pend.</span>
+      <span class="col-listo">Listo</span>
+      <span class="col-aviso">Avis.</span>
+      <span>Total</span>
+    </div>
+    ${ranked.map(r => `<div class="demanda-row">
+      <span class="demanda-sku">${escHtml(r.sku)}</span>
+      <span class="demanda-desc" title="${escHtml(r.descripcion)}">${escHtml(r.descripcion || '—')}</span>
+      <span class="demanda-num pend col-pend">${r.pend || ''}</span>
+      <span class="demanda-num list col-listo">${r.list || ''}</span>
+      <span class="demanda-num avis col-aviso">${r.avis || ''}</span>
+      <span class="demanda-num tot">${r.total}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+
 function renderAdmin() {
   const tabs = document.getElementById('admin-local-tabs');
   const localIds = ['todos', ...Object.keys(LOCALES)];
@@ -2083,7 +2148,8 @@ function renderAdmin() {
   });
 
   if (!sorted.length) {
-    adminList.innerHTML = vendHTML + clientHTML + '<div class="empty"><div class="icon">📭</div><p>Sin pedidos</p></div>';
+    const demandaHTML = renderDemandaNoSatisfecha(items);
+    adminList.innerHTML = vendHTML + demandaHTML + clientHTML + '<div class="empty"><div class="icon">📭</div><p>Sin pedidos</p></div>';
     return;
   }
 
@@ -2107,7 +2173,9 @@ function renderAdmin() {
     </div>`;
   }).join('');
 
-  adminList.innerHTML = vendHTML + clientHTML +
+  const demandaHTML = renderDemandaNoSatisfecha(items);
+
+  adminList.innerHTML = vendHTML + demandaHTML + clientHTML +
     `<div class="ranking-title" style="margin-bottom:8px">📋 Todos los pedidos</div>` +
     pedidosHTML;
 }
