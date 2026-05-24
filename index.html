@@ -153,6 +153,9 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 #panel-nuevo.active { display: flex; justify-content: center; }
 #panel-nuevo > .card { width: 100%; max-width: 520px; align-self: flex-start; }
 
+/* Tablero de pedidos y alertas: contenido centrado, no full-width en desktop */
+#panel-pedidos > *, #panel-alertas > * { max-width: 720px; margin-left: auto; margin-right: auto; }
+
 /* ── Cards ── */
 .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 12px; overflow: hidden; }
 .card-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
