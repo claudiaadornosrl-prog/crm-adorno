@@ -29,6 +29,19 @@
   --shadow:   0 1px 4px rgba(0,0,0,0.08);
 }
 
+
+/* Modal de ayuda de atajos */
+#shortcuts-modal { display: none; position: fixed; inset: 0; z-index: 2100; background: rgba(0,0,0,0.55); padding: 60px 20px 20px; }
+#shortcuts-modal.active { display: block; }
+.shortcuts-box { background: var(--card); border-radius: 14px; max-width: 480px; margin: 0 auto; padding: 22px 26px; box-shadow: 0 30px 80px rgba(0,0,0,0.4); }
+.shortcuts-box h3 { font-size: 16px; margin: 0 0 14px; color: var(--text); }
+.shortcut-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
+.shortcut-row:last-child { border-bottom: none; }
+.shortcut-keys { display: inline-flex; gap: 4px; }
+.shortcut-key { font-family: monospace; background: #f3f4f6; border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; font-size: 12px; font-weight: 700; color: var(--text); }
+html.dark .shortcut-key { background: #2a3852; }
+.shortcuts-close { float: right; background: none; border: none; font-size: 18px; cursor: pointer; color: var(--muted); }
+
 /* ═══ Modo oscuro ═══ */
 html.dark {
   --bg:       #0f172a;
@@ -874,6 +887,55 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 
 <!-- Modal de edición -->
 
+
+
+<!-- ── Modal de ayuda de atajos de teclado ──────────────────── -->
+<div id="shortcuts-modal" onclick="if(event.target===this)closeShortcutsHelp()">
+  <div class="shortcuts-box">
+    <button class="shortcuts-close" onclick="closeShortcutsHelp()">✕</button>
+    <h3>⌨️ Atajos de teclado</h3>
+    <div class="shortcut-row">
+      <span>Buscar en todo el CRM</span>
+      <span class="shortcut-keys"><span class="shortcut-key">Ctrl</span><span class="shortcut-key">K</span></span>
+    </div>
+    <div class="shortcut-row">
+      <span>Ir a Nuevo pedido</span>
+      <span class="shortcut-keys"><span class="shortcut-key">N</span></span>
+    </div>
+    <div class="shortcut-row">
+      <span>Ir a Pedidos</span>
+      <span class="shortcut-keys"><span class="shortcut-key">P</span></span>
+    </div>
+    <div class="shortcut-row">
+      <span>Ir a Alertas</span>
+      <span class="shortcut-keys"><span class="shortcut-key">A</span></span>
+    </div>
+    <div class="shortcut-row" id="sc-admin-row">
+      <span>Ir a Admin</span>
+      <span class="shortcut-keys"><span class="shortcut-key">D</span></span>
+    </div>
+    <div class="shortcut-row">
+      <span>Focus en buscador del panel</span>
+      <span class="shortcut-keys"><span class="shortcut-key">/</span></span>
+    </div>
+    <div class="shortcut-row">
+      <span>Cerrar modales</span>
+      <span class="shortcut-keys"><span class="shortcut-key">Esc</span></span>
+    </div>
+    <div class="shortcut-row">
+      <span>Guardar pedido / Enviar form</span>
+      <span class="shortcut-keys"><span class="shortcut-key">Ctrl</span><span class="shortcut-key">Enter</span></span>
+    </div>
+    <div class="shortcut-row">
+      <span>Refresh datos</span>
+      <span class="shortcut-keys"><span class="shortcut-key">R</span></span>
+    </div>
+    <div class="shortcut-row">
+      <span>Mostrar esta ayuda</span>
+      <span class="shortcut-keys"><span class="shortcut-key">?</span></span>
+    </div>
+  </div>
+</div>
 
 <!-- ── Modal de Búsqueda Global ──────────────────────────── -->
 <div id="search-modal">
@@ -2566,7 +2628,77 @@ setTimeout(() => {
   }
 }, 0);
 
-// Atajos de teclado
+// ═══════════════════════════════════════════════════════
+//  Atajos de teclado
+// ═══════════════════════════════════════════════════════
+function openShortcutsHelp() {
+  document.getElementById('shortcuts-modal').classList.add('active');
+  // Ocultar fila de admin si no es admin
+  const r = document.getElementById('sc-admin-row');
+  if (r) r.style.display = (session && session.isAdmin) ? 'flex' : 'none';
+}
+function closeShortcutsHelp() {
+  document.getElementById('shortcuts-modal').classList.remove('active');
+}
+
+document.addEventListener('keydown', e => {
+  const tgt = e.target;
+  const isInput = tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT' || tgt.isContentEditable);
+
+  // Ctrl+Enter siempre dispara submit del form visible aunque estés en input
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    // Si modal edit abierto → saveEdit
+    const editModal = document.getElementById('edit-modal');
+    if (editModal && editModal.style.display === 'block') {
+      if (typeof saveEdit === 'function') saveEdit();
+      return;
+    }
+    // Si estamos en panel nuevo → submit
+    const panelNuevo = document.getElementById('panel-nuevo');
+    if (panelNuevo && panelNuevo.classList.contains('active')) {
+      const btn = document.getElementById('submit-btn');
+      if (btn && !btn.disabled) btn.click();
+      return;
+    }
+    return;
+  }
+
+  // Esc cierra modal de ayuda (los otros modales lo manejan en su propio listener)
+  if (e.key === 'Escape') {
+    const sm = document.getElementById('shortcuts-modal');
+    if (sm && sm.classList.contains('active')) { closeShortcutsHelp(); return; }
+  }
+
+  // El resto de atajos NO disparan si estás en un input/textarea
+  if (isInput) return;
+  // Tampoco si hay un modal de búsqueda abierto (Ctrl+K ya lo maneja)
+  if (document.getElementById('search-modal') && document.getElementById('search-modal').classList.contains('active')) return;
+
+  // No interferir con combos del browser
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  const k = e.key.toLowerCase();
+  if (k === '?' || (e.key === '?' && e.shiftKey)) { e.preventDefault(); openShortcutsHelp(); return; }
+  if (k === '/') { e.preventDefault();
+    // Focus en el buscador del panel activo
+    let inp = null;
+    const activeTab = document.querySelector('.tab-panel.active');
+    if (activeTab) {
+      if (activeTab.id === 'panel-pedidos') inp = document.getElementById('pedidos-search');
+      else if (activeTab.id === 'panel-admin' && adminView === 'clientes') inp = document.getElementById('clientes-search');
+    }
+    if (inp) inp.focus();
+    return;
+  }
+  if (k === 'n') { e.preventDefault(); switchTab('nuevo'); return; }
+  if (k === 'p') { e.preventDefault(); switchTab('pedidos'); return; }
+  if (k === 'a') { e.preventDefault(); switchTab('alertas'); return; }
+  if (k === 'd' && session && session.isAdmin) { e.preventDefault(); switchTab('admin'); return; }
+  if (k === 'r') { e.preventDefault(); if (typeof refreshAll === 'function') refreshAll(); return; }
+});
+
+// (Bloque viejo - Ctrl+K / Esc para search-modal)
 document.addEventListener('keydown', e => {
   // Ctrl+K / Cmd+K abre la búsqueda
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
