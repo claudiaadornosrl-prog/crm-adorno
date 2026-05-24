@@ -95,6 +95,33 @@ a { color: inherit; text-decoration: none; }
 .badge-unicenter  { background: var(--uni-bg); color: var(--uni-c); }
 .badge-alcorta    { background: var(--alco-bg); color: var(--alco-c); }
 .header-right { display: flex; align-items: center; gap: 8px; }
+
+/* ═══ Búsqueda global (Command palette) ═══ */
+.header-search-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-right: 4px; }
+.header-search-btn:hover { background: rgba(255,255,255,0.22); }
+
+#search-modal { display: none; position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.55); padding: 80px 20px 20px; overflow-y: auto; }
+#search-modal.active { display: block; }
+.search-modal-box { background: white; border-radius: 14px; max-width: 640px; margin: 0 auto; box-shadow: 0 30px 80px rgba(0,0,0,0.4); overflow: hidden; }
+.search-input-row { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.search-input-row .icon { font-size: 20px; color: var(--muted); }
+.search-input-row input { flex: 1; border: none; outline: none; font-size: 16px; background: transparent; color: var(--text); }
+.search-input-row input::placeholder { color: var(--muted); }
+.search-input-row .shortcut { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-family: monospace; }
+.search-results { max-height: 60vh; overflow-y: auto; padding: 8px 0; }
+.search-group { padding: 4px 0; }
+.search-group-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); padding: 8px 18px 4px; }
+.search-result { padding: 9px 18px; cursor: pointer; display: flex; align-items: center; gap: 10px; border-left: 3px solid transparent; }
+.search-result:hover, .search-result.focused { background: #f4f5f9; border-left-color: var(--accent); }
+.search-result .res-icon { width: 28px; height: 28px; border-radius: 6px; background: #f4f5f9; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.search-result .res-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.2; }
+.search-result .res-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.search-result .res-body { flex: 1; min-width: 0; }
+.search-result .res-body > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-result .res-meta { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.search-empty { padding: 30px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+.search-loading { padding: 20px; text-align: center; color: var(--muted); font-size: 12px; }
+
 .header-refresh { background: rgba(255,255,255,0.12); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; display: flex; align-items: center; justify-content: center; }
 .header-refresh:active { background: rgba(255,255,255,0.25); }
 
@@ -516,6 +543,7 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
     </div>
     <div class="header-right">
       <span class="local-badge" id="hdr-badge"></span>
+      <button class="header-search-btn" onclick="openGlobalSearch()" title="Buscar (Ctrl+K)">🔍</button>
       <button class="header-refresh" onclick="refreshAll()" title="Actualizar">↻</button>
       <button class="btn-salir" onclick="logout()">Salir</button>
     </div>
@@ -689,6 +717,21 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 </div>
 
 <!-- Modal de edición -->
+
+
+<!-- ── Modal de Búsqueda Global ──────────────────────────── -->
+<div id="search-modal">
+  <div class="search-modal-box">
+    <div class="search-input-row">
+      <span class="icon">🔍</span>
+      <input type="search" id="global-search-input" placeholder="Buscar clientes, pedidos, productos, facturas..." data-no-upper autocomplete="off" autofocus>
+      <span class="shortcut">Esc</span>
+    </div>
+    <div class="search-results" id="search-results">
+      <div class="search-empty">Empezá a tipear para buscar en todo el sistema</div>
+    </div>
+  </div>
+</div>
 
 <!-- ── Modal Cliente 360° ─────────────────────────────────────── -->
 <div id="cliente-modal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.5); padding:20px; overflow-y:auto;">
@@ -1738,6 +1781,176 @@ async function toggleCompraDetail(compraId, ev) {
     <span class="detail-monto">${fmtCurrency(it.monto_total)}</span>
   </div>`).join('');
 }
+
+// ═══════════════════════════════════════════════════════
+//  Búsqueda global (Command palette)
+// ═══════════════════════════════════════════════════════
+let globalSearchTimer = null;
+let globalSearchToken = null;
+
+function openGlobalSearch() {
+  const modal = document.getElementById('search-modal');
+  modal.classList.add('active');
+  setTimeout(() => {
+    const inp = document.getElementById('global-search-input');
+    if (inp) { inp.value = ''; inp.focus(); }
+    document.getElementById('search-results').innerHTML = '<div class="search-empty">Empezá a tipear para buscar en todo el sistema</div>';
+  }, 50);
+}
+
+function closeGlobalSearch() {
+  document.getElementById('search-modal').classList.remove('active');
+}
+
+async function runGlobalSearch(q) {
+  const resBox = document.getElementById('search-results');
+  if (!q || q.trim().length < 2) {
+    resBox.innerHTML = '<div class="search-empty">Tipeá al menos 2 caracteres</div>';
+    return;
+  }
+  const qLike = `*${q.trim()}*`;
+  resBox.innerHTML = '<div class="search-loading"><span class="spinner"></span> Buscando...</div>';
+
+  const thisToken = Symbol();
+  globalSearchToken = thisToken;
+
+  try {
+    // 4 queries en paralelo: clientes, pedidos, articulos, compras
+    const [clientes, pedidos, articulos, compras] = await Promise.all([
+      supaGet('clientes', {
+        select: 'globalid,nombre_completo,dni,cuit,celular,total_compras,cantidad_compras',
+        or: `(nombre_completo.ilike.${qLike},dni.ilike.${qLike},cuit.ilike.${qLike},celular.ilike.${qLike},email.ilike.${qLike})`,
+        order: 'total_compras.desc.nullslast',
+        limit: '8',
+      }).catch(() => []),
+      supaGet('pedidos', {
+        select: 'id,nombre_cliente,sku,descripcion_sku,celular,estado,created_at,local_id,vendedora,compra_id,factura_monto',
+        or: `(nombre_cliente.ilike.${qLike},celular.ilike.${qLike},sku.ilike.${qLike},descripcion_sku.ilike.${qLike},email.ilike.${qLike})`,
+        order: 'created_at.desc',
+        limit: '8',
+      }).catch(() => []),
+      supaGet('articulos', {
+        select: 'sku,descripcion,local_id',
+        or: `(sku.ilike.${qLike},descripcion.ilike.${qLike})`,
+        limit: '8',
+      }).catch(() => []),
+      supaGet('compras', {
+        select: 'id,fecha,letra,numero,punto_venta,cliente_factura,cuit_factura,local_id,total,cliente_globalid',
+        or: `(cliente_factura.ilike.${qLike},cuit_factura.ilike.${qLike},numero.eq.${Number(q.replace(/\D/g,''))||0})`,
+        order: 'fecha.desc',
+        limit: '8',
+      }).catch(() => []),
+    ]);
+
+    if (globalSearchToken !== thisToken) return;
+
+    // Dedupe artículos por SKU
+    const seenSku = new Set();
+    const uniqueArt = articulos.filter(a => { if (seenSku.has(a.sku)) return false; seenSku.add(a.sku); return true; });
+
+    const total = clientes.length + pedidos.length + uniqueArt.length + compras.length;
+    if (total === 0) {
+      resBox.innerHTML = `<div class="search-empty">Sin resultados para "${escHtml(q)}"</div>`;
+      return;
+    }
+
+    let html = '';
+
+    if (clientes.length) {
+      html += `<div class="search-group"><div class="search-group-title">Clientes (${clientes.length})</div>`;
+      html += clientes.map(c => `<div class="search-result" onclick="closeGlobalSearch(); openClienteDetail('${escHtml(c.globalid)}')">
+        <div class="res-icon">👤</div>
+        <div class="res-body">
+          <div class="res-title">${escHtml(c.nombre_completo || 'Sin nombre')}</div>
+          <div class="res-sub">${c.dni ? 'DNI ' + escHtml(c.dni) : ''}${c.cuit ? ' · CUIT ' + escHtml(c.cuit) : ''}${c.celular ? ' · 📱 ' + escHtml(c.celular) : ''}</div>
+        </div>
+        <div class="res-meta">${c.cantidad_compras ? c.cantidad_compras + ' compras' : ''}</div>
+      </div>`).join('');
+      html += '</div>';
+    }
+
+    if (pedidos.length) {
+      html += `<div class="search-group"><div class="search-group-title">Pedidos (${pedidos.length})</div>`;
+      html += pedidos.map(p => {
+        const onclickStr = session.isAdmin ? `closeGlobalSearch(); openEditModal(${p.id})` : `closeGlobalSearch(); switchTab('pedidos')`;
+        return `<div class="search-result" onclick="${onclickStr}">
+          <div class="res-icon">📋</div>
+          <div class="res-body">
+            <div class="res-title">${escHtml(p.nombre_cliente || 'Sin nombre')} — ${escHtml(p.descripcion_sku || p.sku || 'sin SKU')}${p.compra_id ? ' ✓' : ''}</div>
+            <div class="res-sub">${escHtml(p.estado || '')} · ${escHtml(p.local_id || '')} · ${escHtml(p.vendedora || '')} · ${formatDate(p.created_at).split(' ')[0]}</div>
+          </div>
+          <div class="res-meta">${p.celular ? '📱 ' + escHtml(p.celular) : ''}</div>
+        </div>`;
+      }).join('');
+      html += '</div>';
+    }
+
+    if (uniqueArt.length) {
+      html += `<div class="search-group"><div class="search-group-title">Productos (${uniqueArt.length})</div>`;
+      html += uniqueArt.map(a => `<div class="search-result" onclick="closeGlobalSearch(); switchTab('nuevo')">
+        <div class="res-icon">📦</div>
+        <div class="res-body">
+          <div class="res-title">${escHtml(a.sku)} — ${escHtml(a.descripcion || '')}</div>
+          <div class="res-sub">Local: ${escHtml(a.local_id || '')}</div>
+        </div>
+      </div>`).join('');
+      html += '</div>';
+    }
+
+    if (compras.length) {
+      html += `<div class="search-group"><div class="search-group-title">Facturas (${compras.length})</div>`;
+      html += compras.map(co => {
+        const fac = `${co.letra || ''} ${co.punto_venta || ''}-${String(co.numero || '').padStart(8,'0')}`;
+        const onclickStr = co.cliente_globalid ? `closeGlobalSearch(); openClienteDetail('${escHtml(co.cliente_globalid)}')` : 'closeGlobalSearch()';
+        return `<div class="search-result" onclick="${onclickStr}">
+          <div class="res-icon">🧾</div>
+          <div class="res-body">
+            <div class="res-title">Factura ${escHtml(fac)} · ${escHtml(co.cliente_factura || 'Anónima')}</div>
+            <div class="res-sub">${escHtml(co.local_id || '')} · ${formatDate(co.fecha).split(' ')[0]}${co.cuit_factura ? ' · CUIT ' + escHtml(co.cuit_factura) : ''}</div>
+          </div>
+          <div class="res-meta">${fmtCurrency(co.total)}</div>
+        </div>`;
+      }).join('');
+      html += '</div>';
+    }
+
+    resBox.innerHTML = html;
+  } catch(e) {
+    if (globalSearchToken === thisToken) {
+      resBox.innerHTML = `<div class="search-empty">❌ Error: ${escHtml(e.message)}</div>`;
+    }
+  }
+}
+
+// Listeners para el modal de búsqueda
+setTimeout(() => {
+  const inp = document.getElementById('global-search-input');
+  if (inp) {
+    inp.addEventListener('input', e => {
+      clearTimeout(globalSearchTimer);
+      const v = e.target.value;
+      globalSearchTimer = setTimeout(() => runGlobalSearch(v), 250);
+    });
+  }
+  const modal = document.getElementById('search-modal');
+  if (modal) {
+    modal.addEventListener('click', e => { if (e.target === modal) closeGlobalSearch(); });
+  }
+}, 0);
+
+// Atajos de teclado
+document.addEventListener('keydown', e => {
+  // Ctrl+K / Cmd+K abre la búsqueda
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    openGlobalSearch();
+  }
+  // Esc cierra modales
+  if (e.key === 'Escape') {
+    const sm = document.getElementById('search-modal');
+    if (sm && sm.classList.contains('active')) closeGlobalSearch();
+  }
+});
 
 function closeClienteDetail() {
   document.getElementById('cliente-modal').style.display = 'none';
