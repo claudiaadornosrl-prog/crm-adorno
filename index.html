@@ -28,6 +28,42 @@
   --radius:   12px;
   --shadow:   0 1px 4px rgba(0,0,0,0.08);
 }
+
+/* ═══ Modo oscuro ═══ */
+html.dark {
+  --bg:       #0f172a;
+  --card:     #1e293b;
+  --border:   #334155;
+  --text:     #f1f5f9;
+  --muted:    #94a3b8;
+  --accent:   #a78bfa;
+  --pend:     #fbbf24;
+  --listo:    #34d399;
+  --avis:     #60a5fa;
+  --comp:     #6b7280;
+  --danger:   #f87171;
+  --wa:       #25D366;
+  --uni-bg:   #312e81; --uni-c: #c4b5fd;
+  --alco-bg:  #831843; --alco-c: #fbcfe8;
+  --shadow:   0 1px 4px rgba(0,0,0,0.4);
+}
+/* Ajustes específicos del dark mode para elementos que no usan variables */
+html.dark .pedido-notas { background: #423013; color: #fcd34d; border-left-color: #f59e0b; }
+html.dark .timeline-item { background: #1e2434; }
+html.dark .timeline-item.pedido { background: #2a2715; }
+html.dark .cliente-stats-row { background: #15203a; }
+html.dark input[type="text"], html.dark input[type="search"], html.dark input[type="email"], html.dark input[type="tel"], html.dark input[type="number"], html.dark input[type="date"], html.dark textarea, html.dark select { background: #15203a; color: var(--text); border-color: var(--border); }
+html.dark .demanda-row.header { background: #15203a; }
+html.dark .search-input-row { background: var(--card); }
+html.dark .search-result:hover, html.dark .search-result.focused { background: #2a3852; }
+html.dark .toggle-pill { background: #2a3852; }
+html.dark .toggle-opt.active { background: #475569; color: var(--text); }
+html.dark .tag-popup { background: var(--card); }
+html.dark .tag-add-btn { background: #15203a; color: var(--muted); }
+
+/* Transición suave al cambiar tema */
+html, body, .card, .pedido-card, .ranking-row, .cliente-card, .cumple-card, input, textarea, select { transition: background-color .25s, color .25s, border-color .25s; }
+
 html, body { height: 100%; font-family: 'Josefin Sans', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
 input, select, textarea, button { font-family: inherit; font-size: inherit; }
 button { cursor: pointer; }
@@ -645,6 +681,7 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
     </div>
     <div class="header-right">
       <span class="local-badge" id="hdr-badge"></span>
+      <button class="header-search-btn" id="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
       <button class="header-search-btn" onclick="openGlobalSearch()" title="Buscar (Ctrl+K)">🔍</button>
       <button class="header-refresh" onclick="refreshAll()" title="Actualizar">↻</button>
       <button class="btn-salir" onclick="logout()">Salir</button>
@@ -2507,6 +2544,12 @@ async function runGlobalSearch(q) {
   }
 }
 
+// Setear icono del tema al cargar (si arrancó en dark)
+setTimeout(() => {
+  const btn = document.getElementById('theme-toggle');
+  if (btn && document.documentElement.classList.contains('dark')) btn.textContent = '☀️';
+}, 0);
+
 // Listeners para el modal de búsqueda
 setTimeout(() => {
   const inp = document.getElementById('global-search-input');
@@ -3084,6 +3127,26 @@ function waSvg() {
   return `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
   </svg>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Modo oscuro (theme toggle)
+// ═══════════════════════════════════════════════════════
+(function initTheme() {
+  // Aplicar guardado o preferencia del sistema antes del primer render
+  try {
+    const saved = localStorage.getItem('ca_theme');
+    if (saved === 'dark' || (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  } catch(e) {}
+})();
+
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  try { localStorage.setItem('ca_theme', isDark ? 'dark' : 'light'); } catch(e) {}
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = isDark ? '☀️' : '🌙';
 }
 
 // ═══════════════════════════════════════════════════════
