@@ -195,6 +195,22 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .sku-selected-tag .clear { color: var(--danger); font-size: 16px; margin-left: auto; cursor: pointer; }
 
 
+
+/* Acordeón de detalle de factura */
+.timeline-item.compra { cursor: pointer; }
+.timeline-item.compra::after { content: "▾"; position: absolute; right: 10px; bottom: 10px; color: var(--accent); font-size: 12px; opacity: 0.6; transition: transform .15s; }
+.timeline-item.compra.expanded::after { transform: rotate(180deg); }
+.timeline-detail { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); display: none; }
+.timeline-item.compra.expanded .timeline-detail { display: block; }
+.timeline-detail-loading { font-size: 12px; color: var(--muted); padding: 6px 0; }
+.detail-line { display: grid; grid-template-columns: 80px 1fr auto 90px; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f0f0f5; font-size: 12px; align-items: center; }
+.detail-line:last-child { border-bottom: none; }
+.detail-sku { font-family: monospace; font-weight: 700; color: var(--accent); font-size: 11px; }
+.detail-desc { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail-cant { text-align: center; font-weight: 600; color: var(--muted); }
+.detail-cant strong { color: var(--text); font-size: 13px; }
+.detail-monto { text-align: right; font-weight: 600; color: var(--text); }
+
 /* ═══ Admin View Tabs (Resumen / Clientes) ═══ */
 .admin-view-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
 .admin-vtab-btn { padding: 7px 16px; border-radius: 18px; border: 1.5px solid var(--border); background: white; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
@@ -1538,6 +1554,7 @@ function renderClienteDetail() {
   compras.forEach(co => timeline.push({
     fecha: co.fecha,
     tipo: 'compra',
+    compraId: co.id,
     title: `Factura ${co.letra || ''} ${co.punto_venta || ''}-${String(co.numero || '').padStart(8,'0')}`,
     desc: `${co.local_id || ''} · vendió ${escHtml(co.vendedora || '—')} · ${Number(co.cantidad_items || 0)} ítems${co.anulado ? ' · ANULADO' : ''}`,
     monto: co.total,
@@ -1581,14 +1598,65 @@ function renderClienteDetail() {
 
       <div class="cliente-section-title">Historial (${timeline.length} eventos — ${compras.length} compras + ${pedidosCrm.length} pedidos CRM)</div>
       ${timeline.length === 0 ? '<div class="timeline-empty">Sin actividad registrada</div>' :
-        timeline.map(t => `<div class="timeline-item ${t.tipo}">
-          ${t.monto !== null ? `<span class="timeline-amount">${fmtCurrency(t.monto)}</span>` : ''}
-          <div class="timeline-fecha">${formatDate(t.fecha).split(' ')[0]}</div>
-          <div class="timeline-title">${t.tipo === 'compra' ? '🛒' : '📋'} ${t.title}</div>
-          <div class="timeline-desc">${t.desc}</div>
-        </div>`).join('')}
+        timeline.map(t => {
+          const isCompra = t.tipo === 'compra';
+          const compraIdAttr = isCompra ? `data-compra-id="${escHtml(t.compraId || '')}"` : '';
+          const onclick = isCompra ? `onclick="toggleCompraDetail('${escHtml(t.compraId || '')}', event)"` : '';
+          return `<div class="timeline-item ${t.tipo}" ${compraIdAttr} ${onclick}>
+            ${t.monto !== null ? `<span class="timeline-amount">${fmtCurrency(t.monto)}</span>` : ''}
+            <div class="timeline-fecha">${formatDate(t.fecha).split(' ')[0]}</div>
+            <div class="timeline-title">${isCompra ? '🛒' : '📋'} ${t.title}</div>
+            <div class="timeline-desc">${t.desc}</div>
+            ${isCompra ? '<div class="timeline-detail"></div>' : ''}
+          </div>`;
+        }).join('')}
     </div>
   `;
+}
+
+// Cache de detalles ya cargados: compra_id → array de items
+const compraDetailCache = {};
+
+async function toggleCompraDetail(compraId, ev) {
+  if (ev) ev.stopPropagation();
+  const item = document.querySelector(`.timeline-item[data-compra-id="${compraId}"]`);
+  if (!item) return;
+  const detailDiv = item.querySelector('.timeline-detail');
+  if (!detailDiv) return;
+
+  const isOpen = item.classList.contains('expanded');
+  if (isOpen) {
+    item.classList.remove('expanded');
+    return;
+  }
+
+  item.classList.add('expanded');
+  // Lazy load del detalle si no estaba en caché
+  if (!compraDetailCache[compraId]) {
+    detailDiv.innerHTML = '<div class="timeline-detail-loading">Cargando ítems...</div>';
+    try {
+      const items = await supaGet('compras_detalle', {
+        select: 'nro_item,sku,descripcion,cantidad,precio_unitario,monto_total,talle,color',
+        compra_id: 'eq.' + compraId,
+        order: 'nro_item.asc',
+      });
+      compraDetailCache[compraId] = items;
+    } catch(e) {
+      detailDiv.innerHTML = `<div class="timeline-detail-loading">❌ Error: ${escHtml(e.message)}</div>`;
+      return;
+    }
+  }
+  const items = compraDetailCache[compraId];
+  if (!items.length) {
+    detailDiv.innerHTML = '<div class="timeline-detail-loading">Sin detalle disponible para esta factura</div>';
+    return;
+  }
+  detailDiv.innerHTML = items.map(it => `<div class="detail-line">
+    <span class="detail-sku">${escHtml(it.sku || '—')}</span>
+    <span class="detail-desc" title="${escHtml(it.descripcion || '')}">${escHtml(it.descripcion || '—')}</span>
+    <span class="detail-cant"><strong>${Number(it.cantidad || 0)}</strong> u</span>
+    <span class="detail-monto">${fmtCurrency(it.monto_total)}</span>
+  </div>`).join('');
 }
 
 function closeClienteDetail() {
