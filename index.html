@@ -785,18 +785,16 @@ function startAdmin() {
 }
 
 function logout() {
-  const fromUrl = session.fromUrl;
-  const localId = session.local_id;
   localStorage.removeItem('ca_session');
   session = { local_id: null, nombre: null, isAdmin: false };
   pedidosCache = [];
   articulos = [];
-  // Si entró por link de local, volver al mismo link
-  if (fromUrl && localId) {
-    window.location.href = window.location.pathname + '?local=' + localId;
-    return;
+  // Si la URL trae ?local=xxx la limpiamos para que el setup aparezca limpio
+  // (si la dejamos, restoreSession volvería a entrar al mismo local al recargar).
+  if (window.location.search) {
+    window.history.replaceState({}, '', window.location.pathname);
   }
-  // Reset setup form
+  // Reset setup form y volver a la pantalla de selección de local
   document.querySelectorAll('.local-opt').forEach(e => e.classList.remove('selected'));
   document.getElementById('setup-btn').disabled = true;
   showScreen('setup-screen');
