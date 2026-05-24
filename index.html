@@ -351,6 +351,24 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 
 
 
+
+/* Audit log — historial de cambios en el modal de edición */
+.audit-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+.audit-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.audit-list { max-height: 260px; overflow-y: auto; }
+.audit-item { padding: 7px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 5px; font-size: 11px; }
+.audit-meta { font-size: 10px; color: var(--muted); }
+.audit-action { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-right: 4px; }
+.audit-action.crear  { background: #d1fae5; color: #065f46; }
+.audit-action.editar { background: #dbeafe; color: #1e40af; }
+.audit-action.estado { background: #fef3c7; color: #92400e; }
+.audit-action.eliminar { background: #fee2e2; color: #991b1b; }
+.audit-diff { margin-top: 3px; font-size: 11px; }
+.audit-campo { font-weight: 600; color: var(--text); }
+.audit-prev { color: var(--danger); text-decoration: line-through; opacity: 0.7; }
+.audit-next { color: #10b981; font-weight: 600; }
+.audit-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 12px; font-style: italic; }
+
 /* Acordeón de detalle de factura */
 .timeline-item.compra { cursor: pointer; }
 .timeline-item.compra::after { content: "▾"; position: absolute; right: 10px; bottom: 10px; color: var(--accent); font-size: 12px; opacity: 0.6; transition: transform .15s; }
@@ -1032,6 +1050,10 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
         <button class="btn-submit" id="edit-save-btn" onclick="saveEdit()">
           <span>💾</span> Guardar cambios
         </button>
+      <div class="audit-section">
+        <div class="audit-title">📜 Historial de cambios</div>
+        <div id="edit-audit-content"><div class="audit-empty">Cargando...</div></div>
+      </div>
       </div>
     </div>
   </div>
@@ -1517,22 +1539,33 @@ async function submitPedido() {
   try {
     // Create one pedido per SKU line
     for (const line of validLines) {
-      await supaPost('pedidos', {
-        local_id:        session.local_id,
-        vendedora:       vendedora,
-        nombre_cliente:  nombre,
-        dni:             dni,
-        fecha_nacimiento: fnac,
-        celular:         celular,
-        email:           email,
-        chat_url:        chatUrl,
-        motivo:          motivo,
-        sku:             line.sku,
-        descripcion_sku: line.descripcion,
-        cantidad:        line.cantidad || 1,
-        notas:           notas,
-        estado:          'Pendiente',
+      const created = await fetch(`${SUPA_URL}/rest/v1/pedidos`, {
+        method: 'POST',
+        headers: { ...supaHeaders(), 'Prefer': 'return=representation' },
+        body: JSON.stringify({
+          local_id:        session.local_id,
+          vendedora:       vendedora,
+          nombre_cliente:  nombre,
+          dni:             dni,
+          fecha_nacimiento: fnac,
+          celular:         celular,
+          email:           email,
+          chat_url:        chatUrl,
+          motivo:          motivo,
+          sku:             line.sku,
+          descripcion_sku: line.descripcion,
+          cantidad:        line.cantidad || 1,
+          notas:           notas,
+          estado:          'Pendiente',
+        }),
       });
+      if (created.ok) {
+        const arr = await created.json();
+        const newP = Array.isArray(arr) ? arr[0] : arr;
+        if (newP && newP.id) {
+          logPedidoCrear(newP.id, newP); // fire and forget
+        }
+      }
     }
 
     const count = validLines.length;
@@ -2132,6 +2165,96 @@ async function exportClienteHistorial() {
 
   const safeName = (c.nombre_completo || c.globalid).replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 40);
   exportToXLSX(`cliente_${safeName}`, sheets);
+}
+
+// ═══════════════════════════════════════════════════════
+//  Audit log de pedidos
+// ═══════════════════════════════════════════════════════
+function _auditUser() {
+  if (session && session.isAdmin) return 'Admin (JP)';
+  return (session && session.nombre) ? session.nombre : 'desconocido';
+}
+
+async function logPedidoChange(pedido_id, accion, campo, valor_anterior, valor_nuevo) {
+  // Fire-and-forget: no esperamos response
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/pedidos_log`, {
+      method: 'POST',
+      headers: { ...supaHeaders(), 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        pedido_id,
+        usuario: _auditUser(),
+        accion,
+        campo: campo || null,
+        valor_anterior: valor_anterior === null || valor_anterior === undefined ? null : String(valor_anterior),
+        valor_nuevo:    valor_nuevo    === null || valor_nuevo    === undefined ? null : String(valor_nuevo),
+      }),
+    });
+  } catch(e) { console.warn('audit log fail:', e); }
+}
+
+async function logPedidoCrear(pedido_id, snapshot) {
+  // Una sola entry 'crear' con el snapshot resumido como JSON en valor_nuevo
+  return logPedidoChange(pedido_id, 'crear', null, null,
+    `${snapshot.nombre_cliente || ''} · SKU ${snapshot.sku || ''} (x${snapshot.cantidad || 1}) · ${snapshot.motivo || ''}`);
+}
+
+async function logPedidoEditar(pedido_id, antes, despues) {
+  // Comparar campo a campo, loggear los que cambiaron
+  const CAMPOS = ['nombre_cliente','celular','dni','email','motivo','sku','descripcion_sku','cantidad','notas','fecha_nacimiento','estado'];
+  const promesas = [];
+  for (const k of CAMPOS) {
+    const a = antes[k];
+    const d = despues[k];
+    if ((a || '') !== (d || '')) {
+      promesas.push(logPedidoChange(pedido_id, 'editar', k, a, d));
+    }
+  }
+  await Promise.allSettled(promesas);
+}
+
+async function logPedidoEstado(pedido_id, estado_anterior, estado_nuevo) {
+  return logPedidoChange(pedido_id, 'estado', 'estado', estado_anterior, estado_nuevo);
+}
+
+async function loadAuditLog(pedido_id) {
+  try {
+    return await supaGet('pedidos_log', {
+      select: '*',
+      pedido_id: 'eq.' + pedido_id,
+      order: 'timestamp.desc',
+      limit: '50',
+    });
+  } catch(e) {
+    console.warn('No se pudo cargar audit log:', e);
+    return [];
+  }
+}
+
+function renderAuditLog(logs) {
+  if (!logs.length) {
+    return '<div class="audit-empty">Sin historial de cambios para este pedido</div>';
+  }
+  return '<div class="audit-list">' + logs.map(l => {
+    const fecha = formatDate(l.timestamp);
+    const acc = (l.accion || '').toLowerCase();
+    let diffHtml = '';
+    if (l.accion === 'crear') {
+      diffHtml = `<div class="audit-diff">${escHtml(l.valor_nuevo || '')}</div>`;
+    } else if (l.campo) {
+      diffHtml = `<div class="audit-diff">
+        <span class="audit-campo">${escHtml(l.campo)}:</span>
+        <span class="audit-prev">${escHtml(l.valor_anterior || '(vacío)')}</span>
+        →
+        <span class="audit-next">${escHtml(l.valor_nuevo || '(vacío)')}</span>
+      </div>`;
+    }
+    return `<div class="audit-item">
+      <span class="audit-action ${acc}">${escHtml(l.accion || '')}</span>
+      <span class="audit-meta">${fecha} · ${escHtml(l.usuario || '—')}</span>
+      ${diffHtml}
+    </div>`;
+  }).join('') + '</div>';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -3062,7 +3185,11 @@ async function markEstado(id, estado) {
     const data = { estado };
     if (estado === 'Avisado') data.fecha_aviso = new Date().toISOString();
     if (estado === 'Completado') data.fecha_completado = new Date().toISOString();
+    const idxBefore = pedidosCache.findIndex(p => p.id === id);
+    const estadoAnterior = idxBefore >= 0 ? pedidosCache[idxBefore].estado : null;
     await supaPatch('pedidos', id, data);
+    // Audit log
+    logPedidoEstado(id, estadoAnterior, estado);
     // Update cache
     const idx = pedidosCache.findIndex(p => p.id === id);
     if (idx >= 0) Object.assign(pedidosCache[idx], data);
@@ -3123,6 +3250,14 @@ function openEditModal(id) {
   } else {
     inp.style.display = '';
     sel.innerHTML = '';
+  }
+  // Cargar audit log async
+  const auditDiv = document.getElementById('edit-audit-content');
+  if (auditDiv) {
+    auditDiv.innerHTML = '<div class="audit-empty">Cargando historial...</div>';
+    loadAuditLog(id).then(logs => {
+      auditDiv.innerHTML = renderAuditLog(logs);
+    });
   }
   document.getElementById('edit-modal').style.display = 'block';
 }
@@ -3240,7 +3375,11 @@ async function saveEdit() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Guardando…';
   try {
-    await supaPatch('pedidos', editingId, {
+    // Capturar estado anterior para audit log
+    const idxBefore = pedidosCache.findIndex(p => p.id === editingId);
+    const antes = idxBefore >= 0 ? { ...pedidosCache[idxBefore] } : {};
+
+    const nuevoData = {
       nombre_cliente:  nombre,
       celular:         celular,
       chat_url:        WA_PREFIX + phone,
@@ -3250,15 +3389,16 @@ async function saveEdit() {
       cantidad:        parseInt(document.getElementById('edit-cantidad').value) || 1,
       notas:           document.getElementById('edit-notas').value.trim() || null,
       fecha_nacimiento: document.getElementById('edit-fnac').value || null,
-    });
+    };
+
+    await supaPatch('pedidos', editingId, nuevoData);
+
+    // Audit log: comparar antes vs nuevoData y loggear diffs
+    logPedidoEditar(editingId, antes, nuevoData);
+
     // Actualizar cache
     const idx = pedidosCache.findIndex(p => p.id === editingId);
-    if (idx >= 0) Object.assign(pedidosCache[idx], {
-      nombre_cliente: nombre, celular, chat_url: WA_PREFIX + phone,
-      motivo: document.getElementById('edit-motivo').value,
-      sku: editSelectedSku.sku, descripcion_sku: editSelectedSku.descripcion,
-      notas: document.getElementById('edit-notas').value.trim() || null,
-    });
+    if (idx >= 0) Object.assign(pedidosCache[idx], nuevoData);
     closeEditModal();
     renderPedidos();
     renderAlertas();
@@ -3275,11 +3415,14 @@ async function saveEdit() {
 async function markListo(id) {
   if (!confirm('¿Confirmar que el artículo ya está disponible en el local?')) return;
   try {
+    const idxBefore = pedidosCache.findIndex(p => p.id === id);
+    const estadoAnterior = idxBefore >= 0 ? pedidosCache[idxBefore].estado : null;
     await supaPatch('pedidos', id, {
       estado: 'Listo para avisar',
       stock_ingreso_local: session.local_id,
       stock_ingreso_fecha: new Date().toISOString(),
     });
+    logPedidoEstado(id, estadoAnterior, 'Listo para avisar');
     const idx = pedidosCache.findIndex(p => p.id === id);
     if (idx >= 0) {
       pedidosCache[idx].estado = 'Listo para avisar';
