@@ -650,6 +650,12 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
             </div>
 
             <div class="field">
+              <label>Fecha de nacimiento (opcional)</label>
+              <input type="date" id="f-fnac" autocomplete="off" data-no-upper>
+              <div class="hint">Si la conseguís, nos sirve para saludarla en su cumpleaños 🎂</div>
+            </div>
+
+            <div class="field">
               <label>Celular *</label>
               <input type="tel" id="f-celular" placeholder="Ej: 1155667788" autocomplete="off"
                 oninput="this.value=this.value.replace(/[^0-9]/g,'')">
@@ -807,6 +813,11 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
         <div class="field">
           <label>Celular</label>
           <input type="tel" id="edit-celular" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+        </div>
+
+        <div class="field">
+          <label style="font-size:11px;font-weight:600;color:var(--muted)">Fecha de nacimiento (opcional)</label>
+          <input type="date" id="edit-fnac" autocomplete="off" data-no-upper style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px">
         </div>
         <div class="field">
           <label>Cantidad</label>
@@ -1281,6 +1292,7 @@ async function submitPedido() {
   const primerNombreInput = document.getElementById('f-nombre').value.trim();
   const apellidoInput     = document.getElementById('f-apellido').value.trim();
   const dni     = document.getElementById('f-dni').value.trim();
+  const fnac    = document.getElementById('f-fnac').value || null;  // YYYY-MM-DD
   const celular = document.getElementById('f-celular').value.trim();
   const email   = document.getElementById('f-email').value.trim() || null;
   if (!vendedora)         { toast('⚠️ Falta el nombre de la vendedora'); return; }
@@ -1314,6 +1326,7 @@ async function submitPedido() {
         vendedora:       vendedora,
         nombre_cliente:  nombre,
         dni:             dni,
+        fecha_nacimiento: fnac,
         celular:         celular,
         email:           email,
         chat_url:        chatUrl,
@@ -1340,8 +1353,23 @@ async function submitPedido() {
     document.getElementById('f-nombre').value = '';
     document.getElementById('f-apellido').value = '';
     document.getElementById('f-dni').value = '';
+    document.getElementById('f-fnac').value = '';
     document.getElementById('f-celular').value = '';
     document.getElementById('f-email').value = '';
+
+    // Si tenemos DNI + fecha de nacimiento, propagar la fecha al cliente correspondiente en clientes
+    if (fnac && dni) {
+      try {
+        const matches = await supaGet('clientes', { select: 'globalid,fecha_nacimiento', dni: 'eq.'+dni, limit: '1' });
+        if (matches.length && !matches[0].fecha_nacimiento) {
+          await fetch(`${SUPA_URL}/rest/v1/clientes?globalid=eq.${encodeURIComponent(matches[0].globalid)}`, {
+            method: 'PATCH',
+            headers: supaHeaders(),
+            body: JSON.stringify({ fecha_nacimiento: fnac }),
+          });
+        }
+      } catch(e) { console.warn('No se pudo propagar fecha_nac al cliente:', e); }
+    }
     document.getElementById('f-notas').value = '';
     document.getElementById('f-motivo').selectedIndex = 0;
     addSkuLine(); // start fresh with one empty line
@@ -2351,6 +2379,7 @@ function openEditModal(id) {
   document.getElementById('edit-nombre').value   = partesNombre[0] || '';
   document.getElementById('edit-apellido').value = partesNombre.slice(1).join(' ') || '';
   document.getElementById('edit-celular').value  = p.celular || '';
+  document.getElementById('edit-fnac').value     = p.fecha_nacimiento || '';
   document.getElementById('edit-notas').value    = p.notas || '';
   document.getElementById('edit-motivo').value   = p.motivo || 'Avisar cuando ingrese';
   document.getElementById('edit-cantidad').value = p.cantidad || 1;
@@ -2499,6 +2528,7 @@ async function saveEdit() {
       descripcion_sku: editSelectedSku.descripcion,
       cantidad:        parseInt(document.getElementById('edit-cantidad').value) || 1,
       notas:           document.getElementById('edit-notas').value.trim() || null,
+      fecha_nacimiento: document.getElementById('edit-fnac').value || null,
     });
     // Actualizar cache
     const idx = pedidosCache.findIndex(p => p.id === editingId);
