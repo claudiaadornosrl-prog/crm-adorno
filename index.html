@@ -890,8 +890,9 @@ async function searchArticulos(q) {
 
 async function loadPedidos() {
   try {
-    const unYear = new Date(); unYear.setFullYear(unYear.getFullYear() - 1);
-    const params = { select: '*', order: 'created_at.desc', created_at: 'gte.' + unYear.toISOString() };
+    // Sin filtro temporal: traer todos los pedidos (necesario para pedidos viejos pendientes
+    // donde el SKU recién ahora reingresa al stock).
+    const params = { select: '*', order: 'created_at.desc' };
     if (!session.isAdmin && session.local_id) params['local_id'] = 'ilike.' + session.local_id;
     pedidosCache = await supaGet('pedidos', params);
     updateAlertBadge();
