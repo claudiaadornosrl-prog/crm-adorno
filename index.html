@@ -96,6 +96,23 @@ a { color: inherit; text-decoration: none; }
 .badge-alcorta    { background: var(--alco-bg); color: var(--alco-c); }
 .header-right { display: flex; align-items: center; gap: 8px; }
 
+
+/* ═══ Vista Cumpleaños ═══ */
+.cumple-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+.cumple-card.hoy { background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 130%); border-left: 4px solid #d97706; }
+.cumple-card.semana { border-left: 4px solid #f59e0b; }
+.cumple-emoji { font-size: 26px; line-height: 1; flex-shrink: 0; }
+.cumple-info { flex: 1; min-width: 0; }
+.cumple-nombre { font-size: 14px; font-weight: 700; color: var(--text); }
+.cumple-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.cumple-dias { font-size: 13px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.cumple-dias.hoy { color: #d97706; font-size: 14px; }
+.cumple-btn-wa { background: #25d366; color: white; border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.cumple-btn-wa:hover { background: #1da851; }
+.cumple-empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+.cumple-empty .icon { font-size: 36px; margin-bottom: 10px; opacity: 0.4; }
+.cumple-group-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 12px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+
 /* ═══ Búsqueda global (Command palette) ═══ */
 .header-search-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-right: 4px; }
 .header-search-btn:hover { background: rgba(255,255,255,0.22); }
@@ -716,6 +733,7 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
       <div class="admin-view-tabs">
         <button class="admin-vtab-btn active" data-view="resumen" onclick="setAdminView('resumen')">📊 Resumen</button>
         <button class="admin-vtab-btn" data-view="clientes" onclick="setAdminView('clientes')">👥 Clientes 360°</button>
+        <button class="admin-vtab-btn" data-view="cumple" onclick="setAdminView('cumple')">🎂 Cumpleaños</button>
       </div>
       <div id="admin-view-resumen">
         <div class="stats-grid" id="admin-stats"></div>
@@ -726,6 +744,9 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
           <input type="search" id="clientes-search" placeholder="Buscar por nombre, DNI, CUIT, celular o email..." data-no-upper>
         </div>
         <div id="clientes-list"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+      </div>
+      <div id="admin-view-cumple" class="hidden">
+        <div id="cumple-list"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
       </div>
     </div>
 
@@ -1584,8 +1605,12 @@ function setAdminView(v) {
     b.classList.toggle('active', b.dataset.view === v));
   document.getElementById('admin-view-resumen').classList.toggle('hidden', v !== 'resumen');
   document.getElementById('admin-view-clientes').classList.toggle('hidden', v !== 'clientes');
+  document.getElementById('admin-view-cumple').classList.toggle('hidden', v !== 'cumple');
   if (v === 'clientes' && clientesCache.length === 0) {
     loadClientes('');
+  }
+  if (v === 'cumple') {
+    loadCumpleanos();
   }
 }
 
@@ -1597,6 +1622,101 @@ function onClientesSearchInput(val) {
 function fmtCurrency(n) {
   if (n === null || n === undefined) return '—';
   return Number(n).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
+}
+
+// ═══════════════════════════════════════════════════════
+//  Vista Cumpleaños (admin)
+// ═══════════════════════════════════════════════════════
+async function loadCumpleanos() {
+  const list = document.getElementById('cumple-list');
+  list.innerHTML = '<div class="loading"><span class="spinner"></span> Cargando...</div>';
+
+  try {
+    const clientes = await supaGet('clientes', {
+      select: 'globalid,nombre_completo,celular,email,fecha_nacimiento,sucursal_favorita,total_compras,cantidad_compras',
+      'fecha_nacimiento': 'not.is.null',
+      limit: '1000',
+    });
+    renderCumpleanos(clientes);
+  } catch(e) {
+    list.innerHTML = `<div class="cumple-empty"><div class="icon">❌</div>Error: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function diasHastaCumple(fechaNacStr) {
+  // fechaNacStr formato YYYY-MM-DD
+  if (!fechaNacStr) return null;
+  const [_, m, d] = fechaNacStr.split('-').map(Number);
+  if (!m || !d) return null;
+  const hoy = new Date();
+  hoy.setHours(0,0,0,0);
+  let proxCumple = new Date(hoy.getFullYear(), m-1, d);
+  if (proxCumple < hoy) proxCumple = new Date(hoy.getFullYear()+1, m-1, d);
+  return Math.round((proxCumple - hoy) / 86400000);
+}
+
+function edadAlCumplir(fechaNacStr, diasFalta) {
+  if (!fechaNacStr) return null;
+  const [y, m, d] = fechaNacStr.split('-').map(Number);
+  if (!y) return null;
+  const hoy = new Date();
+  hoy.setHours(0,0,0,0);
+  const proxCumple = new Date(hoy);
+  proxCumple.setDate(proxCumple.getDate() + diasFalta);
+  return proxCumple.getFullYear() - y;
+}
+
+function renderCumpleanos(clientes) {
+  const list = document.getElementById('cumple-list');
+
+  // Aplicar filtro de local activo (admin tab Unicenter/Alcorta)
+  let items = clientes;
+  if (adminLocalFilter !== 'todos') {
+    items = items.filter(c => c.sucursal_favorita === adminLocalFilter);
+  }
+
+  // Calcular días al próximo cumple y filtrar próximos 60 días
+  const conDias = items
+    .map(c => ({ ...c, dias: diasHastaCumple(c.fecha_nacimiento) }))
+    .filter(c => c.dias !== null && c.dias <= 60)
+    .sort((a, b) => a.dias - b.dias);
+
+  if (!conDias.length) {
+    list.innerHTML = `<div class="cumple-empty">
+      <div class="icon">🎂</div>
+      <p>No hay cumpleaños registrados en los próximos 60 días.</p>
+      <p style="font-size:11px;margin-top:8px">A medida que se cargue fecha de nacimiento en Dragonfish o en los pedidos, los cumpleaños van a aparecer acá.</p>
+    </div>`;
+    return;
+  }
+
+  const hoy = conDias.filter(c => c.dias === 0);
+  const semana = conDias.filter(c => c.dias > 0 && c.dias <= 7);
+  const mes = conDias.filter(c => c.dias > 7 && c.dias <= 30);
+  const luego = conDias.filter(c => c.dias > 30);
+
+  const fmtCard = (c, klass) => {
+    const edad = edadAlCumplir(c.fecha_nacimiento, c.dias);
+    const wa = c.celular ? `https://wa.me/549${c.celular.replace(/\D/g,'')}?text=${encodeURIComponent('¡Feliz cumpleaños, '+ (c.nombre_completo||'').split(' ')[0] +'! 🎂🎉 Te esperamos en Claudia Adorno para festejar.')}` : null;
+    const diasTxt = c.dias === 0 ? '¡HOY!' : (c.dias === 1 ? 'mañana' : `en ${c.dias} días`);
+    return `<div class="cumple-card ${klass}" onclick="openClienteDetail('${escHtml(c.globalid)}')" style="cursor:pointer">
+      <div class="cumple-emoji">${c.dias === 0 ? '🎉' : '🎂'}</div>
+      <div class="cumple-info">
+        <div class="cumple-nombre">${escHtml(c.nombre_completo || 'Sin nombre')}</div>
+        <div class="cumple-sub">Cumple ${edad} años · ${formatDate(c.fecha_nacimiento + 'T00:00:00').split(' ')[0]}${c.cantidad_compras ? ' · '+c.cantidad_compras+' compras' : ''}${c.sucursal_favorita ? ' · '+c.sucursal_favorita : ''}</div>
+      </div>
+      <div class="cumple-dias ${c.dias === 0 ? 'hoy' : ''}">${diasTxt}</div>
+      ${wa ? `<a class="cumple-btn-wa" href="${wa}" target="_blank" onclick="event.stopPropagation()" title="Saludar por WhatsApp">${waSvg()}</a>` : ''}
+    </div>`;
+  };
+
+  let html = '';
+  if (hoy.length)    html += `<div class="cumple-group-title">🎉 Hoy (${hoy.length})</div>` + hoy.map(c => fmtCard(c, 'hoy')).join('');
+  if (semana.length) html += `<div class="cumple-group-title">📅 Esta semana (${semana.length})</div>` + semana.map(c => fmtCard(c, 'semana')).join('');
+  if (mes.length)    html += `<div class="cumple-group-title">🗓️ Próximos 30 días (${mes.length})</div>` + mes.map(c => fmtCard(c, '')).join('');
+  if (luego.length)  html += `<div class="cumple-group-title">📆 30-60 días (${luego.length})</div>` + luego.map(c => fmtCard(c, '')).join('');
+
+  list.innerHTML = html;
 }
 
 async function loadClientes(q) {
