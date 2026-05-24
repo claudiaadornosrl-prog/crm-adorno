@@ -97,6 +97,54 @@ a { color: inherit; text-decoration: none; }
 .header-right { display: flex; align-items: center; gap: 8px; }
 
 
+
+/* ═══ Tags / Etiquetas a clientes ═══ */
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 12px;
+  font-size: 11px; font-weight: 600; line-height: 1.4;
+  background: #e9ebff; color: #4338ca;
+  cursor: pointer; user-select: none;
+  border: 1px solid transparent;
+}
+.tag-chip:hover { filter: brightness(0.95); }
+.tag-chip.vip       { background: #fef3c7; color: #92400e; }
+.tag-chip.mayorista { background: #dbeafe; color: #1e40af; }
+.tag-chip.frecuente { background: #d1fae5; color: #065f46; }
+.tag-chip.problematico { background: #fee2e2; color: #991b1b; }
+.tag-chip.lista-negra  { background: #1f2937; color: white; }
+.tag-chip.reposicion   { background: #ede9fe; color: #6d28d9; }
+.tag-chip.cumple       { background: #fdf2f8; color: #be185d; }
+.tag-chip .x { font-size: 12px; opacity: 0.6; margin-left: 2px; }
+.tag-chip .x:hover { opacity: 1; }
+.tag-add-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 12px;
+  font-size: 11px; font-weight: 600; line-height: 1.4;
+  background: white; color: var(--muted);
+  border: 1px dashed var(--border); cursor: pointer;
+}
+.tag-add-btn:hover { background: #f9fafb; color: var(--text); border-color: var(--accent); }
+.cliente-tags-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.cliente-tags-row.modal { padding: 0 20px 12px; margin: 0; }
+.tags-filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.tags-filter-row .tag-chip.active { box-shadow: 0 0 0 2px var(--accent); }
+
+/* Popup para agregar tag */
+.tag-popup {
+  position: absolute; z-index: 50;
+  background: white; border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  border: 1px solid var(--border);
+  padding: 10px; min-width: 200px;
+}
+.tag-popup-presets { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.tag-popup input {
+  width: 100%; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: 6px; font-size: 12px; outline: none;
+}
+.tag-popup input:focus { border-color: var(--accent); }
+
 /* ═══ Vista Cumpleaños ═══ */
 .cumple-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
 .cumple-card.hoy { background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 130%); border-left: 4px solid #d97706; }
@@ -746,6 +794,7 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
         <div id="admin-list"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
       </div>
       <div id="admin-view-clientes" class="hidden">
+        <div class="tags-filter-row" id="tags-filter-row"></div>
         <div class="clientes-search-wrap">
           <input type="search" id="clientes-search" placeholder="Buscar por nombre, DNI, CUIT, celular o email..." data-no-upper>
         </div>
@@ -1747,23 +1796,174 @@ function renderCumpleanos(clientes) {
   list.innerHTML = html;
 }
 
+// ═══════════════════════════════════════════════════════
+//  Tags / Etiquetas de clientes
+// ═══════════════════════════════════════════════════════
+const TAG_PRESETS = ['VIP', 'Mayorista', 'Frecuente', 'Problemático', 'Lista negra', 'Reposición', 'Cumple este mes'];
+let currentTagFilter = null;  // tag activo para filtrar la lista de clientes
+
+function tagClass(tag) {
+  const t = (tag || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if (t.includes('vip')) return 'vip';
+  if (t.includes('mayor')) return 'mayorista';
+  if (t.includes('frec')) return 'frecuente';
+  if (t.includes('proble')) return 'problematico';
+  if (t.includes('lista negra') || t.includes('negra')) return 'lista-negra';
+  if (t.includes('repos')) return 'reposicion';
+  if (t.includes('cumple')) return 'cumple';
+  return '';
+}
+
+function renderTagsListItem(tags) {
+  if (!tags || !tags.length) return '';
+  return `<div class="cliente-tags-row">${tags.map(t =>
+    `<span class="tag-chip ${tagClass(t)}" onclick="event.stopPropagation(); setTagFilter('${escHtml(t)}')">${escHtml(t)}</span>`
+  ).join('')}</div>`;
+}
+
+function renderTagsModal(c) {
+  const tags = c.tags || [];
+  const chips = tags.map(t =>
+    `<span class="tag-chip ${tagClass(t)}">
+      ${escHtml(t)}
+      <span class="x" onclick="event.stopPropagation(); removeTagCliente('${escHtml(c.globalid)}','${escHtml(t)}')" title="Quitar">×</span>
+    </span>`
+  ).join('');
+  const presetsFaltantes = TAG_PRESETS.filter(p => !tags.includes(p));
+  const addBtn = `<span class="tag-add-btn" onclick="event.stopPropagation(); openTagPopup(event,'${escHtml(c.globalid)}')">+ Etiqueta</span>`;
+  return `<div class="cliente-tags-row modal" id="tags-row-modal">${chips}${addBtn}</div>`;
+}
+
+function openTagPopup(ev, globalid) {
+  closeTagPopup();
+  ev.stopPropagation();
+  const btn = ev.currentTarget;
+  const cliente = clienteDetailCache && clienteDetailCache.c;
+  const existingTags = (cliente && cliente.tags) || [];
+  const presetsFaltantes = TAG_PRESETS.filter(p => !existingTags.includes(p));
+
+  const popup = document.createElement('div');
+  popup.className = 'tag-popup';
+  popup.id = 'tag-popup-active';
+  popup.innerHTML = `
+    <div class="tag-popup-presets">
+      ${presetsFaltantes.map(p => `<span class="tag-chip ${tagClass(p)}" onclick="addTagCliente('${escHtml(globalid)}','${escHtml(p)}')">${escHtml(p)}</span>`).join('')}
+    </div>
+    <input type="text" placeholder="Tag personalizada (Enter para agregar)" id="tag-custom-input" data-no-upper autofocus>
+  `;
+  document.body.appendChild(popup);
+  // Posicionar al lado del botón
+  const rect = btn.getBoundingClientRect();
+  popup.style.left = (rect.left + window.scrollX) + 'px';
+  popup.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+
+  const inp = document.getElementById('tag-custom-input');
+  inp.focus();
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const v = inp.value.trim();
+      if (v) addTagCliente(globalid, v);
+    } else if (e.key === 'Escape') {
+      closeTagPopup();
+    }
+  });
+  setTimeout(() => {
+    document.addEventListener('click', closeTagPopupOnOutside, { once: true });
+  }, 0);
+}
+
+function closeTagPopupOnOutside(e) {
+  const p = document.getElementById('tag-popup-active');
+  if (p && !p.contains(e.target)) closeTagPopup();
+  else if (p) setTimeout(() => document.addEventListener('click', closeTagPopupOnOutside, { once: true }), 0);
+}
+
+function closeTagPopup() {
+  const p = document.getElementById('tag-popup-active');
+  if (p) p.remove();
+}
+
+async function addTagCliente(globalid, tag) {
+  closeTagPopup();
+  if (!clienteDetailCache || clienteDetailCache.c.globalid !== globalid) return;
+  const tags = [...(clienteDetailCache.c.tags || [])];
+  if (tags.includes(tag)) return;
+  tags.push(tag);
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/clientes?globalid=eq.${encodeURIComponent(globalid)}`, {
+      method: 'PATCH',
+      headers: supaHeaders(),
+      body: JSON.stringify({ tags }),
+    });
+    clienteDetailCache.c.tags = tags;
+    // Refresh tags row in modal
+    const row = document.getElementById('tags-row-modal');
+    if (row) row.outerHTML = renderTagsModal(clienteDetailCache.c);
+    // Refresh client in clientes list cache if exists
+    const cached = clientesCache.find(c => c.globalid === globalid);
+    if (cached) cached.tags = tags;
+  } catch(e) { toast('❌ Error al agregar tag: '+ e.message); }
+}
+
+async function removeTagCliente(globalid, tag) {
+  if (!clienteDetailCache || clienteDetailCache.c.globalid !== globalid) return;
+  const tags = (clienteDetailCache.c.tags || []).filter(t => t !== tag);
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/clientes?globalid=eq.${encodeURIComponent(globalid)}`, {
+      method: 'PATCH',
+      headers: supaHeaders(),
+      body: JSON.stringify({ tags }),
+    });
+    clienteDetailCache.c.tags = tags;
+    const row = document.getElementById('tags-row-modal');
+    if (row) row.outerHTML = renderTagsModal(clienteDetailCache.c);
+    const cached = clientesCache.find(c => c.globalid === globalid);
+    if (cached) cached.tags = tags;
+  } catch(e) { toast('❌ Error al quitar tag: '+ e.message); }
+}
+
+function setTagFilter(tag) {
+  currentTagFilter = currentTagFilter === tag ? null : tag;
+  // Re-buscar con el filtro activo
+  const inp = document.getElementById('clientes-search');
+  loadClientes(inp ? inp.value.trim() : '');
+  // Update visual del filtro
+  document.querySelectorAll('.tags-filter-row .tag-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.tag === currentTagFilter);
+  });
+}
+
+function renderTagFilters() {
+  // Mostrar fila de filtros arriba del search (presets + clear)
+  const row = document.getElementById('tags-filter-row');
+  if (!row) return;
+  const html = TAG_PRESETS.map(t =>
+    `<span class="tag-chip ${tagClass(t)} ${currentTagFilter===t?'active':''}" data-tag="${escHtml(t)}" onclick="setTagFilter('${escHtml(t)}')">${escHtml(t)}</span>`
+  ).join('');
+  row.innerHTML = (currentTagFilter ? `<span class="tag-chip" style="background:#f3f4f6;color:var(--muted)" onclick="setTagFilter('${escHtml(currentTagFilter)}')">✕ Quitar filtro</span>` : '') + html;
+}
+
 async function loadClientes(q) {
   const list = document.getElementById('clientes-list');
   list.innerHTML = '<div class="loading"><span class="spinner"></span> Cargando...</div>';
   try {
     const params = {
-      select: 'globalid,nombre_completo,celular,dni,cuit,email,total_compras,cantidad_compras,ticket_promedio,sucursal_favorita,ultima_compra_fecha',
+      select: 'globalid,nombre_completo,celular,dni,cuit,email,total_compras,cantidad_compras,ticket_promedio,sucursal_favorita,ultima_compra_fecha,tags',
       order: 'total_compras.desc.nullslast',
       limit: '100',
     };
     if (q) {
       const qLike = `*${q}*`;
       params['or'] = `(nombre_completo.ilike.${qLike},dni.ilike.${qLike},cuit.ilike.${qLike},celular.ilike.${qLike},email.ilike.${qLike})`;
-    } else {
+    } else if (!currentTagFilter) {
       params['cantidad_compras'] = 'gt.0';
+    }
+    if (currentTagFilter) {
+      params['tags'] = 'cs.{' + currentTagFilter + '}';
     }
     clientesCache = await supaGet('clientes', params);
     renderClientesList();
+    renderTagFilters();
   } catch(e) {
     list.innerHTML = `<div class="empty"><div class="icon">❌</div><p>Error: ${escHtml(e.message)}</p></div>`;
   }
@@ -1792,6 +1992,7 @@ function renderClientesList() {
         <span class="cliente-meta">📅 ${ult}</span>
         ${sucBadge}
       </div>
+      ${renderTagsListItem(c.tags)}
     </div>`;
   }).join('');
 }
@@ -1864,6 +2065,7 @@ function renderClienteDetail() {
         ${c.locales_presentes && c.locales_presentes.length ? ' · En: ' + c.locales_presentes.join(', ') : ''}
       </div>
     </div>
+    ${renderTagsModal(c)}
     <div class="cliente-stats-row">
       <div class="cliente-stat-box"><div class="cliente-stat-num">${fmtCurrency(c.total_compras)}</div><div class="cliente-stat-label">Total año</div></div>
       <div class="cliente-stat-box"><div class="cliente-stat-num">${c.cantidad_compras || 0}</div><div class="cliente-stat-label">Compras</div></div>
