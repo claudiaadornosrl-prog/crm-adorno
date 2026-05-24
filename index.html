@@ -695,7 +695,7 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
     <div class="header-right">
       <span class="local-badge" id="hdr-badge"></span>
       <button class="header-search-btn" id="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
-      <button class="header-search-btn" onclick="openGlobalSearch()" title="Buscar (Ctrl+K)">🔍</button>
+      <button class="header-search-btn" onclick="openGlobalSearch()" title="Buscar (Ctrl+B)">🔍</button>
       <button class="header-refresh" onclick="refreshAll()" title="Actualizar">↻</button>
       <button class="btn-salir" onclick="logout()">Salir</button>
     </div>
@@ -896,7 +896,7 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
     <h3>⌨️ Atajos de teclado</h3>
     <div class="shortcut-row">
       <span>Buscar en todo el CRM</span>
-      <span class="shortcut-keys"><span class="shortcut-key">Ctrl</span><span class="shortcut-key">K</span></span>
+      <span class="shortcut-keys"><span class="shortcut-key">Ctrl</span><span class="shortcut-key">B</span></span>
     </div>
     <div class="shortcut-row">
       <span>Ir a Nuevo pedido</span>
@@ -2700,8 +2700,8 @@ document.addEventListener('keydown', e => {
 
 // (Bloque viejo - Ctrl+K / Esc para search-modal)
 document.addEventListener('keydown', e => {
-  // Ctrl+K / Cmd+K abre la búsqueda
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+  // Ctrl+B / Cmd+B abre la búsqueda
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
     e.preventDefault();
     openGlobalSearch();
   }
