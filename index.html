@@ -360,6 +360,18 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .btn-quick-avisar:hover { background: #1e40af; color: white; border-color: #1e40af; }
 
 /* Age indicators */
+
+/* Pedido convertido en venta (sync_conversiones lo detecta) */
+.pedido-card.convertido { border-left: 4px solid #10b981; }
+.pedido-vendido-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 10px;
+  background: #d1fae5; color: #065f46;
+  font-size: 11px; font-weight: 700;
+  margin-left: 6px;
+}
+.pedido-vendido-badge .check { font-size: 12px; }
+
 .pedido-card.edad-warn { border-left: 4px solid #f59e0b; }
 .pedido-card.edad-alert { border-left: 4px solid #ef4444; }
 
@@ -1332,7 +1344,7 @@ function renderPedidos() {
     const ageClass = (p.estado === 'Pendiente' || p.estado === 'Listo para avisar' || p.estado === 'Avisado')
       ? (daysDiff >= 180 ? ' edad-alert' : daysDiff >= 90 ? ' edad-warn' : '')
       : '';
-    return `<div class="pedido-card${ageClass}">
+    return `<div class="pedido-card${ageClass}${p.compra_id ? ' convertido' : ''}">
       <div class="pedido-header">
         <span class="pedido-sku">${escHtml(skuDisplay)}${skuOrig}</span>
         <div class="pedido-info">
@@ -1341,6 +1353,7 @@ function renderPedidos() {
         </div>
         <span class="estado-badge estado-${escHtml(estadoKey)}">${escHtml(p.estado||'')}</span>
       </div>
+      ${p.compra_id ? `<div style="padding:0 14px 6px"><span class="pedido-vendido-badge"><span class="check">✓</span> VENDIDO ${p.factura_monto ? Number(p.factura_monto).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : ''}${p.factura_fecha ? ' · '+formatDate(p.factura_fecha).split(' ')[0] : ''}</span></div>` : ''}
       ${p.notas ? `<div class="pedido-notas">📝 ${escHtml(p.notas)}</div>` : ''}
       <div class="pedido-footer">
         <span class="pedido-date">📅 ${fecha}${p.vendedora ? ' · ' + escHtml(p.vendedora) : ''}</span>
@@ -1533,7 +1546,7 @@ async function openClienteDetail(globalid) {
     if (c.dni)     orParts.push(`dni.eq.${c.dni}`);
     if (orParts.length) {
       pedidosCrm = await supaGet('pedidos', {
-        select: 'id,created_at,nombre_cliente,sku,descripcion_sku,cantidad,motivo,estado,notas,local_id,vendedora',
+        select: 'id,created_at,nombre_cliente,sku,descripcion_sku,cantidad,motivo,estado,notas,local_id,vendedora,compra_id,factura_fecha,factura_monto',
         or: '(' + orParts.join(',') + ')',
         order: 'created_at.desc',
         limit: '50',
@@ -1562,9 +1575,9 @@ function renderClienteDetail() {
   pedidosCrm.forEach(p => timeline.push({
     fecha: p.created_at,
     tipo: 'pedido',
-    title: `Pedido [${escHtml(p.estado || '')}] · ${escHtml(p.descripcion_sku || p.sku || 'sin SKU')}`,
+    title: `Pedido [${escHtml(p.estado || '')}]${p.compra_id ? ' ✓ VENDIDO' : ''} · ${escHtml(p.descripcion_sku || p.sku || 'sin SKU')}`,
     desc: `${p.local_id || ''} · ${escHtml(p.motivo || '')} · vendedora ${escHtml(p.vendedora || '—')}${p.notas ? ' · ' + escHtml(p.notas) : ''}`,
-    monto: null,
+    monto: p.compra_id ? p.factura_monto : null,
   }));
   timeline.sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
 
