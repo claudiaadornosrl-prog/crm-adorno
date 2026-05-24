@@ -962,28 +962,44 @@ function renderSkuLines() {
   `).join('');
 }
 
-const lineSearchTimers = {};
+const lineSearchTimers = {};  // setTimeout IDs (para clearTimeout)
+const lineSearchTokens = {};  // Symbols para invalidar callbacks viejos (race guard)
 const lineFocusIdx = {};
 
 function onLineSkuInput(id, val) {
   const q = val.trim();
   const dd = document.getElementById(`line-dd-${id}`);
   if (!dd) return;
-  if (q.length < 1) { dd.classList.add('hidden'); return; }
+
+  // Cancelar timer anterior (ahora sí, porque guardamos el ID real)
+  if (lineSearchTimers[id]) { clearTimeout(lineSearchTimers[id]); lineSearchTimers[id] = null; }
+  // Invalidar callback en vuelo si lo hubiera
+  lineSearchTokens[id] = Symbol();
+
+  if (q.length < 1) { dd.classList.add('hidden'); dd.innerHTML = ''; return; }
+
   dd.innerHTML = '<div class="sku-opt"><span class="sku-desc" style="color:#aaa">Buscando…</span></div>';
   dd.classList.remove('hidden');
-  clearTimeout(lineSearchTimers[id]);
-  const thisSearch = Symbol();
-  lineSearchTimers[id] = thisSearch;
-  setTimeout(async () => {
-    if (lineSearchTimers[id] !== thisSearch) return;
-    const matches = await searchArticulos(q);
-    if (lineSearchTimers[id] !== thisSearch) return;
+
+  const thisToken = lineSearchTokens[id];
+  lineSearchTimers[id] = setTimeout(async () => {
+    lineSearchTimers[id] = null;
+    if (lineSearchTokens[id] !== thisToken) return;
+    let matches = [];
+    try {
+      matches = await searchArticulos(q);
+    } catch(e) {
+      console.error('onLineSkuInput searchArticulos:', e);
+    }
+    if (lineSearchTokens[id] !== thisToken) return;
     // Re-fetch el elemento por si renderSkuLines() lo recreó mientras esperábamos
     const freshDd = document.getElementById(`line-dd-${id}`);
     if (!freshDd) return;
-    freshDd.classList.remove('hidden'); // siempre mostrar el dropdown
-        if (!matches.length) { freshDd.innerHTML = '<div class="sku-opt"><span class="sku-desc">Sin resultados</span></div>'; return; }
+    freshDd.classList.remove('hidden');
+    if (!matches.length) {
+      freshDd.innerHTML = '<div class="sku-opt"><span class="sku-desc">Sin resultados</span></div>';
+      return;
+    }
     freshDd.innerHTML = matches.map((a, i) =>
       `<div class="sku-opt" data-i="${i}" onclick="selectSkuLine(${id},'${a.sku}','${escHtml(a.descripcion||'')}')">
         <span class="sku-code">${escHtml(a.sku)}</span>
@@ -1011,7 +1027,9 @@ function selectSkuLine(id, sku, desc) {
 }
 
 function clearSkuLine(id) {
-  lineSearchTimers[id] = Symbol(); // cancela búsqueda pendiente
+  // Cancelar timer en vuelo Y invalidar callback (los dos)
+  if (lineSearchTimers[id]) { clearTimeout(lineSearchTimers[id]); lineSearchTimers[id] = null; }
+  lineSearchTokens[id] = Symbol();
   const line = skuLines.find(l => l.id === id);
   if (line) { line.sku = null; line.descripcion = ''; }
   renderSkuLines();
@@ -1487,7 +1505,8 @@ async function markEstado(id, estado) {
 // ═══════════════════════════════════════════════════════
 let editingId = null;
 let editSelectedSku = null;
-let editSkuSearchTimer = null;
+let editSkuSearchTimer = null;  // setTimeout ID
+let editSkuSearchToken = null;  // Symbol race guard
 let editSkuMatches = []; // cache de resultados para evitar escaping en onclick
 let editSkuFocusIdx = -1;
 
@@ -1498,8 +1517,8 @@ function openEditModal(id) {
   editSelectedSku = p.sku ? { sku: p.sku, descripcion: p.descripcion_sku || '' } : null;
 
   // Cancelar cualquier búsqueda pendiente del modal anterior
-  clearTimeout(editSkuSearchTimer);
-  editSkuSearchTimer = null;
+  if (editSkuSearchTimer) { clearTimeout(editSkuSearchTimer); editSkuSearchTimer = null; }
+  editSkuSearchToken = Symbol();
 
   const partesNombre = (p.nombre_cliente || '').split(' ');
   document.getElementById('edit-nombre').value   = partesNombre[0] || '';
@@ -1534,7 +1553,8 @@ function openEditModal(id) {
 function closeEditModal() {
   document.getElementById('edit-modal').style.display = 'none';
   editingId = null;
-  editSkuSearchTimer = null; // invalida cualquier búsqueda en vuelo
+  if (editSkuSearchTimer) { clearTimeout(editSkuSearchTimer); editSkuSearchTimer = null; }
+  editSkuSearchToken = Symbol(); // invalida cualquier búsqueda en vuelo
   document.getElementById('edit-sku-dropdown').classList.add('hidden');
 }
 
@@ -1556,20 +1576,36 @@ function onEditSkuInput(val) {
   if (editSelectedSku) return;
   const q = val.trim();
   const dd = document.getElementById('edit-sku-dropdown');
-  if (q.length < 1) { dd.classList.add('hidden'); return; }
+  if (!dd) return;
+
+  // Cancelar timer anterior Y invalidar callback en vuelo
+  if (editSkuSearchTimer) { clearTimeout(editSkuSearchTimer); editSkuSearchTimer = null; }
+  editSkuSearchToken = Symbol();
+
+  if (q.length < 1) { dd.classList.add('hidden'); dd.innerHTML = ''; return; }
+
   dd.innerHTML = '<div class="sku-opt"><span class="sku-desc" style="color:#aaa">Buscando…</span></div>';
   dd.classList.remove('hidden');
-  clearTimeout(editSkuSearchTimer);
-  const thisSearch = Symbol();
-  editSkuSearchTimer = thisSearch;
-  setTimeout(async () => {
-    if (editSkuSearchTimer !== thisSearch) return; // fue cancelado o reemplazado
-    const matches = await searchArticulos(q);
-    if (editSkuSearchTimer !== thisSearch) return; // modal se cerró/cambió mientras esperábamos
-    // Re-fetch por si el modal se re-renderizó mientras esperábamos
+
+  const thisToken = editSkuSearchToken;
+  editSkuSearchTimer = setTimeout(async () => {
+    editSkuSearchTimer = null;
+    if (editSkuSearchToken !== thisToken) return;
+    let matches = [];
+    try {
+      matches = await searchArticulos(q);
+    } catch(e) {
+      console.error('onEditSkuInput searchArticulos:', e);
+    }
+    if (editSkuSearchToken !== thisToken) return;
     const freshEditDd = document.getElementById('edit-sku-dropdown');
     if (!freshEditDd) return;
-    if (!matches.length) { freshEditDd.innerHTML = '<div class="sku-opt"><span class="sku-desc">Sin resultados</span></div>'; editSkuMatches = []; return; }
+    freshEditDd.classList.remove('hidden');
+    if (!matches.length) {
+      freshEditDd.innerHTML = '<div class="sku-opt"><span class="sku-desc">Sin resultados</span></div>';
+      editSkuMatches = [];
+      return;
+    }
     editSkuMatches = matches;
     freshEditDd.innerHTML = matches.map((a, i) =>
       `<div class="sku-opt" data-i="${i}" onclick="pickEditSku(${i})">
@@ -1597,7 +1633,8 @@ function pickEditSku(i) {
 }
 
 function selectEditSku(sku, desc) {
-  editSkuSearchTimer = Symbol(); // cancela cualquier búsqueda en vuelo
+  if (editSkuSearchTimer) { clearTimeout(editSkuSearchTimer); editSkuSearchTimer = null; }
+  editSkuSearchToken = Symbol(); // cancela cualquier búsqueda en vuelo
   editSelectedSku = { sku, descripcion: desc };
   document.getElementById('edit-sku-input').style.display = 'none';
   document.getElementById('edit-sku-dropdown').classList.add('hidden');
