@@ -1279,6 +1279,124 @@ def sync_conversiones(ventana_dias=90):
     return actualizados
 
 
+
+
+# ══════════════════════════════════════════════════════════════════
+#  7. sync_backup — exporta Supabase a JSON comprimido (nightly)
+# ══════════════════════════════════════════════════════════════════
+
+BACKUP_DIR = r"C:\Users\Usuario\OneDrive - Claudia Adorno SRL\ARCHIVOS JUAN PABLO\backups_crm"
+BACKUP_RETENTION_DAYS = 30  # mantener N días de backups, borrar los más viejos
+BACKUP_TABLES = [
+    "articulos",
+    "clientes",
+    "pedidos",
+    "compras",
+    "compras_detalle",
+    "locales",
+    "vendedoras",
+    "sku_map",
+    "sync_log",
+]
+
+
+def supa_get_all(table, batch_size=1000):
+    """Trae TODA la tabla paginando (PostgREST limita a 1000 por request)."""
+    all_rows = []
+    offset = 0
+    while True:
+        url = f"{SUPABASE_URL}/rest/v1/{table}"
+        headers = dict(HEADERS)
+        headers["Prefer"] = "return=representation"
+        headers["Range-Unit"] = "items"
+        headers["Range"] = f"{offset}-{offset + batch_size - 1}"
+        try:
+            resp = requests.get(url, headers=headers, timeout=120)
+            if resp.status_code in (404, 400):
+                # Tabla no existe → saltar
+                return None
+            resp.raise_for_status()
+            batch = resp.json()
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(f"Error leyendo {table} offset {offset}: {e}")
+        all_rows.extend(batch)
+        if len(batch) < batch_size:
+            break
+        offset += batch_size
+    return all_rows
+
+
+def sync_backup():
+    """
+    Exporta todas las tablas críticas de Supabase a un archivo JSON gzip-comprimido.
+    Guarda en BACKUP_DIR/backup_YYYY-MM-DD_HHMM.json.gz.
+    Rota: borra backups > BACKUP_RETENTION_DAYS días.
+    """
+    import gzip
+    import json as _json
+
+    log.info("=== sync_backup: iniciando ===")
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    backup_path = os.path.join(BACKUP_DIR, f"backup_{timestamp}.json.gz")
+
+    snapshot = {
+        "_meta": {
+            "fecha":          datetime.now(timezone.utc).isoformat(),
+            "supabase_url":   SUPABASE_URL,
+            "version":        1,
+        }
+    }
+    total_rows = 0
+    errores = []
+    for table in BACKUP_TABLES:
+        try:
+            rows = supa_get_all(table)
+            if rows is None:
+                log.warning(f"  {table}: tabla no existe (404/400), saltando")
+                continue
+            snapshot[table] = rows
+            log.info(f"  {table}: {len(rows)} filas")
+            total_rows += len(rows)
+        except Exception as e:
+            log.error(f"  {table}: error — {e}")
+            errores.append(f"{table}: {e}")
+
+    # Escribir comprimido
+    try:
+        with gzip.open(backup_path, "wt", encoding="utf-8") as f:
+            _json.dump(snapshot, f, ensure_ascii=False, default=str)
+        size_mb = os.path.getsize(backup_path) / 1024 / 1024
+        log.info(f"  Backup escrito: {backup_path} ({size_mb:.1f} MB, {total_rows} filas totales)")
+    except Exception as e:
+        log.error(f"  Error escribiendo backup: {e}")
+        log_sync("backup", [], total_rows, 0, str(e))
+        return False
+
+    # Rotación: borrar backups con más de BACKUP_RETENTION_DAYS días
+    cutoff = datetime.now() - timedelta(days=BACKUP_RETENTION_DAYS)
+    borrados = 0
+    for fname in os.listdir(BACKUP_DIR):
+        if not fname.startswith("backup_") or not fname.endswith(".json.gz"):
+            continue
+        fpath = os.path.join(BACKUP_DIR, fname)
+        try:
+            mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
+            if mtime < cutoff:
+                os.remove(fpath)
+                borrados += 1
+        except Exception as e:
+            log.warning(f"  No se pudo evaluar {fname}: {e}")
+    if borrados:
+        log.info(f"  Rotación: {borrados} backup(s) viejo(s) eliminado(s) (>{BACKUP_RETENTION_DAYS} días)")
+
+    error_global = "; ".join(errores) if errores else None
+    log_sync("backup", [], total_rows, 0, error_global)
+    log.info(f"=== sync_backup: fin — {total_rows} filas en {len(BACKUP_TABLES)} tablas ===")
+    return True
+
+
 # ══════════════════════════════════════════════════════════════════
 #  Main
 # ══════════════════════════════════════════════════════════════════
@@ -1289,7 +1407,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sync Dragon Fish → Supabase CRM")
     parser.add_argument(
         "--modo",
-        choices=["skus", "stock", "znube", "clientes", "compras", "conversiones", "crm", "todo"],
+        choices=["skus", "stock", "znube", "clientes", "compras", "conversiones", "backup", "crm", "todo"],
         default="todo",
         help=(
             "skus     = solo catálogo de artículos\n"
@@ -1298,7 +1416,8 @@ if __name__ == "__main__":
             "clientes = espejo de maestro de clientes a Supabase\n"
             "compras  = espejo de comprobantes de venta (último año) + métricas\n"
             "conversiones = matchear pedidos del CRM con sus facturas\n"
-            "crm      = clientes + compras + conversiones (sync nocturno pesado)\n"
+            "backup   = exportar Supabase a JSON gzip (rotacion 30 dias)\n"
+            "crm      = clientes + compras + conversiones + backup (sync nocturno pesado)\n"
             "todo     = skus + stock (default recomendado para 15min)"
         ),
     )
@@ -1318,10 +1437,13 @@ if __name__ == "__main__":
             sync_compras(year_lookback=1)
         elif args.modo == "conversiones":
             sync_conversiones(ventana_dias=90)
+        elif args.modo == "backup":
+            sync_backup()
         elif args.modo == "crm":
             sync_clientes()
             sync_compras(year_lookback=1)
             sync_conversiones(ventana_dias=90)
+            sync_backup()
         elif args.modo == "todo":
             sync_stock()
 
@@ -1330,4 +1452,3 @@ if __name__ == "__main__":
         log_sync(args.modo, [], 0, 0, str(e))
         sys.exit(1)
 
-    log.info("Sync completado exitosamente.")
