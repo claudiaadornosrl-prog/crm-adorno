@@ -98,6 +98,19 @@ a { color: inherit; text-decoration: none; }
 
 
 
+
+/* Botón de exportar */
+.export-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 8px;
+  background: #10b981; color: white; border: none;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background .15s;
+}
+.export-btn:hover { background: #059669; }
+.export-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+.export-btn-sm { padding: 4px 10px; font-size: 11px; }
+
 /* ═══ Tags / Etiquetas a clientes ═══ */
 .tag-chip {
   display: inline-flex; align-items: center; gap: 4px;
@@ -581,6 +594,7 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: white; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .settings-row button { font-size: 12px; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; }
 </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -768,10 +782,13 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
           <option value="todas">Todas</option>
         </select>
       </div>
-      <div class="search-bar">
-        <span class="search-icon">🔍</span>
-        <input type="search" id="pedidos-search" placeholder="Buscar por nombre, teléfono, mail o SKU…" oninput="onSearchInput(this.value)" autocomplete='off'>
-        <button class="clear-btn" onclick="clearSearch()">✕</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <div class="search-bar" style="flex:1;margin-bottom:0">
+          <span class="search-icon">🔍</span>
+          <input type="search" id="pedidos-search" placeholder="Buscar por nombre, teléfono, mail o SKU…" oninput="onSearchInput(this.value)" autocomplete='off'>
+          <button class="clear-btn" onclick="clearSearch()">✕</button>
+        </div>
+        <button class="export-btn export-btn-sm" onclick="exportPedidos()" title="Exportar pedidos visibles">📥</button>
       </div>
       <div id="pedidos-list"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
     </div>
@@ -794,7 +811,10 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
         <div id="admin-list"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
       </div>
       <div id="admin-view-clientes" class="hidden">
-        <div class="tags-filter-row" id="tags-filter-row"></div>
+        <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap">
+          <div class="tags-filter-row" id="tags-filter-row" style="flex:1;min-width:200px;margin-bottom:0"></div>
+          <button class="export-btn export-btn-sm" onclick="exportClientes()">📥 Exportar Excel</button>
+        </div>
         <div class="clientes-search-wrap">
           <input type="search" id="clientes-search" placeholder="Buscar por nombre, DNI, CUIT, celular o email..." data-no-upper>
         </div>
@@ -1797,6 +1817,197 @@ function renderCumpleanos(clientes) {
 }
 
 // ═══════════════════════════════════════════════════════
+//  Exportación a XLSX (SheetJS)
+// ═══════════════════════════════════════════════════════
+function exportToXLSX(filename, sheets) {
+  // sheets: [{ name: 'Hoja1', rows: [...] }, ...]
+  if (typeof XLSX === 'undefined') { toast('❌ SheetJS no cargado'); return; }
+  const wb = XLSX.utils.book_new();
+  sheets.forEach(sh => {
+    const ws = XLSX.utils.json_to_sheet(sh.rows);
+    // Auto-width básico: tomar la longitud máxima de cada columna
+    if (sh.rows.length) {
+      const cols = Object.keys(sh.rows[0]).map(k => {
+        const maxLen = Math.max(k.length, ...sh.rows.map(r => String(r[k] || '').length));
+        return { wch: Math.min(maxLen + 2, 50) };
+      });
+      ws['!cols'] = cols;
+    }
+    XLSX.utils.book_append_sheet(wb, ws, sh.name.substring(0, 31));
+  });
+  const ts = new Date().toISOString().slice(0,16).replace(/[T:]/g,'-');
+  XLSX.writeFile(wb, `${filename}_${ts}.xlsx`);
+  toast('✅ Excel descargado');
+}
+
+function formatDateForXLSX(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function formatDateOnlyForXLSX(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('es-AR');
+}
+
+// Exportar lista actual de clientes (lo que está visible en C360)
+function exportClientes() {
+  if (!clientesCache || !clientesCache.length) { toast('No hay clientes para exportar'); return; }
+  const rows = clientesCache.map(c => ({
+    'Nombre completo':   c.nombre_completo || '',
+    'DNI':               c.dni || '',
+    'CUIT':              c.cuit || '',
+    'Celular':           c.celular || '',
+    'Email':             c.email || '',
+    'Total comprado':    c.total_compras || 0,
+    'Cantidad compras':  c.cantidad_compras || 0,
+    'Ticket promedio':   c.ticket_promedio || 0,
+    'Sucursal favorita': c.sucursal_favorita || '',
+    'Última compra':     formatDateOnlyForXLSX(c.ultima_compra_fecha),
+    'Tags':              (c.tags || []).join(', '),
+  }));
+  exportToXLSX('clientes_C360', [{ name: 'Clientes', rows }]);
+}
+
+// Exportar lista de pedidos visibles (respeta filtros activos)
+function exportPedidos() {
+  // Reaplicar la lógica de filtros como en renderPedidos
+  let items = pedidosCache;
+  if (!session.isAdmin && session.nombre && currentMyOnlyMode) {
+    items = items.filter(p => p.vendedora === session.nombre);
+  }
+  if (currentVendedoraFilter !== 'todas') items = items.filter(p => p.vendedora === currentVendedoraFilter);
+  if (currentFilter !== 'todos') items = items.filter(p => p.estado === currentFilter);
+  if (currentSearch) {
+    const q = currentSearch;
+    items = items.filter(p =>
+      (p.nombre_cliente || '').toLowerCase().includes(q) ||
+      (p.celular || '').toLowerCase().includes(q) ||
+      (p.email_cliente || '').toLowerCase().includes(q) ||
+      (p.sku || '').toLowerCase().includes(q) ||
+      (p.sku_resuelto || '').toLowerCase().includes(q) ||
+      (p.motivo || '').toLowerCase().includes(q)
+    );
+  }
+  if (!items.length) { toast('No hay pedidos para exportar'); return; }
+
+  const rows = items.map(p => ({
+    'Fecha':            formatDateForXLSX(p.created_at),
+    'Local':            p.local_id || '',
+    'Vendedora':        p.vendedora || '',
+    'Cliente':          p.nombre_cliente || '',
+    'DNI':              p.dni || '',
+    'Celular':          p.celular || '',
+    'Email':            p.email || '',
+    'SKU':              p.sku || '',
+    'Descripción':      p.descripcion_sku || '',
+    'Cantidad':         p.cantidad || 1,
+    'Motivo':           p.motivo || '',
+    'Estado':           p.estado || '',
+    'Notas':            p.notas || '',
+    'Convertido':       p.compra_id ? 'SÍ' : '',
+    'Factura monto':    p.factura_monto || '',
+    'Factura fecha':    formatDateOnlyForXLSX(p.factura_fecha),
+  }));
+  exportToXLSX('pedidos_CRM', [{ name: 'Pedidos', rows }]);
+}
+
+// Exportar historial completo de UN cliente (incluye múltiples hojas)
+async function exportClienteHistorial() {
+  if (!clienteDetailCache) { toast('No hay cliente activo'); return; }
+  const { c, compras, pedidosCrm } = clienteDetailCache;
+
+  // Hoja 1: datos del cliente
+  const datos = [{
+    'Nombre completo':    c.nombre_completo || '',
+    'DNI':                c.dni || '',
+    'CUIT':               c.cuit || '',
+    'Celular':            c.celular || '',
+    'Teléfono':           c.telefono || '',
+    'Email':              c.email || '',
+    'Dirección':          c.direccion || '',
+    'Localidad':          c.localidad || '',
+    'Provincia':          c.provincia || '',
+    'Cliente desde':      formatDateOnlyForXLSX(c.fecha_alta),
+    'Sucursal favorita':  c.sucursal_favorita || '',
+    'Total comprado':     c.total_compras || 0,
+    'Cantidad compras':   c.cantidad_compras || 0,
+    'Ticket promedio':    c.ticket_promedio || 0,
+    'Tags':               (c.tags || []).join(', '),
+    'Fecha de nacimiento': c.fecha_nacimiento || '',
+  }];
+
+  // Hoja 2: compras (cabecera)
+  const comprasRows = compras.map(co => ({
+    'Fecha':            formatDateOnlyForXLSX(co.fecha),
+    'Local':            co.local_id || '',
+    'Letra':            co.letra || '',
+    'PV':               co.punto_venta || '',
+    'Número':           co.numero || '',
+    'Vendedora':        co.vendedora || '',
+    'Cantidad items':   co.cantidad_items || 0,
+    'Subtotal':         co.subtotal || 0,
+    'Descuento':        co.total_descuento || 0,
+    'IVA':              co.total_iva || 0,
+    'Total':            co.total || 0,
+    'Anulado':          co.anulado ? 'SÍ' : '',
+  }));
+
+  // Hoja 3: detalle de líneas (lazy load — traer todos los detalles que ya estén en cache + fetch faltantes)
+  const detalleRows = [];
+  for (const co of compras) {
+    let items = compraDetailCache[co.id];
+    if (!items) {
+      try {
+        items = await supaGet('compras_detalle', {
+          select: 'nro_item,sku,descripcion,cantidad,precio_unitario,monto_total,talle,color',
+          compra_id: 'eq.' + co.id,
+          order: 'nro_item.asc',
+        });
+        compraDetailCache[co.id] = items;
+      } catch(e) { items = []; }
+    }
+    items.forEach(it => detalleRows.push({
+      'Fecha factura':    formatDateOnlyForXLSX(co.fecha),
+      'Local':            co.local_id || '',
+      'Factura':          `${co.letra || ''} ${co.punto_venta || ''}-${String(co.numero || '').padStart(8,'0')}`,
+      'Nro item':         it.nro_item || 0,
+      'SKU':              it.sku || '',
+      'Descripción':      it.descripcion || '',
+      'Cantidad':         it.cantidad || 0,
+      'Precio unit.':     it.precio_unitario || 0,
+      'Monto total':      it.monto_total || 0,
+    }));
+  }
+
+  // Hoja 4: pedidos CRM
+  const pedidosRows = pedidosCrm.map(p => ({
+    'Fecha':            formatDateForXLSX(p.created_at),
+    'Local':            p.local_id || '',
+    'Vendedora':        p.vendedora || '',
+    'SKU':              p.sku || '',
+    'Descripción':      p.descripcion_sku || '',
+    'Cantidad':         p.cantidad || 1,
+    'Motivo':           p.motivo || '',
+    'Estado':           p.estado || '',
+    'Notas':            p.notas || '',
+    'Convertido':       p.compra_id ? 'SÍ' : '',
+    'Factura monto':    p.factura_monto || '',
+  }));
+
+  const sheets = [
+    { name: 'Datos cliente', rows: datos },
+    { name: 'Compras',       rows: comprasRows.length ? comprasRows : [{ '(sin compras)': '' }] },
+    { name: 'Detalle items', rows: detalleRows.length ? detalleRows : [{ '(sin detalle)': '' }] },
+    { name: 'Pedidos CRM',   rows: pedidosRows.length ? pedidosRows : [{ '(sin pedidos)': '' }] },
+  ];
+
+  const safeName = (c.nombre_completo || c.globalid).replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 40);
+  exportToXLSX(`cliente_${safeName}`, sheets);
+}
+
+// ═══════════════════════════════════════════════════════
 //  Tags / Etiquetas de clientes
 // ═══════════════════════════════════════════════════════
 const TAG_PRESETS = ['VIP', 'Mayorista', 'Frecuente', 'Problemático', 'Lista negra', 'Reposición', 'Cumple este mes'];
@@ -2059,6 +2270,7 @@ function renderClienteDetail() {
   document.getElementById('cliente-detail-content').innerHTML = `
     <div class="cliente-modal-header">
       <button class="cliente-modal-close" onclick="closeClienteDetail()">✕</button>
+      <button class="export-btn export-btn-sm" onclick="exportClienteHistorial()" style="position:absolute;top:18px;right:60px;background:rgba(255,255,255,0.2);color:white;border:none">📥 Excel</button>
       <h2>${escHtml(c.nombre_completo || 'Sin nombre')}</h2>
       <div class="subtitle">
         ${c.cuit ? 'CUIT ' + escHtml(c.cuit) : (c.dni ? 'DNI ' + escHtml(c.dni) : 'Sin documento identificador')}
