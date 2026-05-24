@@ -194,6 +194,52 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .sku-selected-tag .desc { font-size: 12px; color: var(--muted); }
 .sku-selected-tag .clear { color: var(--danger); font-size: 16px; margin-left: auto; cursor: pointer; }
 
+
+/* ═══ Admin View Tabs (Resumen / Clientes) ═══ */
+.admin-view-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.admin-vtab-btn { padding: 7px 16px; border-radius: 18px; border: 1.5px solid var(--border); background: white; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.admin-vtab-btn.active { border-color: var(--accent); background: var(--accent); color: white; }
+
+/* ═══ Clientes 360° — buscador y lista ═══ */
+.clientes-search-wrap { position: relative; margin-bottom: 12px; }
+.clientes-search-wrap input { width: 100%; padding: 11px 38px 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; background: white; }
+.clientes-search-wrap input:focus { border-color: var(--accent); }
+.clientes-search-wrap::after { content: "🔍"; position: absolute; right: 13px; top: 50%; transform: translateY(-50%); font-size: 14px; pointer-events: none; opacity: 0.5; }
+.cliente-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 8px; padding: 12px 14px; cursor: pointer; transition: transform .12s, box-shadow .12s; }
+.cliente-card:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
+.cliente-row1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 5px; }
+.cliente-nombre { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.cliente-total { font-size: 14px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.cliente-row2 { display: flex; gap: 10px; font-size: 12px; color: var(--muted); flex-wrap: wrap; align-items: center; }
+.cliente-meta { display: inline-flex; align-items: center; gap: 3px; }
+.cliente-sucursal { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.cliente-sucursal.unicenter { background: #ede9fe; color: #6d28d9; }
+.cliente-sucursal.alcorta { background: #fce7f3; color: #be185d; }
+
+/* ═══ Modal Cliente 360° ═══ */
+.cliente-modal-header { background: linear-gradient(135deg, var(--accent) 0%, #5b21b6 100%); padding: 20px 24px; color: white; position: relative; }
+.cliente-modal-header h2 { font-size: 20px; font-weight: 700; margin: 0 0 6px; padding-right: 40px; }
+.cliente-modal-header .subtitle { font-size: 13px; opacity: 0.85; }
+.cliente-modal-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+.cliente-modal-close:hover { background: rgba(255,255,255,0.35); }
+.cliente-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px 18px; background: #f9fafb; border-bottom: 1px solid var(--border); }
+.cliente-stat-box { text-align: center; padding: 4px; }
+.cliente-stat-num { font-size: 16px; font-weight: 700; color: var(--accent); line-height: 1.2; }
+.cliente-stat-label { font-size: 10px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.3px; }
+.cliente-body { padding: 16px 20px 24px; }
+.cliente-section-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.cliente-info-row { display: flex; gap: 8px; font-size: 13px; color: var(--text); margin-bottom: 5px; }
+.cliente-info-row .label { color: var(--muted); min-width: 100px; font-size: 12px; }
+
+/* Timeline */
+.timeline-item { padding: 10px 12px; margin-bottom: 8px; background: #fafbff; border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; position: relative; }
+.timeline-item.pedido { border-left-color: #f59e0b; background: #fffbeb; }
+.timeline-fecha { font-size: 11px; color: var(--muted); font-weight: 600; }
+.timeline-title { font-size: 13px; font-weight: 600; color: var(--text); margin-top: 2px; }
+.timeline-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.timeline-amount { float: right; font-weight: 700; color: var(--accent); font-size: 13px; }
+.timeline-empty { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
+
 .btn-submit {
   width: 100%; padding: 14px; background: var(--accent); color: white;
   border: none; border-radius: 10px; font-size: 16px; font-weight: 700;
@@ -575,14 +621,34 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
     <!-- ── ADMIN ── -->
     <div class="tab-panel" id="panel-admin">
       <div class="admin-tabs" id="admin-local-tabs"></div>
-      <div class="stats-grid" id="admin-stats"></div>
-      <div id="admin-list"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+      <div class="admin-view-tabs">
+        <button class="admin-vtab-btn active" data-view="resumen" onclick="setAdminView('resumen')">📊 Resumen</button>
+        <button class="admin-vtab-btn" data-view="clientes" onclick="setAdminView('clientes')">👥 Clientes 360°</button>
+      </div>
+      <div id="admin-view-resumen">
+        <div class="stats-grid" id="admin-stats"></div>
+        <div id="admin-list"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+      </div>
+      <div id="admin-view-clientes" class="hidden">
+        <div class="clientes-search-wrap">
+          <input type="search" id="clientes-search" placeholder="Buscar por nombre, DNI, CUIT, celular o email..." data-no-upper>
+        </div>
+        <div id="clientes-list"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+      </div>
     </div>
 
   </div>
 </div>
 
 <!-- Modal de edición -->
+
+<!-- ── Modal Cliente 360° ─────────────────────────────────────── -->
+<div id="cliente-modal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.5); padding:20px; overflow-y:auto;">
+  <div style="background:white; border-radius:16px; max-width:720px; margin:0 auto; overflow:hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+    <div id="cliente-detail-content"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+  </div>
+</div>
+
 <div id="edit-modal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.5); padding:20px; overflow-y:auto;">
   <div style="background:white; border-radius:16px; max-width:420px; margin:0 auto; overflow:hidden;">
     <div style="background:var(--accent); color:white; padding:16px 18px; display:flex; align-items:center; justify-content:space-between;">
@@ -1349,6 +1415,200 @@ function renderAlertas() {
 // ═══════════════════════════════════════════════════════
 //  Render: admin
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+//  Vista admin: Clientes 360°
+// ═══════════════════════════════════════════════════════
+let adminView = 'resumen';
+let clientesCache = [];
+let clientesSearchTimer = null;
+let clienteDetailCache = null;
+
+function setAdminView(v) {
+  adminView = v;
+  document.querySelectorAll('.admin-vtab-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === v));
+  document.getElementById('admin-view-resumen').classList.toggle('hidden', v !== 'resumen');
+  document.getElementById('admin-view-clientes').classList.toggle('hidden', v !== 'clientes');
+  if (v === 'clientes' && clientesCache.length === 0) {
+    loadClientes('');
+  }
+}
+
+function onClientesSearchInput(val) {
+  clearTimeout(clientesSearchTimer);
+  clientesSearchTimer = setTimeout(() => loadClientes(val.trim()), 350);
+}
+
+function fmtCurrency(n) {
+  if (n === null || n === undefined) return '—';
+  return Number(n).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
+}
+
+async function loadClientes(q) {
+  const list = document.getElementById('clientes-list');
+  list.innerHTML = '<div class="loading"><span class="spinner"></span> Cargando...</div>';
+  try {
+    const params = {
+      select: 'globalid,nombre_completo,celular,dni,cuit,email,total_compras,cantidad_compras,ticket_promedio,sucursal_favorita,ultima_compra_fecha',
+      order: 'total_compras.desc.nullslast',
+      limit: '100',
+    };
+    if (q) {
+      const qLike = `*${q}*`;
+      params['or'] = `(nombre_completo.ilike.${qLike},dni.ilike.${qLike},cuit.ilike.${qLike},celular.ilike.${qLike},email.ilike.${qLike})`;
+    } else {
+      params['cantidad_compras'] = 'gt.0';
+    }
+    clientesCache = await supaGet('clientes', params);
+    renderClientesList();
+  } catch(e) {
+    list.innerHTML = `<div class="empty"><div class="icon">❌</div><p>Error: ${escHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderClientesList() {
+  const list = document.getElementById('clientes-list');
+  if (!clientesCache.length) {
+    list.innerHTML = '<div class="empty"><div class="icon">🔍</div><p>No se encontraron clientes con esos criterios</p></div>';
+    return;
+  }
+  list.innerHTML = clientesCache.map(c => {
+    const ult = c.ultima_compra_fecha ? formatDate(c.ultima_compra_fecha).split(' ')[0] : '—';
+    const suc = c.sucursal_favorita;
+    const sucBadge = suc ? `<span class="cliente-sucursal ${suc}">${suc === 'unicenter' ? '🛍️ UNI' : '🏪 ALCO'}</span>` : '';
+    return `<div class="cliente-card" onclick="openClienteDetail('${escHtml(c.globalid)}')">
+      <div class="cliente-row1">
+        <div class="cliente-nombre">${escHtml(c.nombre_completo || 'Sin nombre')}</div>
+        <div class="cliente-total">${fmtCurrency(c.total_compras)}</div>
+      </div>
+      <div class="cliente-row2">
+        ${c.celular ? `<span class="cliente-meta">📱 ${escHtml(c.celular)}</span>` : ''}
+        ${c.dni ? `<span class="cliente-meta">🆔 ${escHtml(c.dni)}</span>` : ''}
+        ${c.cuit ? `<span class="cliente-meta">📋 ${escHtml(c.cuit)}</span>` : ''}
+        <span class="cliente-meta">🛒 ${c.cantidad_compras || 0}</span>
+        <span class="cliente-meta">📅 ${ult}</span>
+        ${sucBadge}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function openClienteDetail(globalid) {
+  const modal = document.getElementById('cliente-modal');
+  const content = document.getElementById('cliente-detail-content');
+  modal.style.display = 'block';
+  content.innerHTML = '<div class="loading" style="padding:60px"><span class="spinner"></span> Cargando...</div>';
+
+  try {
+    const clientes = await supaGet('clientes', { select: '*', globalid: 'eq.' + globalid, limit: '1' });
+    if (!clientes.length) throw new Error('Cliente no encontrado');
+    const c = clientes[0];
+
+    const compras = await supaGet('compras', {
+      select: '*',
+      cliente_globalid: 'eq.' + globalid,
+      order: 'fecha.desc',
+      limit: '100',
+    });
+
+    let pedidosCrm = [];
+    const orParts = [];
+    if (c.celular) orParts.push(`celular.eq.${c.celular}`);
+    if (c.dni)     orParts.push(`dni.eq.${c.dni}`);
+    if (orParts.length) {
+      pedidosCrm = await supaGet('pedidos', {
+        select: 'id,created_at,nombre_cliente,sku,descripcion_sku,cantidad,motivo,estado,notas,local_id,vendedora',
+        or: '(' + orParts.join(',') + ')',
+        order: 'created_at.desc',
+        limit: '50',
+      });
+    }
+
+    clienteDetailCache = { c, compras, pedidosCrm };
+    renderClienteDetail();
+  } catch(e) {
+    content.innerHTML = `<div class="empty" style="padding:60px"><div class="icon">❌</div><p>Error: ${escHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderClienteDetail() {
+  const { c, compras, pedidosCrm } = clienteDetailCache;
+
+  const timeline = [];
+  compras.forEach(co => timeline.push({
+    fecha: co.fecha,
+    tipo: 'compra',
+    title: `Factura ${co.letra || ''} ${co.punto_venta || ''}-${String(co.numero || '').padStart(8,'0')}`,
+    desc: `${co.local_id || ''} · vendió ${escHtml(co.vendedora || '—')} · ${Number(co.cantidad_items || 0)} ítems${co.anulado ? ' · ANULADO' : ''}`,
+    monto: co.total,
+  }));
+  pedidosCrm.forEach(p => timeline.push({
+    fecha: p.created_at,
+    tipo: 'pedido',
+    title: `Pedido [${escHtml(p.estado || '')}] · ${escHtml(p.descripcion_sku || p.sku || 'sin SKU')}`,
+    desc: `${p.local_id || ''} · ${escHtml(p.motivo || '')} · vendedora ${escHtml(p.vendedora || '—')}${p.notas ? ' · ' + escHtml(p.notas) : ''}`,
+    monto: null,
+  }));
+  timeline.sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+
+  document.getElementById('cliente-detail-content').innerHTML = `
+    <div class="cliente-modal-header">
+      <button class="cliente-modal-close" onclick="closeClienteDetail()">✕</button>
+      <h2>${escHtml(c.nombre_completo || 'Sin nombre')}</h2>
+      <div class="subtitle">
+        ${c.cuit ? 'CUIT ' + escHtml(c.cuit) : (c.dni ? 'DNI ' + escHtml(c.dni) : 'Sin documento identificador')}
+        ${c.locales_presentes && c.locales_presentes.length ? ' · En: ' + c.locales_presentes.join(', ') : ''}
+      </div>
+    </div>
+    <div class="cliente-stats-row">
+      <div class="cliente-stat-box"><div class="cliente-stat-num">${fmtCurrency(c.total_compras)}</div><div class="cliente-stat-label">Total año</div></div>
+      <div class="cliente-stat-box"><div class="cliente-stat-num">${c.cantidad_compras || 0}</div><div class="cliente-stat-label">Compras</div></div>
+      <div class="cliente-stat-box"><div class="cliente-stat-num">${fmtCurrency(c.ticket_promedio)}</div><div class="cliente-stat-label">Ticket prom.</div></div>
+      <div class="cliente-stat-box"><div class="cliente-stat-num" style="text-transform:uppercase; font-size:12px;">${escHtml(c.sucursal_favorita || '—')}</div><div class="cliente-stat-label">Suc. favorita</div></div>
+    </div>
+    <div class="cliente-body">
+      <div class="cliente-section-title">Datos personales</div>
+      ${c.celular ? `<div class="cliente-info-row"><span class="label">📱 Celular</span><span>${escHtml(c.celular)}</span></div>` : ''}
+      ${c.telefono ? `<div class="cliente-info-row"><span class="label">📞 Teléfono</span><span>${escHtml(c.telefono)}</span></div>` : ''}
+      ${c.email ? `<div class="cliente-info-row"><span class="label">📧 Email</span><span>${escHtml(c.email)}</span></div>` : ''}
+      ${c.direccion ? `<div class="cliente-info-row"><span class="label">📍 Dirección</span><span>${escHtml(c.direccion)}${c.piso ? ' P' + escHtml(c.piso) : ''}${c.depto ? ' ' + escHtml(c.depto) : ''}</span></div>` : ''}
+      ${c.localidad ? `<div class="cliente-info-row"><span class="label">🏙️ Localidad</span><span>${escHtml(c.localidad)}${c.provincia ? ', ' + escHtml(c.provincia) : ''}${c.codigo_postal ? ' (CP ' + escHtml(c.codigo_postal) + ')' : ''}</span></div>` : ''}
+      ${c.vendedora_habitual ? `<div class="cliente-info-row"><span class="label">👤 Vendedora</span><span>${escHtml(c.vendedora_habitual)}</span></div>` : ''}
+      ${c.fecha_alta ? `<div class="cliente-info-row"><span class="label">📅 Alta</span><span>${formatDate(c.fecha_alta).split(' ')[0]}</span></div>` : ''}
+      ${c.primera_compra_fecha ? `<div class="cliente-info-row"><span class="label">🛒 1ra compra</span><span>${formatDate(c.primera_compra_fecha).split(' ')[0]}</span></div>` : ''}
+      ${c.ultima_compra_fecha ? `<div class="cliente-info-row"><span class="label">🛒 Última</span><span>${formatDate(c.ultima_compra_fecha).split(' ')[0]}</span></div>` : ''}
+      ${c.observaciones ? `<div class="cliente-info-row"><span class="label">📝 Obs.</span><span>${escHtml(c.observaciones)}</span></div>` : ''}
+
+      <div class="cliente-section-title">Historial (${timeline.length} eventos — ${compras.length} compras + ${pedidosCrm.length} pedidos CRM)</div>
+      ${timeline.length === 0 ? '<div class="timeline-empty">Sin actividad registrada</div>' :
+        timeline.map(t => `<div class="timeline-item ${t.tipo}">
+          ${t.monto !== null ? `<span class="timeline-amount">${fmtCurrency(t.monto)}</span>` : ''}
+          <div class="timeline-fecha">${formatDate(t.fecha).split(' ')[0]}</div>
+          <div class="timeline-title">${t.tipo === 'compra' ? '🛒' : '📋'} ${t.title}</div>
+          <div class="timeline-desc">${t.desc}</div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+function closeClienteDetail() {
+  document.getElementById('cliente-modal').style.display = 'none';
+  clienteDetailCache = null;
+}
+
+// Cerrar el modal de cliente al hacer click en el fondo
+setTimeout(() => {
+  const cm = document.getElementById('cliente-modal');
+  if (cm) cm.addEventListener('click', function(e) { if (e.target === this) closeClienteDetail(); });
+}, 0);
+
+// Listener del buscador
+setTimeout(() => {
+  const inp = document.getElementById('clientes-search');
+  if (inp) inp.addEventListener('input', e => onClientesSearchInput(e.target.value));
+}, 0);
+
+
 function renderAdmin() {
   const tabs = document.getElementById('admin-local-tabs');
   const localIds = ['todos', ...Object.keys(LOCALES)];
