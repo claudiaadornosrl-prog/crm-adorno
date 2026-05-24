@@ -266,6 +266,19 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── Pedidos list ── */
+
+/* Toggle Mis pedidos / Todo el local */
+.toggle-pill { display: inline-flex; background: #f3f4f6; border-radius: 20px; padding: 3px; }
+.toggle-opt { padding: 6px 14px; border-radius: 17px; border: none; background: transparent; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.toggle-opt.active { background: white; color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.mine-row { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap; padding: 0 0 10px; }
+.mine-summary { font-size: 12px; color: var(--muted); }
+.mine-summary strong { color: var(--text); font-weight: 700; }
+.mine-summary .mine-sum-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin: 0 4px 0 8px; vertical-align: middle; }
+.mine-summary .mine-sum-dot.pend { background: var(--accent); }
+.mine-summary .mine-sum-dot.list { background: #10b981; }
+.mine-summary .mine-sum-dot.avis { background: #f59e0b; }
+
 .filter-row { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 2px; }
 .filter-row::-webkit-scrollbar { display: none; }
 .search-bar { position: relative; margin-bottom: 14px; }
@@ -627,6 +640,13 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
         <div class="filter-chip" data-f="todos" onclick="setFilter(this)">Todos</div>
         <button class="sort-btn" id="sort-btn" onclick="toggleSort()">🔽 Más nuevo</button>
       </div>
+      <div class="mine-row" id="mine-row" style="display:none">
+        <div class="toggle-pill">
+          <button class="toggle-opt active" id="toggle-mine" onclick="setMyMode(true)">👤 Mis pedidos</button>
+          <button class="toggle-opt" id="toggle-all" onclick="setMyMode(false)">🏪 Todo el local</button>
+        </div>
+        <div class="mine-summary" id="mine-summary"></div>
+      </div>
       <div class="filter-row2" id="vendedora-filter-row" style="display:none">
         <span style="font-size:12px;font-weight:600;color:var(--muted)">👤 Vendedora:</span>
         <select class="vendedora-select" id="vendedora-select" onchange="setVendedoraFilter(this.value)">
@@ -772,6 +792,7 @@ let session = { local_id: null, nombre: null, isAdmin: false };
 let articulos = [];  // {sku, descripcion, local_id}
 let pedidosCache = [];
 let currentFilter = 'Pendiente';
+let currentMyOnlyMode = true;  // true = solo mis pedidos (vendedora); se ajusta al loguear
 let currentSearch = '';
 let currentSortOrder = 'desc';
 let selectedSku = null;  // usado solo por el modal de edición
@@ -919,6 +940,15 @@ function enterApp() {
 
   // Show/hide admin tab
   document.getElementById('tab-admin').style.display = session.isAdmin ? 'flex' : 'none';
+
+  // Default mode: vendedora con nombre → mis pedidos; admin → todo
+  currentMyOnlyMode = !!(session.nombre && !session.isAdmin);
+  const tm = document.getElementById('toggle-mine');
+  const ta = document.getElementById('toggle-all');
+  if (tm && ta) {
+    tm.classList.toggle('active', currentMyOnlyMode);
+    ta.classList.toggle('active', !currentMyOnlyMode);
+  }
 
   showScreen('app-screen');
   switchTab(session.isAdmin ? 'admin' : 'nuevo');
@@ -1253,6 +1283,14 @@ async function submitPedido() {
 // ═══════════════════════════════════════════════════════
 //  Render: pedidos list
 // ═══════════════════════════════════════════════════════
+function setMyMode(mine) {
+  currentMyOnlyMode = mine;
+  document.getElementById('toggle-mine').classList.toggle('active', mine);
+  document.getElementById('toggle-all').classList.toggle('active', !mine);
+  renderPedidos();
+  renderAlertas();
+}
+
 function setFilter(el) {
   document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
@@ -1283,6 +1321,12 @@ function renderPedidos() {
   const el = document.getElementById('pedidos-list');
   const now = new Date();
 
+  // Mostrar/ocultar el toggle "Mis pedidos" según si es vendedora con nombre
+  const mineRow = document.getElementById('mine-row');
+  if (mineRow) {
+    mineRow.style.display = (!session.isAdmin && session.nombre) ? 'flex' : 'none';
+  }
+
   // ── Vendedora dropdown ──────────────────────────────────
   const vSelect = document.getElementById('vendedora-select');
   const vRow = document.getElementById('vendedora-filter-row');
@@ -1302,13 +1346,36 @@ function renderPedidos() {
   document.querySelectorAll('.filter-chip').forEach(chip => {
     const f = chip.dataset.f;
     if (!f) return;
-    const base = pedidosCache.filter(p => currentVendedoraFilter === 'todas' || p.vendedora === currentVendedoraFilter);
+    let base = pedidosCache;
+    if (!session.isAdmin && session.nombre && currentMyOnlyMode) base = base.filter(p => p.vendedora === session.nombre);
+    if (currentVendedoraFilter !== 'todas') base = base.filter(p => p.vendedora === currentVendedoraFilter);
     const count = f === 'todos' ? base.length : base.filter(p => p.estado === f).length;
     chip.textContent = (CHIP_LABELS[f] || f) + (count > 0 ? ` (${count})` : '');
   });
 
+  // ── Mini-resumen "Mis pedidos" (esta semana) ───────────────
+  const mineSummaryEl = document.getElementById('mine-summary');
+  if (mineSummaryEl && session.nombre && !session.isAdmin) {
+    const semana = new Date(); semana.setDate(semana.getDate() - 7);
+    const semanaIso = semana.toISOString();
+    const misSemana = pedidosCache.filter(p => p.vendedora === session.nombre && p.created_at >= semanaIso);
+    const pend = misSemana.filter(p => p.estado === 'Pendiente').length;
+    const listo = misSemana.filter(p => p.estado === 'Listo para avisar').length;
+    const avis = misSemana.filter(p => p.estado === 'Avisado').length;
+    const vendidos = misSemana.filter(p => p.compra_id).length;
+    mineSummaryEl.innerHTML = `Esta semana: <strong>${misSemana.length}</strong> pedidos
+      <span class="mine-sum-dot pend"></span><strong>${pend}</strong> pendientes
+      <span class="mine-sum-dot list"></span><strong>${listo}</strong> listos
+      <span class="mine-sum-dot avis"></span><strong>${avis}</strong> avisados
+      ${vendidos > 0 ? ` · ✅ <strong>${vendidos}</strong> vendidos` : ''}`;
+  }
+
   // ── Filtering ───────────────────────────────────────────
   let items = pedidosCache;
+  // Filtro "mis pedidos" si es vendedora y está en modo personal
+  if (!session.isAdmin && session.nombre && currentMyOnlyMode) {
+    items = items.filter(p => p.vendedora === session.nombre);
+  }
   if (currentVendedoraFilter !== 'todas') items = items.filter(p => p.vendedora === currentVendedoraFilter);
   if (currentFilter !== 'todos') items = items.filter(p => p.estado === currentFilter);
   if (currentSearch) {
