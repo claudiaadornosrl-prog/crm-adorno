@@ -1069,6 +1069,7 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
         <button class="btn-submit" id="edit-save-btn" onclick="saveEdit()">
           <span>💾</span> Guardar cambios
         </button>
+        <button class="btn-delete" id="edit-delete-btn" onclick="deletePedido()" style="display:none">🗑 Eliminar pedido</button>
       <div class="audit-section">
         <div class="audit-title">📜 Historial de cambios</div>
         <div id="edit-audit-content"><div class="audit-empty">Cargando...</div></div>
@@ -3309,6 +3310,13 @@ function openEditModal(id) {
       auditDiv.innerHTML = renderAuditLog(logs);
     });
   }
+  // Mostrar botón eliminar solo si es admin
+  const delBtn = document.getElementById('edit-delete-btn');
+  if (delBtn) {
+    delBtn.style.display = (session && session.isAdmin) ? 'block' : 'none';
+    delBtn.disabled = false;
+    delBtn.textContent = '🗑 Eliminar pedido';
+  }
   document.getElementById('edit-modal').style.display = 'block';
 }
 
@@ -3663,11 +3671,4 @@ document.addEventListener('input', function(e) {
   const upper = val.toUpperCase();
   if (val === upper) return;
   const start = t.selectionStart;
-  const end = t.selectionEnd;
-  t.value = upper;
-  try { t.setSelectionRange(start, end); } catch(_) {}
-});
-</script>
-</body>
-</html>
-          
+  const end 
