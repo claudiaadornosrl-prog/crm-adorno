@@ -453,6 +453,34 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .cliente-detected-btn.secondary { background: transparent; color: #78350f; border: 1px solid #d97706; }
 .cliente-detected-loading { font-size: 12px; color: var(--muted); padding: 4px 0; }
 
+
+/* Modal de templates de WhatsApp */
+#wa-templates-modal { display: none; position: fixed; inset: 0; z-index: 1500; background: rgba(0,0,0,0.55); padding: 50px 20px 20px; overflow-y: auto; }
+#wa-templates-modal.active { display: block; }
+.wa-templates-box { background: var(--card); border-radius: 14px; max-width: 540px; margin: 0 auto; box-shadow: 0 30px 80px rgba(0,0,0,0.4); overflow: hidden; }
+.wa-templates-header { background: linear-gradient(135deg, #25d366 0%, #128c7e 100%); color: white; padding: 16px 20px; position: relative; }
+.wa-templates-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.wa-templates-header .subtitle { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+.wa-templates-close { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 16px; }
+.wa-templates-list { padding: 12px; max-height: 60vh; overflow-y: auto; }
+.wa-template-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
+.wa-template-card:hover { border-color: #25d366; background: var(--card); }
+.wa-template-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+.wa-template-preview { font-size: 12px; color: var(--muted); line-height: 1.45; white-space: pre-wrap; }
+.wa-template-card.disabled { opacity: 0.5; cursor: not-allowed; }
+.wa-template-card.disabled:hover { border-color: var(--border); background: var(--bg); }
+
+/* Botón pequeño en cards de pedido */
+.btn-wa-tpl {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 6px 8px; border-radius: 8px;
+  background: rgba(37, 211, 102, 0.15); color: #128c7e;
+  border: none; cursor: pointer; font-size: 13px;
+  transition: background .15s;
+}
+.btn-wa-tpl:hover { background: rgba(37, 211, 102, 0.3); }
+html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
+
 /* Botones de acción rápida en ficha del cliente */
 .cliente-actions-row {
   display: flex; gap: 8px; flex-wrap: wrap;
@@ -1037,6 +1065,19 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
       <span>Mostrar esta ayuda</span>
       <span class="shortcut-keys"><span class="shortcut-key">?</span></span>
     </div>
+  </div>
+</div>
+
+
+<!-- ── Modal de Templates de WhatsApp ───────────────────── -->
+<div id="wa-templates-modal" onclick="if(event.target===this)closeWaTemplates()">
+  <div class="wa-templates-box">
+    <div class="wa-templates-header">
+      <button class="wa-templates-close" onclick="closeWaTemplates()">✕</button>
+      <h3>💬 Plantillas de WhatsApp</h3>
+      <div class="subtitle" id="wa-templates-subtitle"></div>
+    </div>
+    <div class="wa-templates-list" id="wa-templates-list"></div>
   </div>
 </div>
 
@@ -2070,22 +2111,19 @@ function pedidoActions(p) {
   let btns = '';
 
   if (estado === 'Pendiente') {
-    // Quick: "Ya hay stock" (→ Listo para avisar)
     btns += `<button class="btn-listo" onclick="markListo(${id})">✓ Stock</button>`;
-    // WA: open chat + mark Avisado directly (skip Listo step)
     if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="markEstado(${id},'Avisado')">${waSvg()} WA</a>`;
+    if (p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Plantillas WhatsApp">💬</button>`;
 
   } else if (estado === 'Listo para avisar') {
-    // WA: open chat + auto-mark Avisado
     if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="onWaClick(${id})">${waSvg()} Avisar por WA</a>`;
-    // Quick: mark Avisado without WA
     btns += `<button class="btn-quick-avisar" onclick="markEstado(${id},'Avisado')">✓ Avisar</button>`;
+    if (p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Plantillas WhatsApp">💬</button>`;
 
   } else if (estado === 'Avisado') {
-    // WA: re-open chat (no auto-mark)
     if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank">${waSvg()}</a>`;
-    // Quick: "Ya retiró" (→ Completado)
     btns += `<button class="btn-completar" onclick="markEstado(${id},'Completado')">✔ Ya retiró</button>`;
+    if (p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Plantillas WhatsApp">💬</button>`;
   }
 
   // Estado dropdown always available
@@ -3798,6 +3836,143 @@ async function markListo(id) {
   } catch(e) {
     toast('❌ Error: ' + e.message);
   }
+}
+
+// ═══════════════════════════════════════════════════════
+//  Templates de WhatsApp para seguimiento de pedidos
+// ═══════════════════════════════════════════════════════
+// Cada template tiene:
+//   - id, title, icon
+//   - estados[] (en qué estados se muestra; null = siempre)
+//   - text(p): función que arma el mensaje con datos del pedido
+const WA_TEMPLATES = [
+  {
+    id: 'listo',
+    title: '🛍️ Producto listo para retirar',
+    icon: '🛍️',
+    estados: ['Pendiente', 'Listo para avisar'],
+    text: p => {
+      const nombre = (p.nombre_cliente || '').split(' ')[0] || '';
+      const desc = p.descripcion_sku || p.sku || 'tu pedido';
+      return `Hola ${nombre}! Te confirmamos que ${desc.toLowerCase()} ya está disponible en Claudia Adorno. ¿Cuándo te queda cómodo pasar a buscarlo?`;
+    }
+  },
+  {
+    id: 'recontactar',
+    title: '🔔 Recontactar (no respondió)',
+    icon: '🔔',
+    estados: ['Avisado'],
+    text: p => {
+      const nombre = (p.nombre_cliente || '').split(' ')[0] || '';
+      const desc = p.descripcion_sku || p.sku || 'tu pedido';
+      return `Hola ${nombre}! Hace unos días te avisamos que ${desc.toLowerCase()} ya estaba en el local. ¿Te interesa coordinar para pasar a buscarlo? Esperamos tu respuesta 🙂`;
+    }
+  },
+  {
+    id: 'seguimiento',
+    title: '📌 Seguimiento amable',
+    icon: '📌',
+    estados: ['Pendiente'],
+    text: p => {
+      const nombre = (p.nombre_cliente || '').split(' ')[0] || '';
+      const desc = p.descripcion_sku || p.sku || 'tu pedido';
+      return `Hola ${nombre}! Te escribimos de Claudia Adorno por ${desc.toLowerCase()}. Apenas ingrese al local te avisamos. ¡Gracias por la paciencia!`;
+    }
+  },
+  {
+    id: 'confirmacion',
+    title: '✅ Confirmación de pedido',
+    icon: '✅',
+    estados: null,  // siempre disponible
+    text: p => {
+      const nombre = (p.nombre_cliente || '').split(' ')[0] || '';
+      const desc = p.descripcion_sku || p.sku || 'el producto que solicitaste';
+      const cant = p.cantidad > 1 ? ` (x${p.cantidad})` : '';
+      return `Hola ${nombre}! Confirmamos que registramos tu pedido de ${desc.toLowerCase()}${cant}. Te avisamos apenas esté disponible. Saludos de Claudia Adorno 🌿`;
+    }
+  },
+  {
+    id: 'gracias',
+    title: '🌿 Agradecimiento post-compra',
+    icon: '🌿',
+    estados: ['Completado'],
+    text: p => {
+      const nombre = (p.nombre_cliente || '').split(' ')[0] || '';
+      return `Hola ${nombre}! Te agradecemos mucho por tu compra en Claudia Adorno. Esperamos verte pronto. Cualquier cosa, estamos a disposición 🌿`;
+    }
+  },
+  {
+    id: 'cumple',
+    title: '🎂 Saludo de cumpleaños',
+    icon: '🎂',
+    estados: null,
+    text: p => {
+      const nombre = (p.nombre_cliente || '').split(' ')[0] || '';
+      return `¡Feliz cumpleaños, ${nombre}! 🎂🎉 Que tengas un día hermoso. Te esperamos cuando pases por el local para festejarte 🌿`;
+    }
+  },
+  {
+    id: 'novedades',
+    title: '🆕 Llegaron novedades',
+    icon: '🆕',
+    estados: null,
+    text: p => {
+      const nombre = (p.nombre_cliente || '').split(' ')[0] || '';
+      return `Hola ${nombre}! Nos llegaron novedades a Claudia Adorno que pensamos podrían gustarte. ¿Pasás por el local esta semana? Te las mostramos.`;
+    }
+  },
+];
+
+let waTemplatesPedidoActual = null;
+
+function openWaTemplates(pedidoId) {
+  const p = pedidosCache.find(x => x.id === pedidoId);
+  if (!p) { toast('Pedido no encontrado'); return; }
+  if (!p.celular) { toast('⚠️ Este pedido no tiene celular cargado'); return; }
+  waTemplatesPedidoActual = p;
+
+  document.getElementById('wa-templates-subtitle').innerHTML =
+    `${escHtml(p.nombre_cliente || '')} · 📱 ${escHtml(p.celular || '')} · <em>${escHtml(p.estado || '')}</em>`;
+
+  const list = document.getElementById('wa-templates-list');
+  list.innerHTML = WA_TEMPLATES.map(t => {
+    const aplicable = !t.estados || t.estados.includes(p.estado);
+    const klass = aplicable ? '' : ' disabled';
+    const preview = t.text(p);
+    const onClick = aplicable ? `onclick="sendWaTemplate('${t.id}')"` : '';
+    return `<div class="wa-template-card${klass}" ${onClick}>
+      <div class="wa-template-title">${escHtml(t.title)}${aplicable ? '' : ' <span style="font-size:10px;color:var(--muted)">(no aplica al estado actual)</span>'}</div>
+      <div class="wa-template-preview">${escHtml(preview)}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('wa-templates-modal').classList.add('active');
+}
+
+function closeWaTemplates() {
+  document.getElementById('wa-templates-modal').classList.remove('active');
+  waTemplatesPedidoActual = null;
+}
+
+function sendWaTemplate(templateId) {
+  const p = waTemplatesPedidoActual;
+  if (!p) return;
+  const tpl = WA_TEMPLATES.find(t => t.id === templateId);
+  if (!tpl) return;
+
+  // Reconstruir el URL de WA con el texto del template
+  let digits = String(p.celular || '').replace(/\D/g,'');
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  const m2 = digits.match(/^(\d{2})(15)(\d{8})$/);
+  const m3 = digits.match(/^(\d{3})(15)(\d{7})$/);
+  const m4 = digits.match(/^(\d{4})(15)(\d{6})$/);
+  if (m2) digits = m2[1] + m2[3];
+  else if (m3) digits = m3[1] + m3[3];
+  else if (m4) digits = m4[1] + m4[3];
+  const phone = digits.startsWith('549') ? digits : '549' + digits;
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(tpl.text(p))}`;
+  window.open(url, '_blank');
+  closeWaTemplates();
 }
 
 function onWaClick(id) {
