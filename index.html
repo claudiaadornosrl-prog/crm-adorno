@@ -421,20 +421,6 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 
 
 
-/* Estilo de inputs bloqueados por cliente existente */
-input[readonly].locked-by-cliente, textarea[readonly].locked-by-cliente {
-  background: #fef9c3 !important;
-  color: #78350f;
-  cursor: not-allowed;
-  font-weight: 600;
-}
-.unlock-link {
-  font-size: 11px; color: var(--accent); cursor: pointer;
-  text-decoration: underline;
-  display: inline-block; margin-top: 4px;
-}
-.unlock-link:hover { color: #4338ca; }
-
 /* Banner de cliente detectado en el form */
 .cliente-detected {
   display: none;
@@ -1635,8 +1621,8 @@ function renderClienteDetectado(c) {
   const banner = document.getElementById('cliente-detected-banner');
   if (!banner) return;
 
-  // AUTOCOMPLETAR AUTOMÁTICO + bloquear los campos para evitar datos divergentes
-  autocompletarYBloquear(c);
+  // AUTOCOMPLETAR (sin bloquear — la vendedora puede modificar libremente)
+  autocompletarCliente(c);
 
   const tags = (c.tags || []).map(t => `<span class="tag-chip ${tagClass(t)}">${escHtml(t)}</span>`).join('');
   const total = (c.total_compras || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
@@ -1647,7 +1633,7 @@ function renderClienteDetectado(c) {
     <div class="cliente-detected-header">
       <span style="font-size:18px">🌟</span>
       <div>
-        <div class="cliente-detected-title">CLIENTE EXISTENTE — DATOS BLOQUEADOS</div>
+        <div class="cliente-detected-title">CLIENTE EXISTENTE</div>
         <div class="cliente-detected-name">${escHtml(c.nombre_completo || 'Sin nombre')}</div>
       </div>
     </div>
@@ -1658,18 +1644,14 @@ function renderClienteDetectado(c) {
       ${c.email ? ' · ✉ ' + escHtml(c.email) : ''}
     </div>
     ${tags ? `<div class="cliente-detected-tags">${tags}</div>` : ''}
-    <div style="font-size:11px;color:#78350f;margin-top:8px;font-style:italic">
-      📌 Los datos del cliente vienen del sistema. Para modificarlos, editá la ficha del cliente o desbloqueá manualmente.
-    </div>
     <div class="cliente-detected-actions">
       <button class="cliente-detected-btn secondary" onclick="verDetalleCliente('${escHtml(c.globalid)}')">👁 Ver ficha completa</button>
-      <button class="cliente-detected-btn secondary" onclick="desbloquearCamposCliente()" style="background:transparent;color:#78350f;border:1px dashed #d97706">✏️ Modificar datos manualmente</button>
     </div>
   `;
   banner.classList.add('show');
 }
 
-function autocompletarYBloquear(c) {
+function autocompletarCliente(c) {
   // Partir nombre
   const fullName = (c.nombre_completo || '').trim();
   let primerNombre = '', apellido = '';
@@ -1683,43 +1665,25 @@ function autocompletarYBloquear(c) {
     apellido = tokens.slice(1).join(' ') || '';
   }
 
-  const setAndLock = (id, val) => {
+  // Setear el valor sin bloquear el input — la vendedora puede modificar libremente
+  const setVal = (id, val) => {
     const el = document.getElementById(id);
     if (!el) return;
     if (val !== null && val !== undefined && val !== '') el.value = val;
-    el.readOnly = true;
-    el.classList.add('locked-by-cliente');
   };
 
-  setAndLock('f-nombre', primerNombre);
-  setAndLock('f-apellido', apellido);
-  if (c.celular) setAndLock('f-celular', c.celular);
-  if (c.email)   setAndLock('f-email', c.email);
-  if (c.fecha_nacimiento) setAndLock('f-fnac', c.fecha_nacimiento);
-  // DNI y celular pueden quedar como vinieron — el DNI quizás lo tipeó la vendedora
-  // Bloqueamos DNI también para que no cambie sin querer
-  const dniEl = document.getElementById('f-dni');
-  if (dniEl && c.dni) { dniEl.value = c.dni; dniEl.readOnly = true; dniEl.classList.add('locked-by-cliente'); }
-}
-
-function desbloquearCamposCliente() {
-  if (!confirm('⚠️ Vas a modificar los datos de un cliente existente.\n\nEsto puede crear inconsistencias con el sistema (Dragonfish). ¿Continuar?')) return;
-  ['f-nombre','f-apellido','f-dni','f-celular','f-email','f-fnac'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.readOnly = false; el.classList.remove('locked-by-cliente'); }
-  });
-  toast('🔓 Campos desbloqueados — los cambios solo afectan a este pedido');
+  setVal('f-nombre', primerNombre);
+  setVal('f-apellido', apellido);
+  if (c.celular) setVal('f-celular', c.celular);
+  if (c.email)   setVal('f-email', c.email);
+  if (c.fecha_nacimiento) setVal('f-fnac', c.fecha_nacimiento);
+  if (c.dni) setVal('f-dni', c.dni);
 }
 
 function hideClienteDetectado() {
   const banner = document.getElementById('cliente-detected-banner');
   if (banner) { banner.classList.remove('show'); banner.innerHTML = ''; }
   clienteDetectado = null;
-  // Desbloquear campos por si quedaban bloqueados
-  ['f-nombre','f-apellido','f-dni','f-celular','f-email','f-fnac'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && el.readOnly) { el.readOnly = false; el.classList.remove('locked-by-cliente'); }
-  });
 }
 
 function usarDatosCliente() {
