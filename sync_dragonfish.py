@@ -54,6 +54,7 @@ SQL_SERVER_CONN = (
 LOCALES = {
     "unicenter": ["DRAGONFISH_UNI1", "DRAGONFISH_UNI2"],
     "alcorta":   ["DRAGONFISH_ALCO1", "DRAGONFISH_ALCO2"],
+    "oficina":   ["DRAGONFISH_ADMIN"],  # venta online + admin central
 }
 
 # Ventana de tiempo para buscar ingresos MSTOCK (solo usado si ZNube falla)
@@ -762,6 +763,7 @@ BASE_TO_LOCAL = {
     "DRAGONFISH_UNI2":  "unicenter",
     "DRAGONFISH_ALCO1": "alcorta",
     "DRAGONFISH_ALCO2": "alcorta",
+    "DRAGONFISH_ADMIN": "oficina",
 }
 
 
