@@ -405,6 +405,25 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .cliente-sucursal.unicenter { background: #ede9fe; color: #6d28d9; }
 .cliente-sucursal.alcorta { background: #fce7f3; color: #be185d; }
 
+
+/* Botones de acción rápida en ficha del cliente */
+.cliente-actions-row {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding: 10px 20px 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+}
+.cliente-action-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 20px; border: none;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  text-decoration: none; transition: transform .12s, box-shadow .12s;
+}
+.cliente-action-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+.cliente-action-btn.wa    { background: #25d366; color: white; }
+.cliente-action-btn.mail  { background: #6366f1; color: white; }
+.cliente-action-btn.tel   { background: #f59e0b; color: white; }
+.cliente-action-btn svg   { width: 14px; height: 14px; flex-shrink: 0; }
+
 /* ═══ Modal Cliente 360° ═══ */
 .cliente-modal-header { background: linear-gradient(135deg, var(--accent) 0%, #5b21b6 100%); padding: 20px 24px; color: white; position: relative; }
 .cliente-modal-header h2 { font-size: 20px; font-weight: 700; margin: 0 0 6px; padding-right: 40px; }
@@ -2600,6 +2619,32 @@ async function openClienteDetail(globalid) {
   }
 }
 
+// Helper: arma URL de WhatsApp para un cliente del modal C360
+function clienteWaUrl(celular, nombre_completo) {
+  if (!celular) return null;
+  let digits = String(celular).replace(/\D/g,'');
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  // Sacar 15 de móviles (formato viejo: 11 15 5555-5555 → 11 5555-5555)
+  const m2 = digits.match(/^(\d{2})(15)(\d{8})$/);
+  const m3 = digits.match(/^(\d{3})(15)(\d{7})$/);
+  const m4 = digits.match(/^(\d{4})(15)(\d{6})$/);
+  if (m2) digits = m2[1] + m2[3];
+  else if (m3) digits = m3[1] + m3[3];
+  else if (m4) digits = m4[1] + m4[3];
+  const phone = digits.startsWith('549') ? digits : '549' + digits;
+  const primerNombre = (nombre_completo || '').trim().split(/\s+/)[0] || '';
+  const saludo = primerNombre ? `Hola ${primerNombre}! Te escribimos de Claudia Adorno 🌿` : 'Hola! Te escribimos de Claudia Adorno 🌿';
+  return `https://wa.me/${phone}?text=${encodeURIComponent(saludo)}`;
+}
+
+function clienteMailUrl(email, nombre_completo) {
+  if (!email) return null;
+  const primerNombre = (nombre_completo || '').trim().split(/\s+/)[0] || '';
+  const asunto = 'Claudia Adorno';
+  const cuerpo = primerNombre ? `Hola ${primerNombre}!\n\n` : '';
+  return `mailto:${email}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+}
+
 function renderClienteDetail() {
   const { c, compras, pedidosCrm } = clienteDetailCache;
 
@@ -2631,6 +2676,11 @@ function renderClienteDetail() {
         ${c.locales_presentes && c.locales_presentes.length ? ' · En: ' + c.locales_presentes.join(', ') : ''}
       </div>
     </div>
+    ${(c.celular || c.email || c.telefono) ? `<div class="cliente-actions-row">
+      ${c.celular ? `<a class="cliente-action-btn wa" href="${clienteWaUrl(c.celular, c.nombre_completo)}" target="_blank" title="Abrir chat de WhatsApp">${waSvg()} WhatsApp</a>` : ''}
+      ${c.email   ? `<a class="cliente-action-btn mail" href="${clienteMailUrl(c.email, c.nombre_completo)}" title="Enviar mail">✉ Email</a>` : ''}
+      ${c.telefono ? `<a class="cliente-action-btn tel" href="tel:${escHtml(c.telefono)}" title="Llamar al teléfono fijo">📞 ${escHtml(c.telefono)}</a>` : ''}
+    </div>` : ''}
     ${renderTagsModal(c)}
     <div class="cliente-stats-row">
       <div class="cliente-stat-box"><div class="cliente-stat-num">${fmtCurrency(c.total_compras)}</div><div class="cliente-stat-label">Total año</div></div>
@@ -3620,3 +3670,4 @@ document.addEventListener('input', function(e) {
 </script>
 </body>
 </html>
+          
