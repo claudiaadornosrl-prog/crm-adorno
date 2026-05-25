@@ -352,6 +352,19 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 
 
 
+
+/* Botón eliminar (admin) en modal de edición */
+.btn-delete {
+  width: 100%; margin-top: 8px;
+  background: transparent; color: var(--danger);
+  border: 1.5px solid var(--danger);
+  border-radius: 10px; padding: 10px;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: all .15s;
+}
+.btn-delete:hover { background: var(--danger); color: white; }
+.btn-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* Audit log — historial de cambios en el modal de edición */
 .audit-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
 .audit-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
@@ -1558,6 +1571,7 @@ async function submitPedido() {
 
   try {
     // Create one pedido per SKU line
+    const creados = [];
     for (const line of validLines) {
       const created = await fetch(`${SUPA_URL}/rest/v1/pedidos`, {
         method: 'POST',
@@ -1579,13 +1593,19 @@ async function submitPedido() {
           estado:          'Pendiente',
         }),
       });
-      if (created.ok) {
-        const arr = await created.json();
-        const newP = Array.isArray(arr) ? arr[0] : arr;
-        if (newP && newP.id) {
-          logPedidoCrear(newP.id, newP); // fire and forget
-        }
+      if (!created.ok) {
+        const errBody = await created.text();
+        throw new Error(`POST /pedidos status ${created.status}: ${errBody.substring(0, 300)}`);
       }
+      const arr = await created.json();
+      const newP = Array.isArray(arr) ? arr[0] : arr;
+      if (newP && newP.id) {
+        creados.push(newP);
+        logPedidoCrear(newP.id, newP);
+      }
+    }
+    if (!creados.length) {
+      throw new Error('No se pudo crear ningún pedido — verificá los datos');
     }
 
     const count = validLines.length;
@@ -2625,7 +2645,6 @@ function clienteWaUrl(celular, nombre_completo) {
   if (!celular) return null;
   let digits = String(celular).replace(/\D/g,'');
   if (digits.startsWith('0')) digits = digits.slice(1);
-  // Sacar 15 de móviles (formato viejo: 11 15 5555-5555 → 11 5555-5555)
   const m2 = digits.match(/^(\d{2})(15)(\d{8})$/);
   const m3 = digits.match(/^(\d{3})(15)(\d{7})$/);
   const m4 = digits.match(/^(\d{4})(15)(\d{6})$/);
@@ -3310,7 +3329,6 @@ function openEditModal(id) {
       auditDiv.innerHTML = renderAuditLog(logs);
     });
   }
-  // Mostrar botón eliminar solo si es admin
   const delBtn = document.getElementById('edit-delete-btn');
   if (delBtn) {
     delBtn.style.display = (session && session.isAdmin) ? 'block' : 'none';
@@ -3413,6 +3431,36 @@ function selectEditSku(sku, desc) {
     <span class="desc">${escHtml(desc)}</span>
     <span class="clear" onclick="clearEditSku()">✕</span>
   </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Eliminar pedido (solo admin)
+// ═══════════════════════════════════════════════════════
+async function deletePedido() {
+  if (!editingId) return;
+  if (!session || !session.isAdmin) { toast('❌ Solo el administrador puede eliminar pedidos'); return; }
+  const p = pedidosCache.find(x => x.id === editingId) || {};
+  const resumen = `${p.nombre_cliente || 'Sin nombre'} — SKU ${p.sku || '—'} (${p.estado || ''})`;
+  if (!confirm(`⚠️ ELIMINAR DEFINITIVAMENTE este pedido?\n\n${resumen}\n\nEsta acción no se puede deshacer.`)) return;
+  if (!confirm('Confirmá una vez más: vas a borrar el pedido permanentemente.')) return;
+  const btn = document.getElementById('edit-delete-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Eliminando…'; }
+  try {
+    await logPedidoChange(editingId, 'eliminar', null, resumen, 'eliminado');
+    const r = await fetch(`${SUPA_URL}/rest/v1/pedidos?id=eq.${editingId}`, { method: 'DELETE', headers: supaHeaders() });
+    if (!r.ok) throw new Error(`DELETE ${r.status}: ${await r.text()}`);
+    pedidosCache = pedidosCache.filter(x => x.id !== editingId);
+    const idEliminado = editingId;
+    closeEditModal();
+    updateAlertBadge();
+    renderPedidos();
+    renderAlertas();
+    if (session.isAdmin) renderAdmin();
+    toast(`🗑 Pedido #${idEliminado} eliminado`);
+  } catch(e) {
+    toast('❌ Error al eliminar: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '🗑 Eliminar pedido'; }
+  }
 }
 
 async function saveEdit() {
@@ -3671,4 +3719,10 @@ document.addEventListener('input', function(e) {
   const upper = val.toUpperCase();
   if (val === upper) return;
   const start = t.selectionStart;
-  const end 
+  const end = t.selectionEnd;
+  t.value = upper;
+  try { t.setSelectionRange(start, end); } catch(_) {}
+});
+</script>
+</body>
+</html>
