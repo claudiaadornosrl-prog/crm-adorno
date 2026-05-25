@@ -58,6 +58,7 @@ html.dark {
   --wa:       #25D366;
   --uni-bg:   #312e81; --uni-c: #c4b5fd;
   --alco-bg:  #831843; --alco-c: #fbcfe8;
+  --ofi-bg:  #14532d; --ofi-c: #bbf7d0;
   --shadow:   0 1px 4px rgba(0,0,0,0.4);
 }
 /* Ajustes específicos del dark mode para elementos que no usan variables */
@@ -417,6 +418,7 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .cliente-sucursal { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
 .cliente-sucursal.unicenter { background: #ede9fe; color: #6d28d9; }
 .cliente-sucursal.alcorta { background: #fce7f3; color: #be185d; }
+.cliente-sucursal.oficina { background: #dcfce7; color: #166534; }
 
 
 
@@ -833,6 +835,11 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
           <div class="local-name">Alcorta</div>
           <div class="local-sub">Palermo</div>
         </div>
+        <div class="local-opt" data-local="oficina" onclick="selectLocal(this)">
+          <div class="local-icon">💻</div>
+          <div class="local-name">Oficina</div>
+          <div class="local-sub">Venta online</div>
+        </div>
       </div>
     </div>
     <button class="btn-primary" id="setup-btn" onclick="startSession()" disabled>Entrar →</button>
@@ -1244,13 +1251,17 @@ const VENDEDORAS = {
     'Adrián Noguera Parra', 'Elisabeth Quiroga', 'Georgina Verón',
     'Liliana Copa', 'María Bianchi', 'Romina Benítez', 'Valeria Nicola',
   ],
+  oficina: [
+    // TODO: completar con vendedoras/equipo de oficina (venta online)
+  ],
 };
 // Para el admin o locales sin lista propia: todos los nombres
-const VENDEDORAS_TODAS = [...new Set([...VENDEDORAS.unicenter, ...VENDEDORAS.alcorta])].sort();
+const VENDEDORAS_TODAS = [...new Set([...VENDEDORAS.unicenter, ...VENDEDORAS.alcorta, ...VENDEDORAS.oficina])].sort();
 
 const LOCALES = {
   unicenter: { nombre: 'Unicenter', icon: '🏬', sub: 'Martínez' },
   alcorta:   { nombre: 'Alcorta',   icon: '🛍️', sub: 'Palermo' },
+  oficina:   { nombre: 'Oficina',   icon: '💻', sub: 'Venta online' },
 };
 const WA_PREFIX = 'https://wa.me/';
 // Números de WhatsApp Business por local (para mensajes automáticos del sistema)
