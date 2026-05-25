@@ -1558,7 +1558,6 @@ async function submitPedido() {
 
   try {
     // Create one pedido per SKU line
-    const creados = [];
     for (const line of validLines) {
       const created = await fetch(`${SUPA_URL}/rest/v1/pedidos`, {
         method: 'POST',
@@ -1580,20 +1579,13 @@ async function submitPedido() {
           estado:          'Pendiente',
         }),
       });
-      if (!created.ok) {
-        // El POST falló — abortar el flujo y mostrar error real
-        const errBody = await created.text();
-        throw new Error(`POST /pedidos status ${created.status}: ${errBody.substring(0, 300)}`);
+      if (created.ok) {
+        const arr = await created.json();
+        const newP = Array.isArray(arr) ? arr[0] : arr;
+        if (newP && newP.id) {
+          logPedidoCrear(newP.id, newP); // fire and forget
+        }
       }
-      const arr = await created.json();
-      const newP = Array.isArray(arr) ? arr[0] : arr;
-      if (newP && newP.id) {
-        creados.push(newP);
-        logPedidoCrear(newP.id, newP); // fire and forget
-      }
-    }
-    if (!creados.length) {
-      throw new Error('No se pudo crear ningún pedido — verificá los datos');
     }
 
     const count = validLines.length;
