@@ -419,6 +419,39 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .cliente-sucursal.alcorta { background: #fce7f3; color: #be185d; }
 
 
+
+/* Banner de cliente detectado en el form */
+.cliente-detected {
+  display: none;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-left: 4px solid #f59e0b;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 10px 0 14px;
+  position: relative;
+  animation: slideDown 0.25s ease;
+}
+.cliente-detected.show { display: block; }
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cliente-detected-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.cliente-detected-title { font-size: 13px; font-weight: 700; color: #78350f; }
+.cliente-detected-name { font-size: 15px; font-weight: 700; color: #1a1a2e; line-height: 1.2; }
+.cliente-detected-meta { font-size: 12px; color: #6b5b1a; margin-top: 4px; }
+.cliente-detected-meta strong { color: #1a1a2e; }
+.cliente-detected-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.cliente-detected-actions { display: flex; gap: 6px; margin-top: 10px; }
+.cliente-detected-btn {
+  background: #f59e0b; color: white; border: none;
+  padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  font-size: 12px; font-weight: 700; transition: filter .15s;
+}
+.cliente-detected-btn:hover { filter: brightness(1.1); }
+.cliente-detected-btn.secondary { background: transparent; color: #78350f; border: 1px solid #d97706; }
+.cliente-detected-loading { font-size: 12px; color: var(--muted); padding: 4px 0; }
+
 /* Botones de acción rápida en ficha del cliente */
 .cliente-actions-row {
   display: flex; gap: 8px; flex-wrap: wrap;
@@ -840,6 +873,8 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
               <label>Email (opcional)</label>
               <input type="email" id="f-email" placeholder="cliente@mail.com" autocomplete="off">
             </div>
+
+            <div class="cliente-detected" id="cliente-detected-banner"></div>
 
             <div class="field">
               <label>Motivo</label>
@@ -1534,6 +1569,140 @@ document.addEventListener('click', e => {
 // SKU único — solo para modal edición
 function selectSku(sku, desc) { /* ver modal edición */ }
 function clearSku() { /* ver modal edición */ }
+
+// ═══════════════════════════════════════════════════════
+//  Auto-detección de cliente conocido (al tipear celular o DNI)
+// ═══════════════════════════════════════════════════════
+let detectClienteTimer = null;
+let detectClienteToken = null;
+let clienteDetectado = null;  // cliente actualmente detectado
+
+async function detectarClienteExistente() {
+  const cel = document.getElementById('f-celular').value.trim();
+  const dni = document.getElementById('f-dni').value.trim();
+
+  // Necesitamos al menos uno
+  if (cel.length < 8 && dni.length < 7) {
+    hideClienteDetectado();
+    return;
+  }
+
+  const thisToken = Symbol();
+  detectClienteToken = thisToken;
+
+  // Construir filtro OR para buscar por celular o DNI
+  const filters = [];
+  if (cel.length >= 8) filters.push(`celular.eq.${cel}`);
+  if (dni.length >= 7) filters.push(`dni.eq.${dni}`);
+  if (!filters.length) { hideClienteDetectado(); return; }
+
+  try {
+    const matches = await supaGet('clientes', {
+      select: 'globalid,nombre_completo,celular,dni,cuit,email,fecha_nacimiento,total_compras,cantidad_compras,ticket_promedio,sucursal_favorita,ultima_compra_fecha,tags',
+      or: '(' + filters.join(',') + ')',
+      order: 'total_compras.desc.nullslast',
+      limit: '1',
+    });
+    if (detectClienteToken !== thisToken) return;
+
+    if (matches.length) {
+      clienteDetectado = matches[0];
+      renderClienteDetectado(clienteDetectado);
+    } else {
+      hideClienteDetectado();
+    }
+  } catch(e) {
+    console.warn('detectarClienteExistente error:', e);
+  }
+}
+
+function renderClienteDetectado(c) {
+  const banner = document.getElementById('cliente-detected-banner');
+  if (!banner) return;
+
+  const tags = (c.tags || []).map(t => `<span class="tag-chip ${tagClass(t)}">${escHtml(t)}</span>`).join('');
+  const total = (c.total_compras || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
+  const ultima = c.ultima_compra_fecha ? formatDate(c.ultima_compra_fecha).split(' ')[0] : 'sin compras registradas';
+  const sucBadge = c.sucursal_favorita ? `<span class="cliente-sucursal ${c.sucursal_favorita}" style="font-size:10px">${c.sucursal_favorita === 'unicenter' ? '🛍️ UNI' : '🏪 ALCO'}</span>` : '';
+
+  banner.innerHTML = `
+    <div class="cliente-detected-header">
+      <span style="font-size:18px">🌟</span>
+      <div>
+        <div class="cliente-detected-title">CLIENTE EXISTENTE</div>
+        <div class="cliente-detected-name">${escHtml(c.nombre_completo || 'Sin nombre')}</div>
+      </div>
+    </div>
+    <div class="cliente-detected-meta">
+      <strong>${total}</strong> en <strong>${c.cantidad_compras || 0}</strong> compras · 
+      Última: <strong>${ultima}</strong>
+      ${sucBadge ? ' · ' + sucBadge : ''}
+      ${c.email ? ' · ✉ ' + escHtml(c.email) : ''}
+    </div>
+    ${tags ? `<div class="cliente-detected-tags">${tags}</div>` : ''}
+    <div class="cliente-detected-actions">
+      <button class="cliente-detected-btn" onclick="usarDatosCliente()">📋 Usar estos datos</button>
+      <button class="cliente-detected-btn secondary" onclick="verDetalleCliente('${escHtml(c.globalid)}')">👁 Ver ficha completa</button>
+    </div>
+  `;
+  banner.classList.add('show');
+}
+
+function hideClienteDetectado() {
+  const banner = document.getElementById('cliente-detected-banner');
+  if (banner) { banner.classList.remove('show'); banner.innerHTML = ''; }
+  clienteDetectado = null;
+}
+
+function usarDatosCliente() {
+  if (!clienteDetectado) return;
+  const c = clienteDetectado;
+  // Partir nombre_completo en primer nombre + apellido (heurística simple)
+  const fullName = (c.nombre_completo || '').trim();
+  // Si tiene coma → "Apellido, Nombre" → invertir
+  let primerNombre = '', apellido = '';
+  if (fullName.includes(',')) {
+    const partes = fullName.split(',').map(p => p.trim());
+    apellido = partes[0] || '';
+    primerNombre = partes.slice(1).join(' ') || '';
+  } else {
+    // Primer token = nombre, resto = apellido (asumimos formato "Nombre Apellido Apellido2")
+    const tokens = fullName.split(/\s+/);
+    primerNombre = tokens[0] || '';
+    apellido = tokens.slice(1).join(' ') || '';
+  }
+
+  // Solo autocompletar campos vacíos (no pisar lo que la vendedora ya tipeó)
+  const setIfEmpty = (id, val) => {
+    if (!val) return;
+    const el = document.getElementById(id);
+    if (el && !el.value.trim()) el.value = val;
+  };
+  setIfEmpty('f-nombre', primerNombre);
+  setIfEmpty('f-apellido', apellido);
+  setIfEmpty('f-dni', c.dni || '');
+  setIfEmpty('f-celular', c.celular || '');
+  setIfEmpty('f-email', c.email || '');
+  if (c.fecha_nacimiento) setIfEmpty('f-fnac', c.fecha_nacimiento);
+  toast('✅ Datos completados desde el cliente existente');
+}
+
+function verDetalleCliente(globalid) {
+  if (typeof openClienteDetail === 'function') openClienteDetail(globalid);
+}
+
+// Listeners de input con debounce
+function _wireDetectCliente() {
+  const cel = document.getElementById('f-celular');
+  const dni = document.getElementById('f-dni');
+  const handler = () => {
+    clearTimeout(detectClienteTimer);
+    detectClienteTimer = setTimeout(detectarClienteExistente, 450);
+  };
+  if (cel) cel.addEventListener('input', handler);
+  if (dni) dni.addEventListener('input', handler);
+}
+setTimeout(_wireDetectCliente, 0);
 
 // ═══════════════════════════════════════════════════════
 //  Submit pedido  (multi-SKU: one pedido per line)
