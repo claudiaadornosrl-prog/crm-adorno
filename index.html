@@ -308,7 +308,7 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 #panel-nuevo > .card { width: 100%; max-width: 520px; align-self: flex-start; }
 
 /* Tablero de pedidos y alertas: contenido centrado, no full-width en desktop */
-#panel-pedidos > *, #panel-alertas > * { max-width: 720px; margin-left: auto; margin-right: auto; }
+#panel-pedidos > *, #panel-alertas > *, #panel-hoy > * { max-width: 720px; margin-left: auto; margin-right: auto; }
 
 /* ── Cards ── */
 .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 12px; overflow: hidden; }
@@ -453,6 +453,51 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .cliente-detected-btn.secondary { background: transparent; color: #78350f; border: 1px solid #d97706; }
 .cliente-detected-loading { font-size: 12px; color: var(--muted); padding: 4px 0; }
 
+
+
+/* ═══ Dashboard Hoy ═══ */
+.hoy-hero {
+  background: linear-gradient(135deg, var(--accent) 0%, #5b21b6 100%);
+  color: white; padding: 18px 20px; border-radius: 14px;
+  margin-bottom: 14px;
+}
+.hoy-hero .saludo { font-size: 13px; opacity: 0.85; }
+.hoy-hero .nombre { font-size: 22px; font-weight: 700; margin-top: 2px; }
+.hoy-hero .fecha { font-size: 12px; opacity: 0.75; margin-top: 6px; }
+.hoy-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.hoy-kpi { text-align: center; padding: 10px; background: rgba(255,255,255,0.12); border-radius: 8px; }
+.hoy-kpi-num { font-size: 18px; font-weight: 700; line-height: 1; }
+.hoy-kpi-lbl { font-size: 10px; opacity: 0.85; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+.hoy-section { margin-bottom: 16px; }
+.hoy-section-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.hoy-section-title .count { font-size: 11px; background: var(--accent); color: white; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+.hoy-section-title .count.urgente { background: #ef4444; }
+.hoy-section-title .count.warn { background: #f59e0b; }
+.hoy-section-title .count.cumple { background: #ec4899; }
+
+.hoy-card {
+  background: var(--card); border-radius: 10px; box-shadow: var(--shadow);
+  padding: 10px 12px; margin-bottom: 6px;
+  display: flex; align-items: center; gap: 10px;
+}
+.hoy-card .info { flex: 1; min-width: 0; }
+.hoy-card .titulo { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.hoy-card .desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.hoy-card .age { font-size: 11px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.hoy-card .age.urgente { color: #ef4444; }
+.hoy-card .age.warn { color: #f59e0b; }
+.hoy-card .age.ok { color: #10b981; }
+.hoy-card .acciones { display: flex; gap: 4px; }
+.hoy-card .acciones button, .hoy-card .acciones a {
+  padding: 5px 9px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  border: none; cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.hoy-card .acciones .btn-mini-wa { background: #25d366; color: white; }
+.hoy-card .acciones .btn-mini-listo { background: var(--accent); color: white; }
+.hoy-card .acciones .btn-mini-comp { background: #10b981; color: white; }
+.hoy-empty-section { padding: 16px; text-align: center; color: var(--muted); font-size: 12px; background: var(--card); border-radius: 10px; border: 1px dashed var(--border); }
 
 /* Modal de templates de WhatsApp */
 #wa-templates-modal { display: none; position: fixed; inset: 0; z-index: 1500; background: rgba(0,0,0,0.55); padding: 50px 20px 20px; overflow-y: auto; }
@@ -826,7 +871,11 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 
   <!-- Tab bar -->
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="nuevo" onclick="switchTab('nuevo')">
+    <button class="tab-btn active" data-tab="hoy" onclick="switchTab('hoy')">
+      <span class="tab-icon">🏠</span>
+      <span>Hoy</span>
+    </button>
+    <button class="tab-btn" data-tab="nuevo" onclick="switchTab('nuevo')">
       <span class="tab-icon">➕</span>
       <span>Nuevo</span>
     </button>
@@ -853,7 +902,12 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
   <div class="tab-panels">
 
     <!-- ── NUEVO PEDIDO ── -->
-    <div class="tab-panel active" id="panel-nuevo">
+    <!-- ── HOY ────────────────── -->
+    <div class="tab-panel active" id="panel-hoy">
+      <div id="hoy-content"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+    </div>
+
+    <div class="tab-panel" id="panel-nuevo">
       <div class="card">
         <div class="card-header">
           <span class="card-title">Registrar pedido de cliente</span>
@@ -1199,6 +1253,16 @@ const LOCALES = {
   alcorta:   { nombre: 'Alcorta',   icon: '🛍️', sub: 'Palermo' },
 };
 const WA_PREFIX = 'https://wa.me/';
+// Números de WhatsApp Business por local (para mensajes automáticos del sistema)
+const WA_LOCAL_NUMBERS = {
+  'unicenter': { numero: '5491169784741', label: 'Unicenter' },
+  'alcorta':   { numero: '5491169784643', label: 'Alcorta'   },
+  'oficina':   { numero: '5491169784557', label: 'Oficina (venta online)' },
+};
+function waLocalUrl(local_id) {
+  const cfg = WA_LOCAL_NUMBERS[local_id];
+  return cfg ? `https://wa.me/${cfg.numero}` : null;
+}
 
 // ═══════════════════════════════════════════════════════
 //  Estado
@@ -1368,7 +1432,7 @@ function enterApp() {
   }
 
   showScreen('app-screen');
-  switchTab(session.isAdmin ? 'admin' : 'nuevo');
+  switchTab(session.isAdmin ? 'admin' : 'hoy');
   loadData();
 }
 
@@ -1387,6 +1451,7 @@ function switchTab(tab) {
   if (tab === 'alertas') renderAlertas();
   if (tab === 'admin')   renderAdmin();
   if (tab === 'clientes') loadClientesVendedora('');
+  if (tab === 'hoy')     renderHoy();
   if (tab === 'nuevo' && skuLines.length === 0) addSkuLine();
 }
 
@@ -1441,6 +1506,9 @@ async function loadPedidos() {
     renderPedidos();
     renderAlertas();
     if (session.isAdmin) renderAdmin();
+    // Si el tab activo es Hoy, refrescar el dashboard
+    const activeTab = document.querySelector('.tab-panel.active');
+    if (activeTab && activeTab.id === 'panel-hoy') renderHoy();
   } catch(e) {
     console.error('loadPedidos:', e);
     toast('❌ Error al cargar pedidos');
@@ -1988,6 +2056,210 @@ function toggleSort() {
   const btn = document.getElementById('sort-btn');
   if (btn) btn.textContent = currentSortOrder === 'desc' ? '🔽 Más nuevo' : '🔼 Más viejo';
   renderPedidos();
+}
+
+// ═══════════════════════════════════════════════════════
+//  Dashboard "Hoy" — pantalla de bienvenida al loguearse
+// ═══════════════════════════════════════════════════════
+async function renderHoy() {
+  const el = document.getElementById('hoy-content');
+  if (!el) return;
+
+  const ahora = new Date();
+  const hora = ahora.getHours();
+  let saludo = 'Buen día';
+  if (hora >= 12 && hora < 19) saludo = 'Buenas tardes';
+  else if (hora >= 19 || hora < 6) saludo = 'Buenas noches';
+
+  const nombreUser = session.isAdmin ? 'JP' : (session.nombre || 'Equipo');
+  const fechaHoy = ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  // Si pedidosCache aún no cargó, mostrar loading
+  if (!pedidosCache || !pedidosCache.length) {
+    el.innerHTML = '<div class="loading"><span class="spinner"></span> Cargando datos...</div>';
+    setTimeout(renderHoy, 500);
+    return;
+  }
+
+  // Filtrar pedidos según contexto del usuario
+  let mis = pedidosCache;
+  // Si vendedora con nombre y modo "mis pedidos" activo, filtrar
+  if (!session.isAdmin && session.nombre && currentMyOnlyMode) {
+    mis = mis.filter(p => p.vendedora === session.nombre);
+  }
+
+  // Categorías:
+  // 1. Listos para avisar (estado="Listo para avisar")
+  const listos = mis.filter(p => p.estado === 'Listo para avisar');
+
+  // 2. Avisados hace +24hs sin completar (re-contacto pendiente)
+  const hace24h = new Date(ahora.getTime() - 24*3600*1000);
+  const recontacto = mis.filter(p => {
+    if (p.estado !== 'Avisado') return false;
+    const fechaAviso = p.fecha_aviso ? new Date(p.fecha_aviso) : null;
+    return fechaAviso && fechaAviso < hace24h;
+  });
+
+  // 3. Pendientes hace +30 días (viejos sin movimiento)
+  const hace30d = new Date(ahora.getTime() - 30*86400000);
+  const viejos = mis.filter(p => {
+    if (p.estado !== 'Pendiente') return false;
+    const fecha = new Date(p.created_at);
+    return fecha < hace30d;
+  });
+
+  // 4. Pedidos completados esta semana (KPI)
+  const hace7d = new Date(ahora.getTime() - 7*86400000);
+  const completadosSemana = mis.filter(p => {
+    if (p.estado !== 'Completado') return false;
+    const fc = p.fecha_completado ? new Date(p.fecha_completado) : null;
+    return fc && fc > hace7d;
+  });
+
+  // 5. Pendientes activos (KPI)
+  const activos = mis.filter(p => ['Pendiente','Listo para avisar','Avisado'].includes(p.estado));
+
+  // 6. Conversiones esta semana (KPI)
+  const conversionesSemana = mis.filter(p => {
+    if (!p.compra_id) return false;
+    const ff = p.factura_fecha ? new Date(p.factura_fecha) : null;
+    return ff && ff > hace7d;
+  });
+
+  // 7. Cumpleaños próximos 7 días — buscar en clientes
+  let cumples = [];
+  try {
+    const clientes = await supaGet('clientes', {
+      select: 'globalid,nombre_completo,celular,fecha_nacimiento,sucursal_favorita',
+      'fecha_nacimiento': 'not.is.null',
+      limit: '500',
+    });
+    cumples = clientes
+      .map(c => ({ ...c, dias: diasHastaCumple(c.fecha_nacimiento) }))
+      .filter(c => c.dias !== null && c.dias <= 7)
+      // Si no es admin, filtrar por sucursal favorita = local
+      .filter(c => session.isAdmin || !session.local_id || c.sucursal_favorita === session.local_id)
+      .sort((a,b) => a.dias - b.dias);
+  } catch(e) { console.warn('No cumples:', e); }
+
+  // Render
+  el.innerHTML = `
+    <div class="hoy-hero">
+      <div class="saludo">${saludo},</div>
+      <div class="nombre">${escHtml(nombreUser)}</div>
+      <div class="fecha">${fechaHoy}</div>
+      <div class="hoy-kpis">
+        <div class="hoy-kpi">
+          <div class="hoy-kpi-num">${activos.length}</div>
+          <div class="hoy-kpi-lbl">Pedidos activos</div>
+        </div>
+        <div class="hoy-kpi">
+          <div class="hoy-kpi-num">${listos.length}</div>
+          <div class="hoy-kpi-lbl">Para avisar</div>
+        </div>
+        <div class="hoy-kpi">
+          <div class="hoy-kpi-num">${completadosSemana.length}</div>
+          <div class="hoy-kpi-lbl">Completados (7d)</div>
+        </div>
+        <div class="hoy-kpi">
+          <div class="hoy-kpi-num">${conversionesSemana.length}</div>
+          <div class="hoy-kpi-lbl">Vendidos (7d)</div>
+        </div>
+      </div>
+    </div>
+
+    ${renderHoySection('🎯 Listos para avisar', listos, 'urgente', renderHoyCardListo)}
+    ${renderHoySection('🔔 Re-contacto pendiente (+24h)', recontacto, 'warn', renderHoyCardRecontacto)}
+    ${renderHoySection('🎂 Cumpleaños esta semana', cumples, 'cumple', renderHoyCardCumple)}
+    ${renderHoySection('⏰ Pedidos viejos (+30 días)', viejos, 'warn', renderHoyCardViejo)}
+  `;
+}
+
+function renderHoySection(titulo, items, countClass, cardRender) {
+  if (!items.length) return '';
+  return `<div class="hoy-section">
+    <div class="hoy-section-title">
+      ${escHtml(titulo)}
+      <span class="count ${countClass}">${items.length}</span>
+    </div>
+    ${items.slice(0, 10).map(cardRender).join('')}
+    ${items.length > 10 ? `<div class="hoy-empty-section" style="border:none;background:transparent;padding:6px 0">+ ${items.length - 10} más</div>` : ''}
+  </div>`;
+}
+
+function renderHoyCardListo(p) {
+  const desc = escHtml(p.descripcion_sku || p.sku || '');
+  const cliente = escHtml(p.nombre_cliente || 'Sin nombre');
+  const sucursal = escHtml(p.local_id || '');
+  const tieneWa = !!p.celular;
+  const waBtn = tieneWa ? `<a class="btn-mini-wa" href="${buildWa(p)}" target="_blank" onclick="markEstado(${p.id},'Avisado'); event.stopPropagation()">${waSvg()} Avisar</a>` : '';
+  return `<div class="hoy-card" onclick="${session.isAdmin ? `openEditModal(${p.id})` : `switchTab('pedidos')`}">
+    <div class="info">
+      <div class="titulo">${cliente} — ${desc}</div>
+      <div class="desc">${sucursal} · ${escHtml(p.vendedora || '—')}</div>
+    </div>
+    <div class="acciones">${waBtn}</div>
+  </div>`;
+}
+
+function renderHoyCardRecontacto(p) {
+  const desc = escHtml(p.descripcion_sku || p.sku || '');
+  const cliente = escHtml(p.nombre_cliente || 'Sin nombre');
+  const fechaAviso = p.fecha_aviso ? new Date(p.fecha_aviso) : null;
+  const horasAviso = fechaAviso ? Math.round((Date.now() - fechaAviso.getTime()) / 3600000) : null;
+  const ageTxt = horasAviso ? (horasAviso >= 48 ? `${Math.floor(horasAviso/24)} días` : `${horasAviso}h`) : '';
+  const ageClass = horasAviso >= 72 ? 'urgente' : 'warn';
+  const tieneWa = !!p.celular;
+  const recontactarBtn = tieneWa ? `<button class="btn-mini-wa" onclick="event.stopPropagation(); openWaTemplates(${p.id})">${waSvg()} Re-contactar</button>` : '';
+  return `<div class="hoy-card" onclick="${session.isAdmin ? `openEditModal(${p.id})` : `switchTab('pedidos')`}">
+    <div class="info">
+      <div class="titulo">${cliente} — ${desc}</div>
+      <div class="desc">Avisado hace <span class="age ${ageClass}">${ageTxt}</span> · ${escHtml(p.vendedora || '')}</div>
+    </div>
+    <div class="acciones">${recontactarBtn}</div>
+  </div>`;
+}
+
+function renderHoyCardCumple(c) {
+  const nombre = escHtml(c.nombre_completo || 'Sin nombre');
+  const cumpleTxt = c.dias === 0 ? '🎉 ¡HOY!' : (c.dias === 1 ? '🎂 Mañana' : `🎂 En ${c.dias} días`);
+  const tieneWa = !!c.celular;
+  let wa = '';
+  if (tieneWa) {
+    const primerN = nombre.split(' ')[0] || '';
+    const saludo = encodeURIComponent(`¡Feliz cumpleaños, ${primerN}! 🎂🎉 Te esperamos en Claudia Adorno para festejar.`);
+    let digits = String(c.celular).replace(/\D/g,'');
+    if (digits.startsWith('0')) digits = digits.slice(1);
+    const m2 = digits.match(/^(\d{2})(15)(\d{8})$/);
+    const m3 = digits.match(/^(\d{3})(15)(\d{7})$/);
+    const m4 = digits.match(/^(\d{4})(15)(\d{6})$/);
+    if (m2) digits = m2[1] + m2[3];
+    else if (m3) digits = m3[1] + m3[3];
+    else if (m4) digits = m4[1] + m4[3];
+    const phone = digits.startsWith('549') ? digits : '549' + digits;
+    wa = `<a class="btn-mini-wa" href="https://wa.me/${phone}?text=${saludo}" target="_blank" onclick="event.stopPropagation()">${waSvg()} Saludar</a>`;
+  }
+  return `<div class="hoy-card" onclick="openClienteDetail('${escHtml(c.globalid)}')">
+    <div class="info">
+      <div class="titulo">${nombre}</div>
+      <div class="desc">${cumpleTxt}${c.sucursal_favorita ? ' · ' + escHtml(c.sucursal_favorita) : ''}</div>
+    </div>
+    <div class="acciones">${wa}</div>
+  </div>`;
+}
+
+function renderHoyCardViejo(p) {
+  const desc = escHtml(p.descripcion_sku || p.sku || '');
+  const cliente = escHtml(p.nombre_cliente || 'Sin nombre');
+  const dias = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 86400000);
+  const ageClass = dias >= 90 ? 'urgente' : 'warn';
+  return `<div class="hoy-card" onclick="${session.isAdmin ? `openEditModal(${p.id})` : `switchTab('pedidos')`}">
+    <div class="info">
+      <div class="titulo">${cliente} — ${desc}</div>
+      <div class="desc">Pendiente hace <span class="age ${ageClass}">${dias} días</span> · ${escHtml(p.vendedora || '')}</div>
+    </div>
+    <div class="acciones"></div>
+  </div>`;
 }
 
 function renderPedidos() {
