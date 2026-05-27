@@ -843,6 +843,12 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
         </div>
       </div>
     </div>
+    <div class="form-group">
+      <label>Contraseña</label>
+      <input type="password" id="setup-pass" placeholder="Contraseña de la sucursal"
+             onkeydown="if(event.key==='Enter')startSession()" oninput="checkSetupReady()" />
+    </div>
+    <div id="setup-error" style="color:#dc2626;font-size:13px;margin-bottom:8px;display:none;"></div>
     <button class="btn-primary" id="setup-btn" onclick="startSession()" disabled>Entrar →</button>
   </div>
   <div class="setup-admin-link">
@@ -1295,13 +1301,51 @@ let lineCounter = 0;
 // ═══════════════════════════════════════════════════════
 //  Supabase helpers
 // ═══════════════════════════════════════════════════════
+// Token del usuario logueado (Supabase Auth). Si no hay, cae a la anon key.
+let authToken = null;
+let authRefreshToken = null;
+
+// Mapeo sucursal → email de la cuenta de Supabase Auth
+const LOCAL_EMAILS = {
+  unicenter: 'unicenter@adorno.local',
+  alcorta:   'alcorta@adorno.local',
+  oficina:   'oficina@adorno.local',
+};
+const ADMIN_EMAIL = 'juanpsimonelli@gmail.com';
+
 function supaHeaders() {
   return {
     'apikey': SUPA_KEY,
-    'Authorization': 'Bearer ' + SUPA_KEY,
+    'Authorization': 'Bearer ' + (authToken || SUPA_KEY),
     'Content-Type': 'application/json',
     'Prefer': 'return=representation',
   };
+}
+
+// Login contra Supabase Auth (email + password) → devuelve la sesión con tokens
+async function supaLogin(email, password) {
+  const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!r.ok) {
+    let msg = 'Usuario o contraseña incorrectos';
+    try { const e = await r.json(); msg = e.error_description || e.msg || msg; } catch(_) {}
+    throw new Error(msg);
+  }
+  return r.json(); // { access_token, refresh_token, expires_at, user, ... }
+}
+
+// Renueva el access_token usando el refresh_token guardado
+async function supaRefresh(refresh_token) {
+  const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: 'POST',
+    headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token }),
+  });
+  if (!r.ok) throw new Error('No se pudo refrescar la sesión');
+  return r.json();
 }
 
 async function supaGet(table, params = {}) {
@@ -1343,65 +1387,114 @@ function selectLocal(el) {
 
 function checkSetupReady() {
   const localSel = document.querySelector('.local-opt.selected');
-  document.getElementById('setup-btn').disabled = !localSel;
+  const pass = document.getElementById('setup-pass');
+  const passOk = pass && pass.value.trim().length > 0;
+  document.getElementById('setup-btn').disabled = !(localSel && passOk);
 }
 
-// Restore session from localStorage or URL param
-(function restoreSession() {
-  // URL param tiene prioridad: ?local=unicenter o ?local=alcorta
-  const urlLocal = new URLSearchParams(window.location.search).get('local');
-  if (urlLocal && LOCALES[urlLocal]) {
-    session = { local_id: urlLocal, nombre: LOCALES[urlLocal].nombre, isAdmin: false, fromUrl: true };
-    localStorage.setItem('ca_session', JSON.stringify(session));
-    setTimeout(enterApp, 0); // defer para que let/const del script estén inicializados
-    return;
-  }
+function _setSetupError(msg) {
+  const el = document.getElementById('setup-error');
+  if (!el) return;
+  if (msg) { el.textContent = msg; el.style.display = 'block'; }
+  else { el.textContent = ''; el.style.display = 'none'; }
+}
+
+// Guarda la sesión de auth (tokens) en memoria + localStorage
+function _guardarSesion(authData, extra) {
+  authToken = authData.access_token;
+  authRefreshToken = authData.refresh_token;
+  session = Object.assign({
+    access_token: authData.access_token,
+    refresh_token: authData.refresh_token,
+    expires_at: authData.expires_at,  // epoch seconds
+  }, extra);
+  localStorage.setItem('ca_session', JSON.stringify(session));
+}
+
+// Restore session desde localStorage (con refresh si el token expiró)
+(async function restoreSession() {
   const saved = localStorage.getItem('ca_session');
-  if (saved) {
+  if (!saved) return;
+  let s;
+  try { s = JSON.parse(saved); } catch(e) { return; }
+  if (!s.refresh_token) return;  // sesión vieja sin auth → ignorar, pedir login
+
+  authToken = s.access_token;
+  authRefreshToken = s.refresh_token;
+  session = s;
+
+  // Si el token está por expirar (o ya expiró), refrescarlo
+  const ahora = Math.floor(Date.now() / 1000);
+  if (!s.expires_at || s.expires_at - ahora < 120) {
     try {
-      const s = JSON.parse(saved);
-      if (s.local_id && s.nombre) {
-        session = s;
-        setTimeout(enterApp, 0);
-      }
-    } catch(e) {}
+      const fresh = await supaRefresh(s.refresh_token);
+      _guardarSesion(fresh, { local_id: s.local_id, nombre: s.nombre, isAdmin: s.isAdmin });
+    } catch(e) {
+      // refresh falló → limpiar y pedir login
+      localStorage.removeItem('ca_session');
+      authToken = authRefreshToken = null;
+      return;
+    }
   }
+  setTimeout(enterApp, 0);
 })();
 
-function startSession() {
+async function startSession() {
   const localEl = document.querySelector('.local-opt.selected');
-  if (!localEl) return;
-  session = { local_id: localEl.dataset.local, nombre: '', isAdmin: false };
-  localStorage.setItem('ca_session', JSON.stringify(session));
-  enterApp();
+  const pass = document.getElementById('setup-pass').value.trim();
+  if (!localEl || !pass) return;
+  const local = localEl.dataset.local;
+  const email = LOCAL_EMAILS[local];
+  if (!email) { _setSetupError('Local no válido'); return; }
+
+  const btn = document.getElementById('setup-btn');
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  _setSetupError('');
+  try {
+    const authData = await supaLogin(email, pass);
+    _guardarSesion(authData, { local_id: local, nombre: LOCALES[local]?.nombre || local, isAdmin: false });
+    document.getElementById('setup-pass').value = '';
+    enterApp();
+  } catch(e) {
+    _setSetupError(e.message || 'No se pudo entrar');
+    btn.textContent = 'Entrar →'; btn.disabled = false;
+  }
 }
 
-const ADMIN_PASS = 'adorno1992';
-
-function startAdmin() {
+async function startAdmin() {
   const pass = prompt('Contraseña de administrador:');
   if (pass === null) return; // canceló
-  if (pass !== ADMIN_PASS) {
-    alert('Contraseña incorrecta.');
-    return;
+  try {
+    const authData = await supaLogin(ADMIN_EMAIL, pass.trim());
+    _guardarSesion(authData, { local_id: null, nombre: 'JP (Admin)', isAdmin: true });
+    enterApp();
+  } catch(e) {
+    alert('No se pudo entrar como admin: ' + (e.message || 'error'));
   }
-  session = { local_id: null, nombre: 'JP (Admin)', isAdmin: true };
-  localStorage.setItem('ca_session', JSON.stringify(session));
-  enterApp();
 }
 
-function logout() {
+async function logout() {
+  // Cerrar sesión en Supabase Auth (best-effort)
+  try {
+    if (authToken) {
+      await fetch(`${SUPA_URL}/auth/v1/logout`, {
+        method: 'POST',
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + authToken },
+      });
+    }
+  } catch(e) {}
+
   localStorage.removeItem('ca_session');
   session = { local_id: null, nombre: null, isAdmin: false };
+  authToken = authRefreshToken = null;
   pedidosCache = [];
   articulos = [];
-  // Si la URL trae ?local=xxx la limpiamos para que el setup aparezca limpio
-  // (si la dejamos, restoreSession volvería a entrar al mismo local al recargar).
   if (window.location.search) {
     window.history.replaceState({}, '', window.location.pathname);
   }
-  // Reset setup form y volver a la pantalla de selección de local
   document.querySelectorAll('.local-opt').forEach(e => e.classList.remove('selected'));
+  const passEl = document.getElementById('setup-pass');
+  if (passEl) passEl.value = '';
   document.getElementById('setup-btn').disabled = true;
   showScreen('setup-screen');
 }

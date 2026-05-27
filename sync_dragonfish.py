@@ -6,18 +6,16 @@ Claudia Adorno — Ejecutar con Windows Task Scheduler cada 15 min
 
 Funciones:
   1. sync_skus()         — lee artículos activos de Dragon Fish y los sube a Supabase
-  2. sync_znube_stock()  — consulta stock real desde ZNube y marca pedidos "Listo para avisar"
-  3. sync_stock()        — (FALLBACK) detecta ingresos vía MSTOCK si ZNube no está disponible
+  2. sync_stock()        — detecta ingresos de mercadería vía MSTOCK y notifica pedidos pendientes
 
 Requisitos:
-  pip install pyodbc requests beautifulsoup4
+  pip install pyodbc requests python-dateutil
 
 Configuración:
   Editar la sección CONFIG al inicio del archivo.
 """
 
 import os
-import pickle
 import pyodbc
 import requests
 import json
@@ -36,12 +34,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 SUPABASE_URL = "https://kwwiykssrpabncpqtmwi.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3d2l5a3NzcnBhYm5jcHF0bXdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjI1NTQsImV4cCI6MjA5NDkzODU1NH0.O1VhKdjPahnJJ9qXcQuSKQbnKGhsEZqYmjDEfRuRpkc"
 
-# ZNube: token de acceso para consultar stock online en tiempo real
-ZNUBE_TOKEN = "ee086f9b-6b7c-4e40-80a1-456679fb55d2"
-ZNUBE_STOCK_URL = "https://www.znube.com.ar/Omnichannel/OnlineReportPartial"
-ZNUBE_USER = "juansimonelli@claudiaadorno.com"
-ZNUBE_PASS = "lola2205"
-ZNUBE_SESSION_PKL = r"C:\CRM_Adorno\znube_session.pkl"
 
 # SQL Server: string de conexión ODBC a la instancia de Dragon Fish en tu PC
 SQL_SERVER_CONN = (
@@ -57,7 +49,7 @@ LOCALES = {
     "oficina":   ["DRAGONFISH_ADMIN"],  # venta online + admin central
 }
 
-# Ventana de tiempo para buscar ingresos MSTOCK (solo usado si ZNube falla)
+# Ventana de tiempo para buscar ingresos MSTOCK
 STOCK_LOOKBACK_HOURS = 2
 
 # Logging
@@ -238,329 +230,6 @@ def sync_skus():
 
     log_sync("skus", locales_ok, total_registros, 0, error_global)
     log.info(f"=== sync_skus: fin — {total_registros} artículos totales ===")
-
-
-# ══════════════════════════════════════════════════════════════════
-#  2. sync_znube_stock — stock en tiempo real desde ZNube (PRINCIPAL)
-# ══════════════════════════════════════════════════════════════════
-
-def _parse_float_es(text):
-    """Convierte número en formato español a float. '1.234,00' → 1234.0"""
-    if not text:
-        return 0.0
-    clean = str(text).strip().replace(".", "").replace(",", ".")
-    try:
-        return float(clean)
-    except ValueError:
-        return 0.0
-
-
-def _znube_login(username=None, password=None):
-    """
-    Autentica en ZNube con credenciales y retorna requests.Session con cookies activas.
-    Lanza RuntimeError si las credenciales son incorrectas o el login falla.
-    """
-    username = username or ZNUBE_USER
-    password = password or ZNUBE_PASS
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "es-AR,es;q=0.9,en;q=0.8",
-        "Referer":         "https://www.znube.com.ar/",
-    })
-    login_url = "https://www.znube.com.ar/Account/LogOn"
-    resp = session.post(login_url, data={
-        "UserName":          username,
-        "Password":          password,
-        "RememberMeString":  "true",
-        "recaptchaResponse": "",
-        "returnUrl":         "/",
-        "returnDomain":      "www.znube.com.ar",
-    }, timeout=30, allow_redirects=True)
-    resp.raise_for_status()
-    # Login exitoso → servidor redirige fuera de /Account/LogOn
-    if "/Account/LogOn" in resp.url:
-        raise RuntimeError(f"Login ZNube falló — verificar credenciales. URL final: {resp.url}")
-    log.info(f"  Login ZNube OK (URL final: {resp.url})")
-    return session
-
-
-def _znube_get_session():
-    """
-    Devuelve una requests.Session autenticada en ZNube.
-    Intenta reutilizar cookies guardadas en ZNUBE_SESSION_PKL.
-    Si la sesión expiró o no existe, hace login fresco y guarda las nuevas cookies.
-    """
-    # Intentar cargar sesión previa
-    if os.path.exists(ZNUBE_SESSION_PKL):
-        try:
-            with open(ZNUBE_SESSION_PKL, "rb") as f:
-                saved = pickle.load(f)
-            session = requests.Session()
-            session.headers.update(saved["headers"])
-            session.cookies.update(saved["cookies"])
-            # Verificar que la sesión sigue activa
-            test_url = f"{ZNUBE_STOCK_URL}?appToken={ZNUBE_TOKEN}"
-            resp = session.get(test_url, timeout=20, allow_redirects=True)
-            if "/Account/LogOn" not in resp.url and resp.status_code == 200:
-                log.info("  Sesión ZNube reutilizada desde caché")
-                return session
-            log.info("  Sesión ZNube expirada — re-autenticando")
-        except Exception as e:
-            log.warning(f"  No se pudo cargar sesión ZNube guardada: {e}")
-
-    # Login fresco
-    session = _znube_login()
-
-    # Guardar cookies para próxima ejecución
-    try:
-        with open(ZNUBE_SESSION_PKL, "wb") as f:
-            pickle.dump({
-                "headers": dict(session.headers),
-                "cookies": dict(session.cookies),
-            }, f)
-        log.info(f"  Sesión ZNube guardada en {ZNUBE_SESSION_PKL}")
-    except Exception as e:
-        log.warning(f"  No se pudo guardar sesión ZNube: {e}")
-
-    return session
-
-
-def _fetch_znube_page(session, base_url, page_idx):
-    """
-    Obtiene una página del grid de ZNube.
-      page_idx=0  → GET simple (primera página, HTML completo)
-      page_idx>0  → POST callback DevExpress PN{n} (0-indexed)
-    El grid ID es siempre 'gridView' (confirmado en producción).
-    """
-    if page_idx == 0:
-        resp = session.get(base_url, timeout=45)
-    else:
-        resp = session.post(base_url, data={
-            "__CALLBACKID":    "gridView",
-            "__CALLBACKPARAM": f"PN{page_idx}",
-        }, headers={
-            "Content-Type":     "application/x-www-form-urlencoded",
-            "X-Requested-With": "XMLHttpRequest",
-        }, timeout=45)
-    resp.raise_for_status()
-    return resp.text
-
-
-def _parse_znube_html_page(html):
-    """
-    Parsea una página del HTML de ZNube OnlineReportPartial.
-
-    Columnas fijas (confirmadas en producción):
-      Col 0:  {SKU}##   ← clave DevExpress (termina en ##)
-      Col 1:  SKU limpio
-      Col 2:  Descripción
-      Col 7:  Alcorta
-      Col 8:  Oficina
-      Col 9:  Unicenter
-      Col 10: Total
-
-    Retorna (items, total_pages):
-      items      = list de dicts {sku, alcorta, unicenter}
-      total_pages = int (1 si el pager no es detectable)
-    """
-    try:
-        from bs4 import BeautifulSoup
-    except ImportError:
-        log.error("BeautifulSoup no instalado. Ejecutar: pip install beautifulsoup4")
-        return [], 1
-
-    soup = BeautifulSoup(html, "html.parser")
-    items = []
-    total_pages = 1
-
-    # ── Detectar total de páginas desde el pager DevExpress ──────────
-    # Formato v11+: 'PN{n}' (usado en producción)
-    pn_nums = re.findall(r"['\"]PN(\d+)['\"]", html)
-    if not pn_nums:
-        # Fallback: formato antiguo 'PBN{n}'
-        pn_nums = re.findall(r"['\"]PBN(\d+)['\"]", html)
-    if pn_nums:
-        max_pn = max(int(x) for x in pn_nums)
-        total_pages = max_pn + 1  # PN es 0-indexed
-
-    # ── Parsear filas de datos ────────────────────────────────────────
-    ALCORTA_IDX   = 7
-    UNICENTER_IDX = 9
-
-    for tr in soup.find_all("tr"):
-        cells = tr.find_all("td")
-        if not cells:
-            continue
-        texts = [c.get_text(strip=True) for c in cells]
-
-        # DevExpress marca la primera celda de cada fila de datos con "{SKU}##"
-        if not texts[0].endswith("##"):
-            continue
-
-        sku = texts[0][:-2].strip().upper()
-        if not sku:
-            continue
-
-        n = len(texts)
-        alco = _parse_float_es(texts[ALCORTA_IDX])   if n > ALCORTA_IDX   else 0.0
-        uni  = _parse_float_es(texts[UNICENTER_IDX]) if n > UNICENTER_IDX else 0.0
-
-        items.append({"sku": sku, "alcorta": alco, "unicenter": uni})
-
-    return items, total_pages
-
-
-def sync_znube_stock():
-    """
-    Consulta stock en tiempo real desde ZNube y actualiza pedidos pendientes.
-
-    Flujo:
-    1. Lee pedidos 'Pendiente' con SKU desde Supabase
-    2. Autentica en ZNube (reutiliza sesión guardada si es válida)
-    3. Descarga todas las páginas de OnlineReportPartial (~385 págs, 10 SKUs c/u)
-    4. Construye dict {sku → {alcorta, unicenter}}
-    5. Para cada pedido, verifica stock en su local correspondiente
-    6. Marca como 'Listo para avisar' si stock > 0
-
-    Requisitos: pip install beautifulsoup4
-    """
-    log.info("=== sync_znube_stock: iniciando ===")
-    total_matches = 0
-    error_global = None
-
-    # ── 1. Cargar pedidos pendientes ──────────────────────────────────
-    try:
-        pedidos_pendientes = supa_get("pedidos", {
-            "estado": "eq.Pendiente",
-            "sku":    "not.is.null",
-            "select": "id,local_id,sku",
-        })
-        log.info(f"  {len(pedidos_pendientes)} pedidos pendientes con SKU")
-    except Exception as e:
-        log.error(f"  Error al leer pedidos de Supabase: {e}")
-        log_sync("znube_stock", [], 0, 0, str(e))
-        return False
-
-    if not pedidos_pendientes:
-        log.info("  Sin pedidos pendientes — nada que hacer")
-        log_sync("znube_stock", list(LOCALES.keys()), 0, 0, None)
-        return True
-
-    # ── 2. Autenticar en ZNube ────────────────────────────────────────
-    try:
-        session = _znube_get_session()
-    except Exception as e:
-        log.error(f"  No se pudo autenticar en ZNube: {e}")
-        log_sync("znube_stock", [], 0, 0, str(e))
-        return False
-
-    # ── 3. Descargar stock desde ZNube ────────────────────────────────
-    base_url           = f"{ZNUBE_STOCK_URL}?appToken={ZNUBE_TOKEN}"
-    stock_dict         = {}   # sku_upper → {"alcorta": float, "unicenter": float}
-    total_pages        = 999  # Valor inicial amplio; se actualiza con la primera respuesta
-    page               = 0
-    consecutive_errors = 0
-
-    log.info("  Descargando stock de ZNube...")
-
-    while page < total_pages:
-        try:
-            html = _fetch_znube_page(session, base_url, page)
-
-            items, detected_pages = _parse_znube_html_page(html)
-
-            # Primera página: actualizar total de páginas
-            if page == 0:
-                if detected_pages > 1:
-                    total_pages = detected_pages
-                    log.info(f"  Total páginas detectado: {total_pages}")
-                else:
-                    log.warning("  No se pudo detectar total de páginas — búsqueda exhaustiva hasta página vacía")
-
-            # Acumular stock (primer registro de cada SKU gana)
-            for item in items:
-                sku = item["sku"]
-                if sku not in stock_dict:
-                    stock_dict[sku] = {
-                        "alcorta":   item["alcorta"],
-                        "unicenter": item["unicenter"],
-                    }
-
-            # Página vacía → fin real de los datos
-            if len(items) == 0:
-                log.info(f"  Página {page} sin datos — fin de stock ZNube")
-                break
-
-            if page % 50 == 0 or page == total_pages - 1:
-                log.info(f"  Página {page}/{total_pages - 1} — {len(stock_dict)} SKUs acumulados")
-
-            consecutive_errors = 0
-
-        except Exception as e:
-            consecutive_errors += 1
-            log.warning(f"  Error en página {page}: {e}")
-
-            if page == 0:
-                log.error("  Error en primera página — abortando sync_znube_stock")
-                error_global = str(e)
-                log_sync("znube_stock", [], 0, 0, error_global)
-                return False
-
-            if consecutive_errors >= 3:
-                log.error(f"  {consecutive_errors} errores consecutivos — deteniendo descarga")
-                break
-
-        page += 1
-
-    log.info(f"  Stock ZNube cargado: {len(stock_dict)} SKUs únicos")
-
-    if not stock_dict:
-        log.error("  No se pudo cargar ningún SKU de ZNube")
-        log_sync("znube_stock", [], 0, 0, "stock_dict vacío")
-        return False
-
-    # ── 4. Cruzar con pedidos pendientes ──────────────────────────────
-    pedidos_idx = {}
-    for p in pedidos_pendientes:
-        key = (p["local_id"], (p["sku"] or "").strip().upper())
-        pedidos_idx.setdefault(key, []).append(p["id"])
-
-    now_iso = datetime.now(timezone.utc).isoformat()
-    matched_ids_by_local = {}
-
-    for (local_id, sku), ids in pedidos_idx.items():
-        stock_info = stock_dict.get(sku)
-        if stock_info is None:
-            log.debug(f"  SKU {sku} no encontrado en ZNube")
-            continue
-
-        stock_local = stock_info.get(local_id, 0.0)
-        if stock_local > 0:
-            log.info(f"  ✓ {sku} @ {local_id}: stock={stock_local:.0f} — {len(ids)} pedido(s)")
-            matched_ids_by_local.setdefault(local_id, []).extend(ids)
-
-    # ── 5. Marcar pedidos como "Listo para avisar" ────────────────────
-    for local_id, ids in matched_ids_by_local.items():
-        for pedido_id in ids:
-            try:
-                supa_patch(
-                    "pedidos",
-                    {"id": f"eq.{pedido_id}"},
-                    {
-                        "estado":              "Listo para avisar",
-                        "stock_ingreso_fecha": now_iso,
-                        "stock_ingreso_local": local_id,
-                    },
-                )
-                total_matches += 1
-            except Exception as e:
-                log.warning(f"  Error al actualizar pedido {pedido_id}: {e}")
-
-    log_sync("znube_stock", list(LOCALES.keys()), len(stock_dict), total_matches, error_global)
-    log.info(f"=== sync_znube_stock: fin — {total_matches} pedidos marcados ===")
-    return True
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1409,12 +1078,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sync Dragon Fish → Supabase CRM")
     parser.add_argument(
         "--modo",
-        choices=["skus", "stock", "znube", "clientes", "compras", "conversiones", "backup", "crm", "todo"],
+        choices=["skus", "stock", "clientes", "compras", "conversiones", "backup", "crm", "todo"],
         default="todo",
         help=(
             "skus     = solo catálogo de artículos\n"
             "stock    = sync stock vía MSTOCK Dragonfish\n"
-            "znube    = sync stock vía ZNube (alternativo)\n"
             "clientes = espejo de maestro de clientes a Supabase\n"
             "compras  = espejo de comprobantes de venta (último año) + métricas\n"
             "conversiones = matchear pedidos del CRM con sus facturas\n"
@@ -1429,9 +1097,7 @@ if __name__ == "__main__":
         if args.modo in ("skus", "todo"):
             sync_skus()
 
-        if args.modo == "znube":
-            sync_znube_stock()
-        elif args.modo == "stock":
+        if args.modo == "stock":
             sync_stock()
         elif args.modo == "clientes":
             sync_clientes()
