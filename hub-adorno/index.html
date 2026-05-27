@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claudia Adorno · Sistema</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-dark: #1a1a2e;
+  --bg-mid: #2d2d4e;
+  --card: #ffffff;
+  --text: #1a1a2e;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent-crm:  #6366f1;
+  --accent-rrhh: #0d9488;
+  --accent-tab:  #f59e0b;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; padding: 0; font-family: 'Josefin Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
+body {
+  background: linear-gradient(160deg, var(--bg-dark) 0%, var(--bg-mid) 100%);
+  color: white; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 40px 24px;
+}
+
+.brand { text-align: center; margin-bottom: 40px; }
+.brand .logo {
+  font-size: 36px; font-weight: 600; letter-spacing: -0.03em; margin: 0;
+  background: linear-gradient(135deg, white 0%, #cbd5e1 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.brand .tagline { font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 8px; letter-spacing: 0.05em; text-transform: uppercase; }
+
+.modules {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 340px));
+  gap: 20px; width: 100%; max-width: 1100px;
+}
+
+.module-card {
+  background: var(--card); border-radius: 18px; padding: 28px 26px;
+  cursor: pointer; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none; color: var(--text);
+  display: block; position: relative; overflow: hidden;
+}
+.module-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.module-card.coming-soon { opacity: 0.6; cursor: not-allowed; }
+.module-card.coming-soon:hover { transform: none; box-shadow: none; }
+
+.module-icon {
+  width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+  font-size: 28px; margin-bottom: 18px;
+}
+.module-card.crm  .module-icon { background: linear-gradient(135deg, #6366f1, #a78bfa); color: white; }
+.module-card.rrhh .module-icon { background: linear-gradient(135deg, #0d9488, #5eead4); color: white; }
+.module-card.tab  .module-icon { background: linear-gradient(135deg, #f59e0b, #fde047); color: white; }
+
+.module-card h2 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.module-card p  { margin: 0 0 16px; font-size: 14px; color: var(--muted); line-height: 1.45; }
+
+.module-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.module-tags .tag { font-size: 11px; padding: 3px 9px; border-radius: 99px; background: #f3f4f6; color: var(--muted); font-weight: 500; }
+
+.module-arrow {
+  position: absolute; bottom: 24px; right: 24px;
+  font-size: 22px; color: var(--muted); transition: all 0.2s;
+}
+.module-card:hover .module-arrow { color: var(--text); transform: translateX(3px); }
+.module-card.coming-soon .module-arrow { display: none; }
+
+.soon-badge {
+  position: absolute; top: 18px; right: 18px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 99px;
+}
+
+footer { margin-top: 50px; text-align: center; color: rgba(255,255,255,0.4); font-size: 12px; }
+
+@media (max-width: 600px) {
+  .brand .logo { font-size: 28px; }
+  .modules { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <h1 class="logo">Claudia Adorno</h1>
+  <div class="tagline">Sistema integrado · v1.0</div>
+</div>
+
+<div class="modules">
+  <a class="module-card crm" href="https://claudiaadornosrl-prog.github.io/crm-adorno/" target="_self">
+    <div class="module-icon">🛍️</div>
+    <h2>CRM</h2>
+    <p>Pedidos, clientes y compras de los tres locales. Comunicación con vendedoras y seguimiento de cada operación.</p>
+    <div class="module-tags">
+      <span class="tag">Pedidos</span>
+      <span class="tag">Clientes 360°</span>
+      <span class="tag">WhatsApp</span>
+    </div>
+    <div class="module-arrow">→</div>
+  </a>
+
+  <a class="module-card rrhh" href="https://claudiaadornosrl-prog.github.io/rrhh-adorno/" target="_self">
+    <div class="module-icon">👥</div>
+    <h2>Recursos Humanos</h2>
+    <p>Legajos digitales, control de sueldos contra CCT, asistencias, vacaciones y documentación del personal.</p>
+    <div class="module-tags">
+      <span class="tag">Empleados</span>
+      <span class="tag">Sueldos</span>
+      <span class="tag">Vacaciones</span>
+    </div>
+    <div class="module-arrow">→</div>
+  </a>
+
+  <a class="module-card tab coming-soon" href="#">
+    <div class="soon-badge">Próximamente</div>
+    <div class="module-icon">📊</div>
+    <h2>Tablero de resultados</h2>
+    <p>Cierre mensual, KPIs de venta por local, control de gastos, márgenes y comparativas año contra año.</p>
+    <div class="module-tags">
+      <span class="tag">Ventas</span>
+      <span class="tag">Gastos</span>
+      <span class="tag">KPIs</span>
+    </div>
+  </a>
+</div>
+
+<footer>
+  © 2026 Claudia Adorno SRL · Desarrollado en casa
+</footer>
+
+</body>
+</html>
