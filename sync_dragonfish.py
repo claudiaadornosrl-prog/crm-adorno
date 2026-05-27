@@ -28,11 +28,28 @@ from dateutil import parser as dateparser
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ══════════════════════════════════════════════════════════════════
-#  CONFIG — editar estos valores
+#  CONFIG
 # ══════════════════════════════════════════════════════════════════
 
+# Cargar variables desde .env (parser simple, sin dependencias externas)
+def _load_env():
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    if os.path.exists(env_path):
+        with open(env_path, encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                k, v = line.split('=', 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+_load_env()
+
 SUPABASE_URL = "https://kwwiykssrpabncpqtmwi.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3d2l5a3NzcnBhYm5jcHF0bXdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjI1NTQsImV4cCI6MjA5NDkzODU1NH0.O1VhKdjPahnJJ9qXcQuSKQbnKGhsEZqYmjDEfRuRpkc"
+# Service role key (ignora RLS) — se lee de .env, NUNCA se hardcodea ni se commitea
+SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY')
+if not SUPABASE_KEY:
+    sys.exit("ERROR: Falta SUPABASE_SERVICE_KEY en C:\\CRM_Adorno\\.env\n"
+             "Conseguila en Supabase → Settings → API → service_role key (secret)")
 
 
 # SQL Server: string de conexión ODBC a la instancia de Dragon Fish en tu PC
@@ -1119,4 +1136,3 @@ if __name__ == "__main__":
         log.critical(f"Error fatal: {e}", exc_info=True)
         log_sync(args.modo, [], 0, 0, str(e))
         sys.exit(1)
-

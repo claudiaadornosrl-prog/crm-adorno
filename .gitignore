@@ -17,3 +17,6 @@ Thumbs.db
 # El archivo duplicado (usamos index.html)
 vendedoras.html
 znube_page1.html
+
+# Secretos — NUNCA commitear
+.env
