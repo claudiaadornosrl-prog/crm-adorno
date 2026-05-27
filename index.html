@@ -1288,6 +1288,7 @@ function waLocalUrl(local_id) {
 let session = { local_id: null, nombre: null, isAdmin: false };
 let articulos = [];  // {sku, descripcion, local_id}
 let pedidosCache = [];
+let pedidosCargados = false;  // true cuando loadPedidos terminó (aunque devuelva vacío)
 let currentFilter = 'Pendiente';
 let currentMyOnlyMode = true;  // true = solo mis pedidos (vendedora); se ajusta al loguear
 let currentSearch = '';
@@ -1610,6 +1611,7 @@ async function loadPedidos() {
     const params = { select: '*', order: 'created_at.desc' };
     if (!session.isAdmin && session.local_id) params['local_id'] = 'ilike.' + session.local_id;
     pedidosCache = await supaGet('pedidos', params);
+    pedidosCargados = true;
     updateAlertBadge();
     renderPedidos();
     renderAlertas();
@@ -2183,7 +2185,7 @@ async function renderHoy() {
   const fechaHoy = ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   // Si pedidosCache aún no cargó, mostrar loading
-  if (!pedidosCache || !pedidosCache.length) {
+  if (!pedidosCargados) {
     el.innerHTML = '<div class="loading"><span class="spinner"></span> Cargando datos...</div>';
     setTimeout(renderHoy, 500);
     return;
