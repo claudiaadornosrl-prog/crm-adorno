@@ -1452,7 +1452,10 @@ async function startSession() {
   _setSetupError('');
   try {
     const authData = await supaLogin(email, pass);
-    _guardarSesion(authData, { local_id: local, nombre: LOCALES[local]?.nombre || local, isAdmin: false });
+    // nombre vacío a propósito: las cuentas de sucursal ven TODOS los pedidos del
+    // local. session.nombre se reserva para filtrar por vendedora individual
+    // (cuando una vendedora elige su nombre dentro de la app).
+    _guardarSesion(authData, { local_id: local, nombre: '', isAdmin: false });
     document.getElementById('setup-pass').value = '';
     enterApp();
   } catch(e) {
@@ -2176,7 +2179,7 @@ async function renderHoy() {
   if (hora >= 12 && hora < 19) saludo = 'Buenas tardes';
   else if (hora >= 19 || hora < 6) saludo = 'Buenas noches';
 
-  const nombreUser = session.isAdmin ? 'JP' : (session.nombre || 'Equipo');
+  const nombreUser = session.isAdmin ? 'JP' : (session.nombre || LOCALES[session.local_id]?.nombre || 'Equipo');
   const fechaHoy = ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   // Si pedidosCache aún no cargó, mostrar loading
