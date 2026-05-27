@@ -46,15 +46,15 @@ $func$;
 --  3. Mapeo de cuentas → local (busca por email en auth.users)
 -- ───────────────────────────────────────────────────────────────────────
 INSERT INTO crm_usuarios (auth_user_id, local_id, es_admin)
-SELECT id, 'unicenter', false FROM auth.users WHERE email = 'unicenter@adorno.local'
+SELECT id, 'unicenter', false FROM auth.users WHERE email = 'uncienter@claudiaadorno.com'
 ON CONFLICT (auth_user_id) DO UPDATE SET local_id = EXCLUDED.local_id, es_admin = EXCLUDED.es_admin;
 
 INSERT INTO crm_usuarios (auth_user_id, local_id, es_admin)
-SELECT id, 'alcorta', false FROM auth.users WHERE email = 'alcorta@adorno.local'
+SELECT id, 'alcorta', false FROM auth.users WHERE email = 'alcorta@claudiaadorno.com'
 ON CONFLICT (auth_user_id) DO UPDATE SET local_id = EXCLUDED.local_id, es_admin = EXCLUDED.es_admin;
 
 INSERT INTO crm_usuarios (auth_user_id, local_id, es_admin)
-SELECT id, 'oficina', false FROM auth.users WHERE email = 'oficina@adorno.local'
+SELECT id, 'oficina', false FROM auth.users WHERE email = 'administracion@claudiaadorno.com'
 ON CONFLICT (auth_user_id) DO UPDATE SET local_id = EXCLUDED.local_id, es_admin = EXCLUDED.es_admin;
 
 -- Admin (ve todo) — la cuenta que ya venía en uso
