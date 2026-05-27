@@ -902,6 +902,10 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
       <span>Alertas</span>
       <span class="tab-badge hidden" id="alertas-badge">0</span>
     </button>
+    <button class="tab-btn" data-tab="satisfaccion" onclick="switchTab('satisfaccion')">
+      <span class="tab-icon">⭐</span>
+      <span>Satisfacción</span>
+    </button>
     <button class="tab-btn" data-tab="clientes" onclick="switchTab('clientes')" id="tab-clientes" style="display:none">
       <span class="tab-icon">👥</span>
       <span>Clientes</span>
@@ -919,6 +923,11 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
     <!-- ── HOY ────────────────── -->
     <div class="tab-panel active" id="panel-hoy">
       <div id="hoy-content"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+    </div>
+
+    <!-- ── SATISFACCIÓN ── -->
+    <div class="tab-panel" id="panel-satisfaccion">
+      <div id="satisfaccion-content"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
     </div>
 
     <div class="tab-panel" id="panel-nuevo">
@@ -1561,6 +1570,7 @@ function switchTab(tab) {
   if (tab === 'admin')   renderAdmin();
   if (tab === 'clientes') loadClientesVendedora('');
   if (tab === 'hoy')     renderHoy();
+  if (tab === 'satisfaccion') renderSatisfaccion();
   if (tab === 'nuevo' && skuLines.length === 0) addSkuLine();
 }
 
@@ -2527,6 +2537,133 @@ function setVendedoraFilter(v) {
 // ═══════════════════════════════════════════════════════
 //  Render: alertas
 // ═══════════════════════════════════════════════════════
+async function renderSatisfaccion() {
+  const cont = document.getElementById('satisfaccion-content');
+  cont.innerHTML = '<div class="loading"><span class="spinner"></span> Cargando…</div>';
+
+  const escS = (t) => String(t == null ? '' : t)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const fmtF = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+  };
+  const estrellas = (pct) => {
+    const n = Math.round((pct/100)*5);
+    return '★★★★★'.slice(0,n) + '☆☆☆☆☆'.slice(0,5-n);
+  };
+
+  let data;
+  try {
+    data = await supaGet('crm_encuestas', { select: '*', order: 'creado_at.desc' });
+  } catch (e) {
+    cont.innerHTML = '<div class="card"><div class="card-body" style="color:#b91c1c">No se pudieron cargar las encuestas: '+escS(e.message)+'</div></div>';
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    cont.innerHTML = `<div class="card"><div class="card-body" style="text-align:center;padding:40px 20px;color:#64748b">
+      <div style="font-size:42px;margin-bottom:8px;">⭐</div>
+      <h3 style="margin:0 0 6px;">Sin respuestas todavía</h3>
+      <p style="margin:0;font-size:14px;">Las encuestas de satisfacción se sincronizan desde Google Forms.
+      Cuando lleguen respuestas las vas a ver acá: promedio, tendencia y comentarios.</p>
+    </div></div>`;
+    return;
+  }
+
+  // Normalizar a porcentaje (0-100) usando puntaje/puntaje_max
+  const conPuntaje = data.filter(r => r.puntaje != null && r.puntaje_max);
+  const pct = r => (r.puntaje / r.puntaje_max) * 100;
+  const total = data.length;
+  const promPct = conPuntaje.length ? conPuntaje.reduce((a,r)=>a+pct(r),0)/conPuntaje.length : 0;
+  const positivas = conPuntaje.filter(r => pct(r) >= 80).length;
+  const pctPositivas = conPuntaje.length ? Math.round(positivas/conPuntaje.length*100) : 0;
+
+  // Tendencia por mes (YYYY-MM)
+  const meses = {};
+  conPuntaje.forEach(r => {
+    const d = new Date(r.creado_at);
+    if (isNaN(d)) return;
+    const k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    (meses[k] = meses[k] || []).push(pct(r));
+  });
+  const mesesOrden = Object.keys(meses).sort().slice(-12);
+  const nombreMes = (k) => {
+    const [y,m] = k.split('-').map(Number);
+    return new Date(y, m-1, 1).toLocaleDateString('es-AR', { month:'short', year:'2-digit' });
+  };
+  const barras = mesesOrden.map(k => {
+    const avg = meses[k].reduce((a,b)=>a+b,0)/meses[k].length;
+    const color = avg >= 80 ? '#16a34a' : avg >= 60 ? '#f59e0b' : '#dc2626';
+    return `<div style="display:flex;align-items:center;gap:10px;margin:4px 0;font-size:13px;">
+      <div style="width:64px;color:#64748b;text-transform:capitalize;">${nombreMes(k)}</div>
+      <div style="flex:1;background:#f1f5f9;border-radius:6px;overflow:hidden;height:18px;">
+        <div style="width:${avg.toFixed(0)}%;background:${color};height:100%;"></div>
+      </div>
+      <div style="width:58px;text-align:right;color:#334155;font-weight:600;">${(avg/20).toFixed(1)}/5 <span style="color:#94a3b8;font-weight:400;">(${meses[k].length})</span></div>
+    </div>`;
+  }).join('');
+
+  // Desglose por local (solo si hay más de uno, ej. admin)
+  const localesSet = [...new Set(data.map(r => r.local_id))];
+  let desgloseLocal = '';
+  if (localesSet.length > 1) {
+    desgloseLocal = `<div class="card"><div class="card-header"><span class="card-title">Por local</span></div><div class="card-body">` +
+      localesSet.map(loc => {
+        const rs = conPuntaje.filter(r => r.local_id === loc);
+        const avg = rs.length ? rs.reduce((a,r)=>a+pct(r),0)/rs.length : 0;
+        return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9;">
+          <span style="text-transform:capitalize;font-weight:600;">${escS(loc)}</span>
+          <span>${estrellas(avg)} <span style="color:#64748b;">${(avg/20).toFixed(1)}/5 · ${rs.length} resp.</span></span>
+        </div>`;
+      }).join('') + `</div></div>`;
+  }
+
+  // Últimos comentarios
+  const conComentario = data.filter(r => r.comentario && r.comentario.trim());
+  const comentarios = conComentario.slice(0, 30).map(r => {
+    const p = (r.puntaje != null && r.puntaje_max) ? pct(r) : null;
+    return `<div style="padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;margin-bottom:3px;">
+        <span>${fmtF(r.creado_at)}${localesSet.length>1?' · '+escS(r.local_id):''}</span>
+        <span style="color:#f59e0b;">${p!=null?estrellas(p):''}</span>
+      </div>
+      <div style="font-size:14px;color:#1e293b;">${escS(r.comentario)}</div>
+    </div>`;
+  }).join('') || '<div style="color:#94a3b8;padding:10px 0;">Sin comentarios escritos.</div>';
+
+  cont.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;">
+      <div class="card"><div class="card-body" style="text-align:center;">
+        <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Promedio</div>
+        <div style="font-size:30px;font-weight:700;color:#1e293b;line-height:1.1;margin:4px 0;">${(promPct/20).toFixed(1)}<span style="font-size:16px;color:#94a3b8;">/5</span></div>
+        <div style="color:#f59e0b;font-size:18px;">${estrellas(promPct)}</div>
+      </div></div>
+      <div class="card"><div class="card-body" style="text-align:center;">
+        <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Respuestas</div>
+        <div style="font-size:30px;font-weight:700;color:#1e293b;line-height:1.1;margin:4px 0;">${total}</div>
+        <div style="color:#94a3b8;font-size:13px;">en total</div>
+      </div></div>
+      <div class="card"><div class="card-body" style="text-align:center;">
+        <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Satisfechos</div>
+        <div style="font-size:30px;font-weight:700;color:${pctPositivas>=70?'#16a34a':'#f59e0b'};line-height:1.1;margin:4px 0;">${pctPositivas}%</div>
+        <div style="color:#94a3b8;font-size:13px;">4★ o más</div>
+      </div></div>
+    </div>
+
+    ${desgloseLocal}
+
+    <div class="card"><div class="card-header"><span class="card-title">📈 Tendencia mensual</span></div>
+      <div class="card-body">${barras || '<div style="color:#94a3b8;">Sin datos suficientes.</div>'}</div>
+    </div>
+
+    <div class="card"><div class="card-header"><span class="card-title">💬 Comentarios recientes (${conComentario.length})</span></div>
+      <div class="card-body">${comentarios}</div>
+    </div>
+  `;
+}
+
 function renderAlertas() {
   const el = document.getElementById('alertas-list');
   const listos = pedidosCache.filter(p => p.estado === 'Listo para avisar');
