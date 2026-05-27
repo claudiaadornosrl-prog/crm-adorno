@@ -46,7 +46,7 @@ $func$;
 --  3. Mapeo de cuentas → local (busca por email en auth.users)
 -- ───────────────────────────────────────────────────────────────────────
 INSERT INTO crm_usuarios (auth_user_id, local_id, es_admin)
-SELECT id, 'unicenter', false FROM auth.users WHERE email = 'uncienter@claudiaadorno.com'
+SELECT id, 'unicenter', false FROM auth.users WHERE email = 'unicenter@claudiaadorno.com'
 ON CONFLICT (auth_user_id) DO UPDATE SET local_id = EXCLUDED.local_id, es_admin = EXCLUDED.es_admin;
 
 INSERT INTO crm_usuarios (auth_user_id, local_id, es_admin)
