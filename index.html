@@ -624,6 +624,8 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .estado-Pendiente     { background: #fef3c7; color: #92400e; }
 .estado-Listo         { background: #d1fae5; color: #065f46; }
 .estado-Avisado       { background: #dbeafe; color: #1e40af; }
+.estado-Respondió     { background: #d1fae5; color: #065f46; }
+.estado-No.contestó   { background: #fed7aa; color: #9a3412; }
 .estado-Completado    { background: #f3f4f6; color: #6b7280; }
 .estado-Cancelado     { background: #fee2e2; color: #991b1b; }
 
@@ -1018,7 +1020,8 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
         <div class="filter-chip active" data-f="Pendiente" onclick="setFilter(this)">Pendiente</div>
         <div class="filter-chip" data-f="Listo para avisar" onclick="setFilter(this)">Listo</div>
         <div class="filter-chip" data-f="Avisado" onclick="setFilter(this)">Avisado</div>
-        <div class="filter-chip" data-f="Sin Respuesta" onclick="setFilter(this)">Sin resp.</div>
+        <div class="filter-chip" data-f="Respondió" onclick="setFilter(this)">Respondió</div>
+        <div class="filter-chip" data-f="No contestó" onclick="setFilter(this)">No contestó</div>
         <div class="filter-chip" data-f="Completado" onclick="setFilter(this)">Completado</div>
         <div class="filter-chip" data-f="Cancelado" onclick="setFilter(this)">Cancelado</div>
         <div class="filter-chip" data-f="todos" onclick="setFilter(this)">Todos</div>
@@ -1643,16 +1646,34 @@ function refreshAll() {
   loadData().finally(() => { btn.style.animation = ''; });
 }
 
+// ─── Helper: pedidos avisados hace +60 min que necesitan confirmar respuesta ───
+function pedidosVencidos60() {
+  const hace60min = new Date(Date.now() - 60 * 60 * 1000);
+  let base = pedidosCache.filter(p => {
+    if (p.estado !== 'Avisado') return false;
+    if (!p.avisado_at) return false;
+    return new Date(p.avisado_at) < hace60min;
+  });
+  // Si es vendedora o encargada con local, filtrar por local (toda vendedora del local los ve)
+  if (!session.isAdmin && session.local_id) {
+    base = base.filter(p => p.local_id === session.local_id);
+  }
+  return base;
+}
+
 function updateAlertBadge() {
   const listos = pedidosCache.filter(p => p.estado === 'Listo para avisar').length;
+  const vencidos = pedidosVencidos60().length;
+  const total = listos + vencidos;
   const badge = document.getElementById('alertas-badge');
   const banner = document.getElementById('alert-banner');
-  if (listos > 0) {
-    badge.textContent = listos;
+  if (total > 0) {
+    badge.textContent = total;
     badge.classList.remove('hidden');
-    document.getElementById('banner-text').textContent = listos === 1
-      ? '1 artículo listo para avisar'
-      : `${listos} artículos listos para avisar`;
+    const partes = [];
+    if (listos > 0) partes.push(listos === 1 ? '1 listo para avisar' : `${listos} listos para avisar`);
+    if (vencidos > 0) partes.push(vencidos === 1 ? '1 esperando confirmar respuesta' : `${vencidos} esperando confirmar respuesta`);
+    document.getElementById('banner-text').textContent = partes.join(' · ');
     banner.classList.remove('hidden');
   } else {
     badge.classList.add('hidden');
@@ -2246,6 +2267,10 @@ async function renderHoy() {
   // 5. Pendientes activos (KPI)
   const activos = mis.filter(p => ['Pendiente','Listo para avisar','Avisado'].includes(p.estado));
 
+  // 5.b Vencidos 60min — pedidos avisados que necesitan confirmar respuesta
+  const hace60min = new Date(Date.now() - 60 * 60 * 1000);
+  const vencidos60 = mis.filter(p => p.estado === 'Avisado' && p.avisado_at && new Date(p.avisado_at) < hace60min);
+
   // 6. Conversiones esta semana (KPI)
   const conversionesSemana = mis.filter(p => {
     if (!p.compra_id) return false;
@@ -2295,6 +2320,7 @@ async function renderHoy() {
       </div>
     </div>
 
+    ${renderHoySection('⏰ Esperando confirmar respuesta del cliente', vencidos60, 'urgente', renderHoyCardVencido)}
     ${renderHoySection('🎯 Listos para avisar', listos, 'urgente', renderHoyCardListo)}
     ${renderHoySection('🔔 Re-contacto pendiente (+24h)', recontacto, 'warn', renderHoyCardRecontacto)}
     ${renderHoySection('🎂 Cumpleaños esta semana', cumples, 'cumple', renderHoyCardCumple)}
@@ -2311,6 +2337,27 @@ function renderHoySection(titulo, items, countClass, cardRender) {
     </div>
     ${items.slice(0, 10).map(cardRender).join('')}
     ${items.length > 10 ? `<div class="hoy-empty-section" style="border:none;background:transparent;padding:6px 0">+ ${items.length - 10} más</div>` : ''}
+  </div>`;
+}
+
+function renderHoyCardVencido(p) {
+  const desc = escHtml(p.descripcion_sku || p.sku || '');
+  const cliente = escHtml(p.nombre_cliente || 'Sin nombre');
+  const sucursal = escHtml(p.local_id || '');
+  // Tiempo desde que pasó a Avisado
+  const ts = p.avisado_at ? new Date(p.avisado_at) : null;
+  const mins = ts ? Math.round((Date.now() - ts.getTime()) / 60000) : 0;
+  const horas = Math.floor(mins / 60);
+  const ageTxt = horas > 0 ? `${horas}h ${mins % 60}m` : `${mins}m`;
+  return `<div class="hoy-card" style="border-left:4px solid #f59e0b;">
+    <div class="info">
+      <div class="titulo">${cliente} — ${desc}</div>
+      <div class="desc">Avisado hace <span class="age warn">${ageTxt}</span> · ${sucursal} · ${escHtml(p.vendedora || '—')}</div>
+    </div>
+    <div class="acciones" style="display:flex;gap:6px;">
+      <button class="btn-mini-wa" style="background:#16a34a;border:none;color:white;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;" onclick="event.stopPropagation(); markEstado(${p.id},'Respondió')">✓ Respondió</button>
+      <button class="btn-mini-wa" style="background:#dc2626;border:none;color:white;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;" onclick="event.stopPropagation(); markEstado(${p.id},'No contestó')">✗ No contestó</button>
+    </div>
   </div>`;
 }
 
@@ -2414,7 +2461,7 @@ function renderPedidos() {
   }
 
   // ── Chip counters ───────────────────────────────────────
-  const CHIP_LABELS = { 'Pendiente': 'Pendiente', 'Listo para avisar': 'Listo', 'Avisado': 'Avisado', 'Sin Respuesta': 'Sin resp.', 'Completado': 'Completado', 'Cancelado': 'Cancelado', 'todos': 'Todos' };
+  const CHIP_LABELS = { 'Pendiente': 'Pendiente', 'Listo para avisar': 'Listo', 'Avisado': 'Avisado', 'Respondió': 'Respondió', 'No contestó': 'No contestó', 'Completado': 'Completado', 'Cancelado': 'Cancelado', 'todos': 'Todos' };
   document.querySelectorAll('.filter-chip').forEach(chip => {
     const f = chip.dataset.f;
     if (!f) return;
@@ -2521,12 +2568,18 @@ function pedidoActions(p) {
 
   } else if (estado === 'Avisado') {
     if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank">${waSvg()}</a>`;
-    btns += `<button class="btn-completar" onclick="markEstado(${id},'Completado')">✔ Ya retiró</button>`;
+    btns += `<button class="btn-resp" style="background:#16a34a;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;" onclick="markEstado(${id},'Respondió')" title="El cliente respondió">✓ Respondió</button>`;
+    btns += `<button class="btn-norep" style="background:#dc2626;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;" onclick="markEstado(${id},'No contestó')" title="El cliente no contestó">✗ No contestó</button>`;
     if (p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Plantillas WhatsApp">💬</button>`;
+
+  } else if (estado === 'Respondió' || estado === 'No contestó') {
+    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank">${waSvg()}</a>`;
+    btns += `<button class="btn-completar" onclick="markEstado(${id},'Completado')">✔ Ya retiró</button>`;
+    if (estado === 'No contestó' && p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Re-intentar plantillas">💬</button>`;
   }
 
   // Estado dropdown always available
-  const todos = ['Pendiente', 'Listo para avisar', 'Avisado', 'Completado', 'Cancelado'];
+  const todos = ['Pendiente', 'Listo para avisar', 'Avisado', 'Respondió', 'No contestó', 'Completado', 'Cancelado'];
   const otros = todos.filter(e => e !== estado);
   btns += `<select class="estado-select" onchange="markEstado(${id}, this.value); this.value=''">
     <option value="" disabled selected>Estado ▾</option>
@@ -2674,13 +2727,59 @@ async function renderSatisfaccion() {
 function renderAlertas() {
   const el = document.getElementById('alertas-list');
   const listos = pedidosCache.filter(p => p.estado === 'Listo para avisar');
+  const vencidos = pedidosVencidos60();
 
-  if (!listos.length) {
-    el.innerHTML = `<div class="empty"><div class="icon">✅</div><p>¡Todo en orden! No hay artículos pendientes de aviso.</p></div>`;
+  if (!listos.length && !vencidos.length) {
+    el.innerHTML = `<div class="empty"><div class="icon">✅</div><p>¡Todo en orden! No hay artículos pendientes ni pedidos esperando confirmar respuesta.</p></div>`;
     return;
   }
 
-  el.innerHTML = listos.map(p => {
+  // Sección 1: pedidos avisados hace +60min esperando confirmar respuesta
+  let bloqueVencidos = '';
+  if (vencidos.length) {
+    bloqueVencidos = `
+      <div style="margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:600;color:#d97706;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+          ⏰ ${vencidos.length} ${vencidos.length === 1 ? 'pedido esperando confirmar respuesta del cliente' : 'pedidos esperando confirmar respuesta del cliente'}
+        </div>
+        ${vencidos.map(p => {
+          const hace = Math.round((Date.now() - new Date(p.avisado_at).getTime()) / 60000);
+          const horas = Math.floor(hace / 60), mins = hace % 60;
+          const cuando = horas > 0 ? `${horas}h ${mins}m` : `${mins}m`;
+          return `<div class="alert-card" style="border-left:4px solid #f59e0b;">
+            <div class="alert-card-header">
+              <div>
+                <div class="alert-sku-tag">${escHtml(p.sku_resuelto||p.sku||'')}</div>
+                <div class="alert-desc">${escHtml(p.descripcion_sku||'')}</div>
+              </div>
+              <span style="font-size:11px;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:10px;font-weight:600;">Avisado hace ${cuando}</span>
+            </div>
+            <div class="alert-body">
+              <div class="alert-client-info">
+                <div class="alert-client-name">${escHtml(p.nombre_cliente||'Sin nombre')}</div>
+                <div class="alert-client-cel">📱 ${escHtml(p.celular||'')} · ${escHtml(p.vendedora||'')}</div>
+              </div>
+              <div class="alert-actions">
+                <button class="btn-avisar" style="background:#16a34a;" onclick="markEstado(${p.id},'Respondió')" title="El cliente respondió">✓ Respondió</button>
+                <button class="btn-avisar" style="background:#dc2626;" onclick="markEstado(${p.id},'No contestó')" title="El cliente no contestó">✗ No contestó</button>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  if (!listos.length) {
+    el.innerHTML = bloqueVencidos;
+    return;
+  }
+
+  el.innerHTML = bloqueVencidos + (listos.length ? `
+      <div style="font-size:13px;font-weight:600;color:#6366f1;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0;">
+        📦 ${listos.length} ${listos.length === 1 ? 'artículo listo para avisar' : 'artículos listos para avisar'}
+      </div>
+    ` : '') + listos.map(p => {
     const waUrl = buildWa(p);
     return `<div class="alert-card">
       <div class="alert-card-header">
