@@ -205,13 +205,17 @@ def sync_skus():
 
         for db_name in databases:
             try:
+                # NOTA: NO filtramos por IMPORTADO. Antes se filtraba con
+                # `IMPORTADO = 0` (solo nacionales), pero eso dejaba afuera
+                # ~2000 artículos por base que las vendedoras necesitan vender
+                # todos los días (productos importados de Brasil/China, etc.).
+                # Solo excluimos BLOQREG = 1 (artículos bloqueados).
                 rows = df_query(db_name, """
                     SELECT
                         RTRIM(ARTCOD) AS sku,
                         RTRIM(ARTDES) AS descripcion
                     FROM ZooLogic.ART
                     WHERE BLOQREG = 0
-                      AND IMPORTADO = 0
                 """)
                 for r in rows:
                     sku = (r.get("sku") or "").strip()
