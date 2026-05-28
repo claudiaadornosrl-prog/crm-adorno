@@ -1016,7 +1016,9 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
     <div class="tab-panel" id="panel-pedidos">
       <div class="filter-row">
         <div class="filter-chip active" data-f="Pendiente" onclick="setFilter(this)">Pendiente</div>
+        <div class="filter-chip" data-f="Listo para avisar" onclick="setFilter(this)">Listo</div>
         <div class="filter-chip" data-f="Avisado" onclick="setFilter(this)">Avisado</div>
+        <div class="filter-chip" data-f="Sin Respuesta" onclick="setFilter(this)">Sin resp.</div>
         <div class="filter-chip" data-f="Completado" onclick="setFilter(this)">Completado</div>
         <div class="filter-chip" data-f="Cancelado" onclick="setFilter(this)">Cancelado</div>
         <div class="filter-chip" data-f="todos" onclick="setFilter(this)">Todos</div>
@@ -1820,10 +1822,15 @@ async function detectarClienteExistente() {
   const thisToken = Symbol();
   detectClienteToken = thisToken;
 
-  // Construir filtro OR para buscar por celular o DNI
+  // Construir filtro OR para buscar por celular, DNI o CUIT.
+  // Los clientes sincronizados desde Dragonfish vienen con CUIT (no DNI),
+  // entonces también buscamos el DNI ingresado DENTRO del CUIT (CUIT = prefijo + DNI + dígito).
   const filters = [];
   if (cel.length >= 8) filters.push(`celular.eq.${cel}`);
-  if (dni.length >= 7) filters.push(`dni.eq.${dni}`);
+  if (dni.length >= 7) {
+    filters.push(`dni.eq.${dni}`);
+    filters.push(`cuit.like.*${dni}*`);
+  }
   if (!filters.length) { hideClienteDetectado(); return; }
 
   try {
@@ -2407,7 +2414,7 @@ function renderPedidos() {
   }
 
   // ── Chip counters ───────────────────────────────────────
-  const CHIP_LABELS = { 'Pendiente': 'Pendiente', 'Avisado': 'Avisado', 'Completado': 'Completado', 'Cancelado': 'Cancelado', 'todos': 'Todos' };
+  const CHIP_LABELS = { 'Pendiente': 'Pendiente', 'Listo para avisar': 'Listo', 'Avisado': 'Avisado', 'Sin Respuesta': 'Sin resp.', 'Completado': 'Completado', 'Cancelado': 'Cancelado', 'todos': 'Todos' };
   document.querySelectorAll('.filter-chip').forEach(chip => {
     const f = chip.dataset.f;
     if (!f) return;
