@@ -1,1 +1,63 @@
+# ════════════════════════════════════════════════════════
+#  CRM Adorno — .gitignore
+# ════════════════════════════════════════════════════════
+
+# ─── Secrets (NUNCA commitear) ─────────────────────────
+.env
+.env.local
+**/.env
+**/credentials.json
+**/*secret*
+**/google_credentials.json
+**/google_token*.json
+**/client_secret*.json
+*.pem
+*.key
+*service-account*.json
+
+# ─── Repos hermanos / sub-proyectos (no van en este) ────
 rrhh-adorno/
+hub/
+hub-adorno/
+banco-adorno/
+
+# ─── Logs y outputs efímeros de scripts ─────────────────
+*.log
+_verif_*.txt
+_setup_*.bat
+
+# ─── Reportes de auditoría internos (no son código) ─────
+AUDIT_REPORT_*.md
+
+# ─── Archivos de trabajo temporales (chunks/batches viejos) ─
+p3_*.txt
+p3_*.json
+run_part_*.js
+mapeo_*.xlsx
+
+# ─── Páginas legacy que ya no usamos ───────────────────
+vendedoras.html
+znube_page1.html
+
+# ─── Backups locales ────────────────────────────────────
+backups/
+
+# ─── Python ─────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ─── Sistema ────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# ─── Excels descargados / inputs efímeros ──────────────
+# (los Excels que SÍ van en el repo van trackeados explícitamente
+# con git add -f en caso necesario)
+Detalle_*.xlsx
+*_temp.xlsx
