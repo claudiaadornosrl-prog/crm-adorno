@@ -4184,6 +4184,7 @@ async function markEstado(id, estado) {
     updateAlertBadge();
     renderPedidos();
     renderAlertas();
+    renderHoy();   // ← refresca el dashboard Hoy (sino la alerta sigue mostrándose)
     if (session.isAdmin) renderAdmin();
     toast(`✅ Marcado como ${estado}`);
   } catch(e) {
