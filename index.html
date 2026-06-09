@@ -2345,7 +2345,64 @@ async function renderHoy() {
     ${renderHoySection('🔔 Mandar refuerzo (No contestó +72h)', recontacto, 'warn', renderHoyCardRecontacto)}
     ${renderHoySection('🎂 Cumpleaños esta semana', cumples, 'cumple', renderHoyCardCumple)}
     ${renderHoySection('⏰ Pedidos viejos (+30 días)', viejos, 'warn', renderHoyCardViejo)}
+    ${renderHoyRankingLocal()}
   `;
+
+  // Cargar logs en background si no hay cache, después re-renderizar para mostrar el ranking
+  if (!window._pedidosLogCache) {
+    _refreshPedidosLogCache().then(() => { if (currentTab === 'hoy') renderHoy(); });
+  }
+}
+
+// ─── Ranking del local en el dashboard Hoy ────────────────────────────
+function renderHoyRankingLocal() {
+  // Solo si el usuario tiene local (vendedora/encargada) — admin lo ve en tab Admin
+  if (session.isAdmin || !session.local_id) return '';
+  const localId = session.local_id;
+  const vendedorasDelLocal = new Set(VENDEDORAS[localId] || []);
+
+  // Pedidos cargados desde este local (captación)
+  const pedsLocal = pedidosCache.filter(p => p.local_id === localId);
+  const idsLocal = new Set(pedsLocal.map(p => p.id));
+
+  const byVend = {};
+  const sumar = (v, key) => {
+    if (!v || !vendedorasDelLocal.has(v)) return;
+    if (!byVend[v]) byVend[v] = { capt: 0, seg1: 0, seg2: 0, total: 0 };
+    byVend[v][key]++;
+    byVend[v].total++;
+  };
+  pedsLocal.forEach(p => sumar(p.vendedora, 'capt'));
+  (window._pedidosLogCache || []).forEach(l => {
+    if (!idsLocal.has(l.pedido_id)) return;
+    if (!l.vendedora) return;
+    if (l.accion === 'estado' && l.valor_nuevo === 'Avisado') sumar(l.vendedora, 'seg1');
+    else if (l.accion === 'recontacto') sumar(l.vendedora, 'seg2');
+  });
+
+  const top = Object.entries(byVend).sort((a, b) => b[1].total - a[1].total);
+  if (top.length === 0) return '';
+  const maxN = top[0][1].total || 1;
+  const posClass = i => i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+
+  return `<div class="hoy-section">
+    <div class="hoy-section-header">
+      <h3 class="hoy-section-title">🏆 Ranking del local</h3>
+      <span class="hoy-section-count">${top.length}</span>
+    </div>
+    <div style="background:white;border-radius:12px;padding:12px;box-shadow:var(--shadow);">
+      ${top.map(([nombre, d], i) => `
+        <div class="ranking-row" style="padding:8px 10px;">
+          <span class="ranking-pos ${posClass(i)}">${i+1}</span>
+          <span class="ranking-name">${escHtml(nombre)}</span>
+          <div class="ranking-bar-wrap"><div class="ranking-bar" style="width:${Math.round(d.total/maxN*100)}%"></div></div>
+          <span class="ranking-count" style="display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;" title="Captación: ${d.capt} · Seg 1 (Avisado): ${d.seg1} · Seg 2 (Re-contacto): ${d.seg2}">
+            <span>${d.total} pt${d.total!==1?'s':''}</span>
+            <span style="font-size:10px;color:#64748b;font-weight:400;">${d.capt}+${d.seg1}+${d.seg2}</span>
+          </span>
+        </div>`).join('')}
+    </div>
+  </div>`;
 }
 
 function renderHoySection(titulo, items, countClass, cardRender) {
