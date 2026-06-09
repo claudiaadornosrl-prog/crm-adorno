@@ -2361,8 +2361,9 @@ function renderHoyRankingLocal() {
   const localId = session.local_id;
   const vendedorasDelLocal = new Set(VENDEDORAS[localId] || []);
 
-  // Pedidos cargados desde este local (captación)
-  const pedsLocal = pedidosCache.filter(p => p.local_id === localId);
+  // Pedidos cargados desde este local en los últimos 12 meses (captación)
+  const hace12m = new Date(Date.now() - 365 * 86400000);
+  const pedsLocal = pedidosCache.filter(p => p.local_id === localId && p.created_at && new Date(p.created_at) >= hace12m);
   const idsLocal = new Set(pedsLocal.map(p => p.id));
 
   const byVend = {};
@@ -2387,7 +2388,7 @@ function renderHoyRankingLocal() {
 
   return `<div class="hoy-section">
     <div class="hoy-section-header">
-      <h3 class="hoy-section-title">🏆 Ranking del local</h3>
+      <h3 class="hoy-section-title">🏆 Ranking del local (últimos 12 meses)</h3>
       <span class="hoy-section-count">${top.length}</span>
     </div>
     <div style="background:white;border-radius:12px;padding:12px;box-shadow:var(--shadow);">
@@ -4160,10 +4161,13 @@ function renderDemandaNoSatisfecha(items) {
 
 async function _refreshPedidosLogCache() {
   try {
+    // Limitar a últimos 12 meses para que el ranking refleje rendimiento reciente
+    const hace12m = new Date(Date.now() - 365 * 86400000).toISOString();
     const rows = await supaGet('pedidos_log', {
-      select: 'pedido_id,accion,valor_nuevo,vendedora',
+      select: 'pedido_id,accion,valor_nuevo,vendedora,timestamp',
       vendedora: 'not.is.null',
-      limit: '5000',
+      timestamp: 'gte.' + hace12m,
+      limit: '10000',
     });
     window._pedidosLogCache = rows || [];
   } catch(e) { console.warn('log cache:', e); window._pedidosLogCache = []; }
@@ -4197,11 +4201,13 @@ function renderAdmin() {
   // Rankings
   const adminList = document.getElementById('admin-list');
 
-  // Vendedoras ranking — SCORING POR TOQUES
+  // Vendedoras ranking — SCORING POR TOQUES (últimos 12 meses)
   // - Captación: 1pt a items.vendedora (pedido cargado)
   // - Seguimiento 1: 1pt a cada log con accion='estado' y valor_nuevo='Avisado' y vendedora seteada
   // - Seguimiento 2: 1pt a cada log con accion='recontacto' y vendedora seteada
   // Detalle por vendedora: { capt, seg1, seg2, total }
+  const hace12mAdm = new Date(Date.now() - 365 * 86400000);
+  const itemsRanking = items.filter(p => p.created_at && new Date(p.created_at) >= hace12mAdm);
   const byVend = {};
   const sumar = (v, key) => {
     if (!v) v = 'Sin nombre';
@@ -4209,9 +4215,9 @@ function renderAdmin() {
     byVend[v][key]++;
     byVend[v].total++;
   };
-  items.forEach(p => sumar(p.vendedora, 'capt'));
+  itemsRanking.forEach(p => sumar(p.vendedora, 'capt'));
   // Logs de seguimientos del rango de items (filtramos solo por items presentes)
-  const itemIds = new Set(items.map(p => p.id));
+  const itemIds = new Set(itemsRanking.map(p => p.id));
   (window._pedidosLogCache || []).forEach(l => {
     if (!itemIds.has(l.pedido_id)) return;
     if (!l.vendedora) return;
@@ -4223,7 +4229,7 @@ function renderAdmin() {
   const posClass = i => i===0?'gold':i===1?'silver':i===2?'bronze':'';
   const vendHTML = topVend.length ? `
     <div class="ranking-section">
-      <div class="ranking-title">🏆 Ranking vendedoras (puntos por toques)</div>
+      <div class="ranking-title">🏆 Ranking vendedoras · últimos 12 meses (puntos por toques)</div>
       ${topVend.map(([nombre,d],i) => `
         <div class="ranking-row" title="Captación: ${d.capt} · Seguimiento 1 (Avisado): ${d.seg1} · Seguimiento 2 (Re-contacto): ${d.seg2}">
           <span class="ranking-pos ${posClass(i)}">${i+1}</span>
