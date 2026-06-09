@@ -4923,4 +4923,9 @@ document.addEventListener('input', function(e) {
   if (val === upper) return;
   const start = t.selectionStart;
   const end = t.selectionEnd;
-  t.value = uppe
+  t.value = upper;
+  try { t.setSelectionRange(start, end); } catch(_) {}
+});
+</script>
+</body>
+</html>
