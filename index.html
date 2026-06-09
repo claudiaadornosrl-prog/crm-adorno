@@ -196,7 +196,7 @@ a { color: inherit; text-decoration: none; }
 
 /* Popup para agregar tag */
 .tag-popup {
-  position: absolute; z-index: 50;
+  position: absolute; z-index: 1100;   /* Por encima del cliente-modal (z-index:1000) */
   background: white; border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.15);
   border: 1px solid var(--border);
@@ -3635,6 +3635,29 @@ function clienteWaUrl(celular, nombre_completo) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(saludo)}`;
 }
 
+// Botón WA cuando el cliente no tiene celular cargado.
+// Pide el número, ofrece guardarlo en la ficha del cliente, y abre WA.
+async function abrirWaSinCelular(globalid) {
+  const tel = prompt('Sin celular cargado para este cliente.\nIngresá el número (ej: 1144556677 o 11 4455 6677):');
+  if (!tel) return;
+  const digits = String(tel).replace(/\D/g,'');
+  if (digits.length < 8) { toast('Número inválido'); return; }
+  const nombre = (clienteDetailCache?.c?.nombre_completo) || '';
+  // Guardar en la ficha (mejor cache que perder el dato)
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/clientes?globalid=eq.${encodeURIComponent(globalid)}`, {
+      method: 'PATCH', headers: supaHeaders(),
+      body: JSON.stringify({ celular: digits }),
+    });
+    if (clienteDetailCache?.c) clienteDetailCache.c.celular = digits;
+    const cached = clientesCache.find(x => x.globalid === globalid);
+    if (cached) cached.celular = digits;
+  } catch(_) { /* si falla guardar, igual abrimos WA */ }
+  // Abrir WA
+  const url = clienteWaUrl(digits, nombre);
+  if (url) window.open(url, '_blank');
+}
+
 function clienteMailUrl(email, nombre_completo) {
   if (!email) return null;
   const primerNombre = (nombre_completo || '').trim().split(/\s+/)[0] || '';
@@ -3674,11 +3697,14 @@ function renderClienteDetail() {
         ${c.locales_presentes && c.locales_presentes.length ? ' · En: ' + c.locales_presentes.join(', ') : ''}
       </div>
     </div>
-    ${(c.celular || c.email || c.telefono) ? `<div class="cliente-actions-row">
-      ${c.celular ? `<a class="cliente-action-btn wa" href="${clienteWaUrl(c.celular, c.nombre_completo)}" target="_blank" title="Abrir chat de WhatsApp">${waSvg()} WhatsApp</a>` : ''}
+    <div class="cliente-actions-row">
+      ${c.celular
+        ? `<a class="cliente-action-btn wa" href="${clienteWaUrl(c.celular, c.nombre_completo)}" target="_blank" title="Abrir chat de WhatsApp">${waSvg()} WhatsApp</a>`
+        : `<button class="cliente-action-btn wa" onclick="abrirWaSinCelular('${escHtml(c.globalid)}')" title="Sin celular cargado — click para ingresar">${waSvg()} WhatsApp</button>`
+      }
       ${c.email   ? `<a class="cliente-action-btn mail" href="${clienteMailUrl(c.email, c.nombre_completo)}" title="Enviar mail">✉ Email</a>` : ''}
       ${c.telefono ? `<a class="cliente-action-btn tel" href="tel:${escHtml(c.telefono)}" title="Llamar al teléfono fijo">📞 ${escHtml(c.telefono)}</a>` : ''}
-    </div>` : ''}
+    </div>
     ${renderTagsModal(c)}
     <div class="cliente-stats-row">
       <div class="cliente-stat-box"><div class="cliente-stat-num">${fmtCurrency(c.total_compras)}</div><div class="cliente-stat-label">Total año</div></div>
