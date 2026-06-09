@@ -2210,6 +2210,22 @@ function toggleSort() {
 //  Dashboard "Hoy" — pantalla de bienvenida al loguearse
 // ═══════════════════════════════════════════════════════
 async function renderHoy() {
+  // Auto-cancelar pedidos "No contestó" con re-contacto hace +24h.
+  // Best-effort: si falla no rompe el render. Si cancela algo, recargamos cache.
+  try {
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/crm_auto_cancelar_no_contesto`, {
+      method: 'POST', headers: { ...supaHeaders(), 'Content-Type': 'application/json' }, body: '{}',
+    });
+    if (r.ok) {
+      const cancelados = await r.json();
+      if (cancelados > 0) {
+        // Recargar cache para que el render refleje los nuevos cancelados
+        await fetchPedidos();
+        toast(`ℹ️ ${cancelados} pedido(s) auto-cancelado(s) tras 24h sin respuesta al refuerzo`);
+      }
+    }
+  } catch(_) { /* silencioso */ }
+
   const el = document.getElementById('hoy-content');
   if (!el) return;
 
@@ -2240,12 +2256,16 @@ async function renderHoy() {
   // 1. Listos para avisar (estado="Listo para avisar")
   const listos = mis.filter(p => p.estado === 'Listo para avisar');
 
-  // 2. Avisados hace +24hs sin completar (re-contacto pendiente)
-  const hace24h = new Date(ahora.getTime() - 24*3600*1000);
+  // 2. Pedidos en "No contestó" con +72h del primer aviso → mandar refuerzo (seguimiento 2)
+  //    Si ya se hizo el re-contacto, NO aparecen acá (queda solo lo pendiente de hacer).
+  //    SOLO aplica al motivo "Avisar cuando ingrese" — los otros motivos tienen flow propio.
+  const hace72h = new Date(ahora.getTime() - 72*3600*1000);
   const recontacto = mis.filter(p => {
-    if (p.estado !== 'Avisado') return false;
+    if (p.motivo !== 'Avisar cuando ingrese') return false;
+    if (p.estado !== 'No contestó') return false;
+    if (p.fecha_recontacto) return false;   // ya se hizo el refuerzo
     const fechaAviso = p.fecha_aviso ? new Date(p.fecha_aviso) : null;
-    return fechaAviso && fechaAviso < hace24h;
+    return fechaAviso && fechaAviso < hace72h;
   });
 
   // 3. Pendientes hace +30 días (viejos sin movimiento)
@@ -2322,7 +2342,7 @@ async function renderHoy() {
 
     ${renderHoySection('⏰ Esperando confirmar respuesta del cliente', vencidos60, 'urgente', renderHoyCardVencido)}
     ${renderHoySection('🎯 Listos para avisar', listos, 'urgente', renderHoyCardListo)}
-    ${renderHoySection('🔔 Re-contacto pendiente (+24h)', recontacto, 'warn', renderHoyCardRecontacto)}
+    ${renderHoySection('🔔 Mandar refuerzo (No contestó +72h)', recontacto, 'warn', renderHoyCardRecontacto)}
     ${renderHoySection('🎂 Cumpleaños esta semana', cumples, 'cumple', renderHoyCardCumple)}
     ${renderHoySection('⏰ Pedidos viejos (+30 días)', viejos, 'warn', renderHoyCardViejo)}
   `;
@@ -4693,7 +4713,12 @@ async function sendWaTemplate(templateId) {
   if (templateId === 'recontactar' && vendRecontacto) {
     logPedidoChange(p.id, 'recontacto', null, null, tpl.title, vendRecontacto);
     window._pedidosLogCache = null; // forzar refetch en próximo renderAdmin
-    toast(`✓ Re-contacto registrado para ${vendRecontacto}`);
+    // Marcar fecha_recontacto en el pedido — desde acá empiezan a correr las 24h para auto-cancelar
+    const nowIso = new Date().toISOString();
+    supaPatch('pedidos', p.id, { fecha_recontacto: nowIso }).catch(() => {});
+    const idx = pedidosCache.findIndex(x => x.id === p.id);
+    if (idx >= 0) pedidosCache[idx].fecha_recontacto = nowIso;
+    toast(`✓ Re-contacto registrado para ${vendRecontacto} (si no responde en 24h se cancela auto)`);
   }
 }
 

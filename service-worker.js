@@ -3,7 +3,7 @@
 //  Estrategia: network-first para HTML/datos, cache-first para assets
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'crm-adorno-v3-scoring-por-toques';
+const CACHE_VERSION = 'crm-adorno-v4b-flow-solo-avisar-cuando-ingrese';
 const CACHE_ASSETS = [
   './',
   './index.html',
