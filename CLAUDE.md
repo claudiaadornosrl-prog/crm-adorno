@@ -55,6 +55,13 @@ Franquera (Escasany), Directora SRL (Claudia).
 | Banco | `banco-adorno` | (pendiente fase B en adelante) |
 
 ### Datos sensibles
+- 🚨 **REGLA REPO PÚBLICO MÍNIMO** (desde 2026-06-10): los repos GitHub son
+  públicos (Pages free lo exige), así que SOLO se commitea lo que Pages sirve:
+  `index.html`, `manifest`, `service-worker.js`, `assets/`, `deploy.ps1`, README.
+  `sql/`, `migrations/`, `sync_anviz/`, `supabase/` quedan SOLO en disco local
+  (gitignoreados). El historial de rrhh-adorno fue purgado con git filter-repo
+  (backup pre-purga en `backups/rrhh-adorno_pre-filtro_2026-06-10`). Pendiente
+  aplicar lo mismo a crm-adorno / ventas-adorno / tesoreria-adorno.
 - Service role key Supabase: en `sync_anviz/.env` local (NUNCA en chat ni en git).
 - Anon key Supabase: pública, en cada index.html.
 - Google App Password para Gmail IMAP: en `sync_anviz/.env`.
@@ -117,6 +124,41 @@ Franquera (Escasany), Directora SRL (Claudia).
 - Sin login propio, solo redirección a cada módulo
 - PWA installable
 
+### Tesorería
+**Cuentas integradas con scrapers** (`tesoreria-adorno/scrapers/`):
+- **Galicia** (Office Banking, Playwright): CC ARS, CA USD, FIMA ARS/USD, Títulos
+  ARS/USD, Plazo Fijo ARS/USD. Captura saldos del dashboard, movs de CC/CA con
+  detalle CUIT/CBU/razón social expandido, tenencias FIMA (cuotapartes + valor
+  unidad), movs FIMA (Agregar/Retirar). Filtra echeqs pendientes hasta que se
+  acrediten.
+- **MP Locales** (API REST + access token): pagos cada hora, retiros vía
+  release_report. Saldo disponible vs pendiente calculado por
+  `money_release_date` (porque el endpoint `/balance` da 403 con scopes estándar).
+- **MP Web**: aún sin API (JP es colaborador, no admin). Parser de mails pendiente.
+- **PPI** (SDK oficial `ppi-client`): saldo + tenencias FCI, una vez por día.
+
+**Conceptos clave**:
+- `saldo_banco_actual` + `saldo_banco_at` en `tesoreria_cuentas`: saldo "real"
+  reportado por el banco/MP. La función `tesoreria_saldo_cuenta(id)` lo prioriza
+  si está fresco (< 7 días), sino cae al cálculo `sum + offset_ancla`.
+- `saldo_banco_pendiente`: lo que aún no se liberó (usado en MP, no en Galicia).
+- `tesoreria_movimientos.nota`: campo TEXT para anotaciones. La PWA tinta amarillo
+  las filas con nota y muestra el texto en cursiva debajo de la descripción.
+- `extra` JSONB en movs: guarda info extra (CUIT/CBU/razón social en Galicia,
+  fees + money_release_date en MP, cuotapartes + valor_cuotaparte en FIMA, etc).
+
+**Dashboard PWA — drill-down de inversiones**:
+- Cuentas tipo `banco_fondo|banco_titulos|banco_pf` se agrupan visualmente en cards
+  virtuales "Inversiones Pesos" / "Inversiones Dólares" con flecha ▸.
+- Click → vista intermedia con 3 cards (FIMA / Títulos / PF).
+- Click → grilla de movs + tabla de tenencias arriba (cuando hay).
+
+**MERGE en `upsert_movimientos`** (`scraper_common.py`):
+- Si el hash externo ya existe, hace PATCH actualizando saldo_post, extra,
+  descripcion, importe, fecha, local, canal. NO duplica.
+- Hash de Galicia NO incluye saldo (porque el banco recalcula cuando se acreditan
+  cheques) — formato: `fecha + descripcion + importe + comprobante`.
+
 ### Banco (en desarrollo)
 - Fase A: SQL base ✅ (4 tablas + helper `banco_saldo_cuenta()` + 5 cuentas + 16 categorías)
 - Fase B: repo + setup + auth — pendiente
@@ -178,6 +220,40 @@ En cualquier instrucción a JP, identificar siempre dónde correr:
 - Updates: `sb.from('tabla').update({...}).eq('id', x)`
 - RLS: cuando un cambio de schema deja PostgREST con cache vieja, ejecutar
   `NOTIFY pgrst, 'reload schema';` en el SQL Editor.
+
+### Deploy y cache busting
+- Después de cada `deploy.ps1`, **si JP trabaja desde browser normal** (no PWA
+  instalada), siempre **`Ctrl + Shift + R`** para hard-refresh, sino sigue
+  corriendo el JS viejo cacheado y los nuevos triggers no se ejecutan.
+- Síntoma típico: nada anda, pero la Edge Function NO recibe invocaciones cuando
+  el evento se dispara desde el cliente.
+- Cuando bump del CACHE_VERSION del service worker, recordar: la PWA instalada
+  toma la versión nueva al cerrar y reabrir; el browser normal con la pestaña
+  abierta necesita hard-refresh.
+
+### Edge Functions sin Supabase CLI
+- JP **no tiene Supabase CLI instalada**. Para deploys de Edge Functions usar
+  el dashboard inline editor:
+  Dashboard → Edge Functions → Deploy a new function → pegar code → Deploy
+  → tab "Code" → seleccionar all → pegar code real → "Deploy updates".
+- El editor default carga un placeholder de `withSupabase`/`ReqPayload` que
+  hay que reemplazar manualmente.
+- Para inyectar código TypeScript grande sin copy-paste manual, desde la
+  consola del browser: `monaco.editor.getEditors()[0].getModel().setValue(code)`.
+
+### Web Push Notifications (sistema)
+- VAPID keys generadas con `sync_anviz/generar_vapid_keys.py` (one-shot, JP ya
+  las cargó: pública en `index.html`, privada en Supabase Secrets como
+  `VAPID_PRIVATE_KEY` + `VAPID_SUBJECT`).
+- Edge Function: `supabase/functions/enviar-push/index.ts`.
+- Tabla: `rrhh_push_subscriptions` con RLS (empleada ve solo las propias).
+- Service worker tiene `addEventListener('push')` + `notificationclick`.
+- Self-service: botón "🔔 Activar notificaciones" en `renderMiLegajo`.
+- **iOS limitation**: Web Push solo funciona si la PWA está instalada en
+  pantalla de inicio. Avisarle a las vendedoras: "Compartir → Agregar a
+  pantalla de inicio". Si abren desde Safari directo, las notifs no llegan.
+- Anti-spam: usar `tag: 'turno-' + empId` o similares para que notifs del mismo
+  tipo se reemplacen y no spammeen al celu.
 
 ---
 
