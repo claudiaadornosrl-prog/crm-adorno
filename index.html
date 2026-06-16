@@ -2220,7 +2220,7 @@ async function renderHoy() {
       const cancelados = await r.json();
       if (cancelados > 0) {
         // Recargar cache para que el render refleje los nuevos cancelados
-        await fetchPedidos();
+        await loadPedidos();
         toast(`ℹ️ ${cancelados} pedido(s) auto-cancelado(s) tras 24h sin respuesta al refuerzo`);
       }
     }
