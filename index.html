@@ -1363,30 +1363,86 @@ async function supaRefresh(refresh_token) {
   return r.json();
 }
 
+// Refresca el access_token si está expirado o por expirar (margen 60s).
+// Llamada antes de cada request para evitar 401 PGRST303 "JWT expired"
+// cuando la vendedora deja la PWA abierta horas sin tocar nada.
+let _refreshInFlight = null;
+async function _ensureFreshToken() {
+  if (!authRefreshToken || !session?.expires_at) return;
+  const ahora = Math.floor(Date.now() / 1000);
+  if (session.expires_at - ahora > 60) return;  // todavía tiene >60s de vida
+  // Coalescer refreshes concurrentes — si ya hay uno en curso, esperarlo
+  if (_refreshInFlight) { await _refreshInFlight; return; }
+  _refreshInFlight = (async () => {
+    try {
+      const fresh = await supaRefresh(authRefreshToken);
+      _guardarSesion(fresh, {
+        local_id: session.local_id, nombre: session.nombre, isAdmin: session.isAdmin
+      });
+    } catch (e) {
+      console.warn('Refresh de sesión falló:', e);
+      // No tiramos el error acá — dejamos que la request siguiente falle con 401
+      // y el caller maneje la redirección al login.
+    } finally {
+      _refreshInFlight = null;
+    }
+  })();
+  await _refreshInFlight;
+}
+
+// Detecta el error "JWT expired" desde el body de respuesta de PostgREST.
+// Si lo detecta, refresca el token y devuelve true para que el caller reintente.
+async function _esJwtExpiredYRefrescar(resp) {
+  if (resp.status !== 401) return false;
+  let body = '';
+  try { body = await resp.clone().text(); } catch(_) {}
+  if (!body.includes('PGRST303') && !body.toLowerCase().includes('jwt expired')) return false;
+  if (!authRefreshToken) return false;
+  try {
+    const fresh = await supaRefresh(authRefreshToken);
+    _guardarSesion(fresh, {
+      local_id: session?.local_id, nombre: session?.nombre, isAdmin: session?.isAdmin
+    });
+    return true;
+  } catch (e) {
+    console.warn('Refresh tras 401 falló:', e);
+    return false;
+  }
+}
+
 async function supaGet(table, params = {}) {
+  await _ensureFreshToken();
   const url = new URL(`${SUPA_URL}/rest/v1/${table}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
-  const r = await fetch(url.toString(), { headers: supaHeaders() });
+  let r = await fetch(url.toString(), { headers: supaHeaders() });
+  if (await _esJwtExpiredYRefrescar(r)) {
+    r = await fetch(url.toString(), { headers: supaHeaders() });
+  }
   if (!r.ok) throw new Error(`Supabase GET ${table} ${r.status}: ${await r.text()}`);
   return r.json();
 }
 
 async function supaPost(table, data) {
-  const r = await fetch(`${SUPA_URL}/rest/v1/${table}`, {
-    method: 'POST',
-    headers: supaHeaders(),
-    body: JSON.stringify(data),
+  await _ensureFreshToken();
+  let r = await fetch(`${SUPA_URL}/rest/v1/${table}`, {
+    method: 'POST', headers: supaHeaders(), body: JSON.stringify(data),
   });
+  if (await _esJwtExpiredYRefrescar(r)) {
+    r = await fetch(`${SUPA_URL}/rest/v1/${table}`, {
+      method: 'POST', headers: supaHeaders(), body: JSON.stringify(data),
+    });
+  }
   if (!r.ok) throw new Error(`Supabase POST ${table} ${r.status}: ${await r.text()}`);
   return r.json();
 }
 
 async function supaPatch(table, id, data) {
-  const r = await fetch(`${SUPA_URL}/rest/v1/${table}?id=eq.${id}`, {
-    method: 'PATCH',
-    headers: supaHeaders(),
-    body: JSON.stringify(data),
-  });
+  await _ensureFreshToken();
+  const url = `${SUPA_URL}/rest/v1/${table}?id=eq.${id}`;
+  let r = await fetch(url, { method: 'PATCH', headers: supaHeaders(), body: JSON.stringify(data) });
+  if (await _esJwtExpiredYRefrescar(r)) {
+    r = await fetch(url, { method: 'PATCH', headers: supaHeaders(), body: JSON.stringify(data) });
+  }
   if (!r.ok) throw new Error(`Supabase PATCH ${table} ${id}: ${r.status}: ${await r.text()}`);
   return r.json();
 }
