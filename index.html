@@ -8,6 +8,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
+/* Tipografia institucional: URW Gothic (clon libre de Avant Garde),
+   servida desde fonts/ del propio repo. */
+@font-face {
+  font-family: 'URW Gothic';
+  src: url('fonts/URWGothic-Book.ttf') format('truetype');
+  font-weight: 300 700;
+  font-display: swap;
+}
+
 /* ── Reset & Variables ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -78,7 +87,7 @@ html.dark .tag-add-btn { background: #15203a; color: var(--muted); }
 /* Transición suave al cambiar tema */
 html, body, .card, .pedido-card, .ranking-row, .cliente-card, .cumple-card, input, textarea, select { transition: background-color .25s, color .25s, border-color .25s; }
 
-html, body { height: 100%; font-family: 'Josefin Sans', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+html, body { height: 100%; font-family: 'URW Gothic', 'Josefin Sans', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
 input, select, textarea, button { font-family: inherit; font-size: inherit; }
 button { cursor: pointer; }
 a { color: inherit; text-decoration: none; }
@@ -862,6 +871,7 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 <div id="app-screen" class="screen">
   <!-- Header -->
   <div class="header">
+    <a href="https://claudiaadornosrl-prog.github.io/hub/" title="Volver al Hub" aria-label="Volver al Hub" style="text-decoration:none;font-size:19px;line-height:1;color:#D97757;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,0.12);">✳</a>
     <div class="header-left">
       <span class="header-local" id="hdr-local"></span>
       <span class="header-name" id="hdr-nombre"></span>
@@ -1327,6 +1337,10 @@ const LOCAL_EMAILS = {
   oficina:   'administracion@claudiaadorno.com',
 };
 const ADMIN_EMAIL = 'juanpsimonelli@gmail.com';
+// Admins del CRM (coincide con crm_usuarios.es_admin en la base).
+const ADMIN_EMAILS = ['juanpsimonelli@gmail.com', 'clau@claudiaadorno.com'];
+// Modo simple: admins que solo ven Satisfacción + Admin (para no marear).
+const MODO_SIMPLE_EMAILS = ['clau@claudiaadorno.com'];
 
 function supaHeaders() {
   return {
@@ -1536,11 +1550,15 @@ async function startSession() {
 }
 
 async function startAdmin() {
-  const pass = prompt('Contraseña de administrador:');
+  const email = (prompt('Email de administrador:', ADMIN_EMAIL) || '').trim().toLowerCase();
+  if (!email) return;
+  if (!ADMIN_EMAILS.includes(email)) { alert('Ese email no es administrador del CRM.'); return; }
+  const pass = prompt('Contraseña:');
   if (pass === null) return; // canceló
   try {
-    const authData = await supaLogin(ADMIN_EMAIL, pass.trim());
-    _guardarSesion(authData, { local_id: null, nombre: 'JP (Admin)', isAdmin: true });
+    const authData = await supaLogin(email, pass.trim());
+    const nombre = email === ADMIN_EMAIL ? 'JP (Admin)' : 'Clau (Admin)';
+    _guardarSesion(authData, { local_id: null, nombre, isAdmin: true, email });
     enterApp();
   } catch(e) {
     alert('No se pudo entrar como admin: ' + (e.message || 'error'));
@@ -1600,6 +1618,14 @@ function enterApp() {
   document.getElementById('tab-admin').style.display = session.isAdmin ? 'flex' : 'none';
   // Show/hide tab Clientes (solo vendedoras con local — el admin lo tiene dentro de Admin)
   document.getElementById('tab-clientes').style.display = (!session.isAdmin && session.local_id) ? 'flex' : 'none';
+
+  // ── Modo simple (Clau): solo Satisfacción + Admin ──────────────
+  const esModoSimple = session.isAdmin && MODO_SIMPLE_EMAILS.includes((session.email || '').toLowerCase());
+  ['hoy', 'nuevo', 'pedidos', 'alertas'].forEach(t => {
+    const b = document.querySelector(`.tab-btn[data-tab="${t}"]`);
+    if (b) b.style.display = esModoSimple ? 'none' : '';
+  });
+  if (esModoSimple) setTimeout(() => switchTab('satisfaccion'), 0);
 
   // Default mode: vendedora con nombre → mis pedidos; admin → todo
   currentMyOnlyMode = !!(session.nombre && !session.isAdmin);
