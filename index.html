@@ -1513,7 +1513,7 @@ function _guardarSesion(authData, extra) {
   if (!s.expires_at || s.expires_at - ahora < 120) {
     try {
       const fresh = await supaRefresh(s.refresh_token);
-      _guardarSesion(fresh, { local_id: s.local_id, nombre: s.nombre, isAdmin: s.isAdmin });
+      _guardarSesion(fresh, { local_id: s.local_id, nombre: s.nombre, isAdmin: s.isAdmin, email: s.email });
     } catch(e) {
       // refresh falló → limpiar y pedir login
       localStorage.removeItem('ca_session');
@@ -1650,6 +1650,9 @@ function showScreen(id) {
 }
 
 function switchTab(tab) {
+  // (10-ago) Modo simple (Clau): las tabs ocultas redirigen a Satisfacción
+  const _simple = session?.isAdmin && MODO_SIMPLE_EMAILS.includes((session.email || '').toLowerCase());
+  if (_simple && ['hoy', 'nuevo', 'pedidos', 'alertas', 'clientes'].includes(tab)) tab = 'satisfaccion';
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
   if (tab === 'pedidos') renderPedidos();
@@ -2317,15 +2320,23 @@ async function renderHoy() {
   if (hora >= 12 && hora < 19) saludo = 'Buenas tardes';
   else if (hora >= 19 || hora < 6) saludo = 'Buenas noches';
 
-  const nombreUser = session.isAdmin ? 'JP' : (session.nombre || LOCALES[session.local_id]?.nombre || 'Equipo');
+  const nombreUser = session.isAdmin
+    ? ((session.email || '').startsWith('clau@') ? 'Clau' : 'JP')
+    : (session.nombre || LOCALES[session.local_id]?.nombre || 'Equipo');
   const fechaHoy = ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   // Si pedidosCache aún no cargó, mostrar loading
   if (!pedidosCargados) {
+    window._renderHoyRetries = (window._renderHoyRetries || 0) + 1;
+    if (window._renderHoyRetries > 40) {  // (10-ago) tope: 20 seg y corta
+      el.innerHTML = '<div class="loading">⚠️ No se pudieron cargar los pedidos. <button onclick="window._renderHoyRetries=0;loadPedidos().then(renderHoy)" style="margin-left:8px;">Reintentar</button></div>';
+      return;
+    }
     el.innerHTML = '<div class="loading"><span class="spinner"></span> Cargando datos...</div>';
     setTimeout(renderHoy, 500);
     return;
   }
+  window._renderHoyRetries = 0;
 
   // Filtrar pedidos según contexto del usuario
   let mis = pedidosCache;
@@ -3289,7 +3300,9 @@ async function exportClienteHistorial() {
 //  Audit log de pedidos
 // ═══════════════════════════════════════════════════════
 function _auditUser() {
-  if (session && session.isAdmin) return 'Admin (JP)';
+  if (session && session.isAdmin) {
+    return (session.email || '').startsWith('clau@') ? 'Admin (Clau)' : 'Admin (JP)';
+  }
   return (session && session.nombre) ? session.nombre : 'desconocido';
 }
 
@@ -5071,6 +5084,36 @@ document.addEventListener('input', function(e) {
   t.value = upper;
   try { t.setSelectionRange(start, end); } catch(_) {}
 });
+</script>
+<script>
+// ⇪ Aviso de Bloq Mayús en campos de contraseña (agregado 14-ago-2026)
+(function () {
+  function toggleAviso(input, on) {
+    var el = input.nextElementSibling;
+    var esAviso = el && el.classList && el.classList.contains('caps-aviso');
+    if (on && !esAviso) {
+      el = document.createElement('div');
+      el.className = 'caps-aviso';
+      el.textContent = '\u21ea May\u00fasculas activadas';
+      el.style.cssText = 'color:#b45309;font-size:12px;font-weight:600;margin-top:4px;';
+      input.insertAdjacentElement('afterend', el);
+    } else if (!on && esAviso) {
+      el.remove();
+    }
+  }
+  function handler(e) {
+    var t = e.target;
+    if (t && t.type === 'password' && typeof e.getModifierState === 'function') {
+      toggleAviso(t, e.getModifierState('CapsLock'));
+    }
+  }
+  document.addEventListener('keydown', handler, true);
+  document.addEventListener('keyup', handler, true);
+  document.addEventListener('focusout', function (e) {
+    var t = e.target;
+    if (t && t.type === 'password') toggleAviso(t, false);
+  }, true);
+})();
 </script>
 </body>
 </html>
