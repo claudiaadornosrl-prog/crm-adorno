@@ -3,14 +3,16 @@
 //  Estrategia: network-first para HTML/datos, cache-first para assets
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'crm-adorno-v11-hub-mono';
+const CACHE_VERSION = 'crm-adorno-v14-iconos-v2';
 const CACHE_ASSETS = [
   './',
   './index.html',
+  './manual.js',
   './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
+  './icon-192-v2.png',
+  './icon-512-v2.png',
   './favicon.png',
+  './fonts/URWGothic-Book.ttf',
 ];
 
 // Install: cachear el shell mínimo
