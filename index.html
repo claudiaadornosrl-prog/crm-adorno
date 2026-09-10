@@ -1,6 +1,55 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script>
+// ═══ SESIÓN COMPARTIDA ENTRE MÓDULOS · SSO Adorno (10-sep-2026) ═══
+// Todos los módulos viven en el mismo origen (claudiaadornosrl-prog.github.io),
+// así que pueden compartir la sesión: se guarda bajo la clave 'adorno-auth' en
+// vez de una por módulo. Que un módulo te deje pasar SIN escribir la clave
+// depende de dos marcas, y alcanza con una:
+//   · dispositivo confiable → se tilda UNA vez en el Hub ("Confiar en esta
+//     computadora"). Vale para todos los módulos de ese equipo. Pensado para
+//     la PC de JP; en los locales, que son compartidos, nadie la tilda.
+//   · módulo recordado → ya te habías logueado en ESE módulo con ese mismo
+//     usuario. Conserva el comportamiento de siempre para las vendedoras.
+// Sin ninguna de las dos, el módulo pide usuario y contraseña como antes.
+window.ADORNO_SSO = (function () {
+  var KEY = 'adorno-auth', DEV = 'adorno-equipo-confiable', MOD = 'adorno-modulo-';
+  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  return {
+    KEY: KEY,
+    // Al estrenar la clave compartida, adopta la sesión que este módulo ya
+    // tenía guardada con su clave vieja: nadie se queda afuera por el cambio.
+    migrar: function (keyVieja, modulo) {
+      if (!keyVieja || get(KEY)) return;
+      var v = get(keyVieja);
+      if (!v) return;
+      set(KEY, v);
+      var mail = '1';
+      try { mail = (JSON.parse(v).user || {}).email || '1'; } catch (e) {}
+      set(MOD + modulo, String(mail).toLowerCase());
+    },
+    confiable: function () { return get(DEV) === '1'; },
+    confiar: function (si) { si ? set(DEV, '1') : del(DEV); },
+    recordar: function (modulo, email) { set(MOD + modulo, String(email || '1').toLowerCase()); },
+    entraDirecto: function (modulo, email) {
+      if (this.confiable()) return true;
+      var m = get(MOD + modulo);
+      return !!m && (m === '1' || m === String(email || '').toLowerCase());
+    },
+    // Al cerrar sesión se olvidan los módulos, pero NO que el equipo es de
+    // confianza: eso es una propiedad de la computadora, no de la sesión.
+    olvidarModulos: function () {
+      try {
+        Object.keys(localStorage).filter(function (k) { return k.indexOf(MOD) === 0; }).forEach(del);
+      } catch (e) {}
+    }
+  };
+})();
+</script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Claudia Adorno — CRM</title>
@@ -1494,11 +1543,42 @@ function _guardarSesion(authData, extra) {
     expires_at: authData.expires_at,  // epoch seconds
   }, extra);
   localStorage.setItem('ca_session', JSON.stringify(session));
+  // El CRM y los demás módulos comparten el refresh token, y Supabase lo rota
+  // cada vez que se usa: si el CRM renueva por su cuenta y no avisa, el que
+  // guardaron los otros módulos queda viejo y los desloguea.
+  if (session.isAdmin && ADORNO_SSO.confiable()) {
+    try {
+      const prev = JSON.parse(localStorage.getItem(ADORNO_SSO.KEY) || 'null');
+      if (prev && (prev.user?.email || '').toLowerCase() === (session.email || '').toLowerCase()) {
+        prev.access_token = session.access_token;
+        prev.refresh_token = session.refresh_token;
+        prev.expires_at = session.expires_at;
+        localStorage.setItem(ADORNO_SSO.KEY, JSON.stringify(prev));
+      }
+    } catch (_) {}
+  }
 }
 
 // Restore session desde localStorage (con refresh si el token expiró)
 (async function restoreSession() {
-  const saved = localStorage.getItem('ca_session');
+  let saved = localStorage.getItem('ca_session');
+  // (SSO 10-sep) Sin sesión propia del CRM, hereda la del Hub: solo en equipos
+  // marcados como de confianza y solo para admins. El acceso por sucursal de
+  // las vendedoras no se toca — ellas siguen eligiendo local + contraseña.
+  if (!saved && ADORNO_SSO.confiable()) {
+    try {
+      const h = JSON.parse(localStorage.getItem(ADORNO_SSO.KEY) || 'null');
+      const mail = (h?.user?.email || '').toLowerCase();
+      if (h?.refresh_token && ADMIN_EMAILS.includes(mail)) {
+        saved = JSON.stringify({
+          access_token: h.access_token, refresh_token: h.refresh_token,
+          expires_at: h.expires_at, local_id: null, isAdmin: true, email: mail,
+          nombre: mail === ADMIN_EMAIL ? 'JP (Admin)' : 'Clau (Admin)',
+        });
+        localStorage.setItem('ca_session', saved);
+      }
+    } catch (_) {}
+  }
   if (!saved) return;
   let s;
   try { s = JSON.parse(saved); } catch(e) { return; }
@@ -5115,6 +5195,6 @@ document.addEventListener('input', function(e) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=1"></script>
+<script src="manual.js?v=2"></script>
 </body>
 </html>
