@@ -1649,7 +1649,7 @@ async function logout() {
   // Cerrar sesión en Supabase Auth (best-effort)
   try {
     if (authToken) {
-      await fetch(`${SUPA_URL}/auth/v1/logout`, {
+      await fetch(`${SUPA_URL}/auth/v1/logout?scope=local`, {
         method: 'POST',
         headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + authToken },
       });
