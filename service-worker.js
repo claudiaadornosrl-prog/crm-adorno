@@ -3,7 +3,7 @@
 //  Estrategia: network-first para HTML/datos, cache-first para assets
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'crm-adorno-v15-sso';
+const CACHE_VERSION = 'crm-adorno-v18-lupa-manual';
 const CACHE_ASSETS = [
   './',
   './index.html',

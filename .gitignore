@@ -61,3 +61,18 @@ desktop.ini
 # con git add -f en caso necesario)
 Detalle_*.xlsx
 *_temp.xlsx
+
+# --- Certificado ARCA para consultar padron (NUNCA subir) ---
+arca_padron/
+
+# --- Listados del estudio convertidos a texto (datos fiscales, NUNCA subir) ---
+_listados_estudio/
+
+# --- Planillas anuales de ventas bajadas del Drive (facturación, NUNCA subir) ---
+_ventas_historico/
+
+# Catalogo de articulos exportado de Dragonfish (datos internos, nunca al repo publico)
+_catalogo/
+
+# Archivos del paso de Cowork a Claude Code (datos internos, nunca al repo)
+_migracion_code/
