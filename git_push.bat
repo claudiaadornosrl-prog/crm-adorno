@@ -7,7 +7,7 @@ REM Solo sube cambios de archivos YA publicados (index, manual, SW, manifest, ic
 REM "git add -u" nunca agrega archivos nuevos: el repo es publico.
 git add -u
 git commit -m "update %date% %time:~0,5%"
-git push
+git push -u origin main
 echo.
 echo Listo! Presiona cualquier tecla para cerrar.
 pause
