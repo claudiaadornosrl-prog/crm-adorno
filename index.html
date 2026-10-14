@@ -1162,7 +1162,7 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 
 
 <!-- ── Modal de ayuda de atajos de teclado ──────────────────── -->
-<div id="shortcuts-modal" onclick="if(event.target===this)closeShortcutsHelp()">
+<div id="shortcuts-modal">
   <div class="shortcuts-box">
     <button class="shortcuts-close" onclick="closeShortcutsHelp()">✕</button>
     <h3>⌨️ Atajos de teclado</h3>
@@ -1211,7 +1211,7 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 
 
 <!-- ── Modal de Templates de WhatsApp ───────────────────── -->
-<div id="wa-templates-modal" onclick="if(event.target===this)closeWaTemplates()">
+<div id="wa-templates-modal">
   <div class="wa-templates-box">
     <div class="wa-templates-header">
       <button class="wa-templates-close" onclick="closeWaTemplates()">✕</button>
@@ -4179,7 +4179,6 @@ setTimeout(() => {
   }
   const modal = document.getElementById('search-modal');
   if (modal) {
-    modal.addEventListener('click', e => { if (e.target === modal) closeGlobalSearch(); });
   }
 }, 0);
 
@@ -4275,7 +4274,6 @@ function closeClienteDetail() {
 // Cerrar el modal de cliente al hacer click en el fondo
 setTimeout(() => {
   const cm = document.getElementById('cliente-modal');
-  if (cm) cm.addEventListener('click', function(e) { if (e.target === this) closeClienteDetail(); });
 }, 0);
 
 // Listener del buscador
@@ -4631,10 +4629,6 @@ function closeEditModal() {
   document.getElementById('edit-sku-dropdown').classList.add('hidden');
 }
 
-// Cerrar tocando el fondo
-document.getElementById('edit-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeEditModal();
-});
 
 function clearEditSku() {
   editSelectedSku = null;
@@ -5195,6 +5189,6 @@ document.addEventListener('input', function(e) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=4"></script>
+<script src="manual.js?v=5"></script>
 </body>
 </html>
