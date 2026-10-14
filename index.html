@@ -52,7 +52,7 @@ window.ADORNO_SSO = (function () {
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Claudia Adorno — CRM</title>
+<title>Claudia Adorno — Clientes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -870,7 +870,7 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
   <link rel="apple-touch-icon" href="icon-192-v2.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="CRM Adorno">
+  <meta name="apple-mobile-web-app-title" content="Clientes Adorno">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -1167,7 +1167,7 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
     <button class="shortcuts-close" onclick="closeShortcutsHelp()">✕</button>
     <h3>⌨️ Atajos de teclado</h3>
     <div class="shortcut-row">
-      <span>Buscar en todo el CRM</span>
+      <span>Buscar en todo Clientes</span>
       <span class="shortcut-keys"><span class="shortcut-key">Ctrl</span><span class="shortcut-key">B</span></span>
     </div>
     <div class="shortcut-row">
@@ -1632,7 +1632,7 @@ async function startSession() {
 async function startAdmin() {
   const email = (prompt('Email de administrador:', ADMIN_EMAIL) || '').trim().toLowerCase();
   if (!email) return;
-  if (!ADMIN_EMAILS.includes(email)) { alert('Ese email no es administrador del CRM.'); return; }
+  if (!ADMIN_EMAILS.includes(email)) { alert('Ese email no es administrador de Clientes.'); return; }
   const pass = prompt('Contraseña:');
   if (pass === null) return; // canceló
   try {
@@ -5195,6 +5195,6 @@ document.addEventListener('input', function(e) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=3"></script>
+<script src="manual.js?v=4"></script>
 </body>
 </html>

@@ -113,7 +113,7 @@ function abrirManual() {
       <div class="m-head">
         <span style="font-size:22px;">📖</span>
         <div style="flex:1;">
-          <div style="font-weight:700;font-size:16px;">Manual · CRM</div>
+          <div style="font-weight:700;font-size:16px;">Manual · Clientes</div>
           <div style="font-size:12px;opacity:.85;">Guía rápida de cada herramienta del módulo</div>
         </div>
         <button class="m-close" onclick="cerrarManual()">✕</button>
