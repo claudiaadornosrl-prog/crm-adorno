@@ -37,7 +37,7 @@ function _manualSecciones() {
       desc: 'Cargar el encargo de una clienta cuando no hay stock o hay que traerlo.',
       pasos: [
         'Cargá el DNI o CUIT: si la clienta ya compró alguna vez, el sistema la detecta solo y completa sus datos.',
-        'Agregá los artículos buscando por descripción o SKU (salen de Dragonfish, con stock real).',
+        'Agregá los artículos buscando por descripción o SKU. Al lado de cada código ves el stock vivo de cada local: A = Alcorta, U = Unicenter, O = Oficina (verde si hay).',
         'Anotá seña si dejó, y cualquier aclaración en las notas.',
         'El pedido arranca en estado "Pendiente".',
         'Si el DNI no tenía ficha, el pedido muestra "⏳ Dragon": el cliente se da de alta solo en Dragonfish desde Oficina (cada 15 min) y pasa a "✔ Dragon". No hace falta cargarlo a mano.',

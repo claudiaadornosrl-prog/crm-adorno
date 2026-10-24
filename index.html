@@ -402,6 +402,10 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .sku-opt:hover, .sku-opt.focused { background: #f0f4ff; }
 .sku-code { font-family: monospace; font-size: 13px; font-weight: 700; color: var(--accent); }
 .sku-desc { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.sku-stock { margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.sku-stock-l.hay { color: #166534; }
+.sku-stock-l.cero { color: #94a3b8; }
+.sku-stock-l.sin { color: #cbd5e1; }
 .sku-selected-tag {
   display: inline-flex; align-items: center; gap: 6px;
   background: #eef2ff; border-radius: 8px; padding: 6px 10px; margin-top: 6px;
@@ -1766,21 +1770,43 @@ async function loadArticulos() {
   articulos = [];
 }
 
+// Agrupa filas de stock_articulos (una por local) en un objeto por SKU con stocks {alcorta,unicenter,oficina}
+function agruparStockPorSku(rows) {
+  const m = new Map();
+  for (const r of rows) {
+    let o = m.get(r.sku);
+    if (!o) { o = { sku: r.sku, descripcion: r.descripcion || '', stocks: {} }; m.set(r.sku, o); }
+    if (!o.descripcion && r.descripcion) o.descripcion = r.descripcion;
+    o.stocks[(r.local || '').toLowerCase()] = Number(r.stock) || 0;
+  }
+  return [...m.values()];
+}
+// Chip "A 3 · U 0 · O 1" con el stock vivo de cada local (verde si hay, gris si no)
+function stockChip(a) {
+  if (!a || !a.stocks) return '';
+  const L = [['alcorta', 'A'], ['unicenter', 'U'], ['oficina', 'O']];
+  return '<span class="sku-stock">' + L.map(([k, letra]) => {
+    const n = a.stocks[k];
+    if (n === undefined) return `<span class="sku-stock-l sin" title="${k}: sin dato">${letra} –</span>`;
+    return `<span class="sku-stock-l ${n > 0 ? 'hay' : 'cero'}" title="${k}: ${n}">${letra} ${n}</span>`;
+  }).join(' · ') + '</span>';
+}
+
 async function searchArticulos(q) {
   if (!q || q.length < 1) return [];
   try {
-    // Sin filtro de local_id: el catálogo de artículos es compartido entre locales
+    // stock_articulos: lo suben los daemons de los 3 locales desde la base viva del Dragon
+    // (antes `articulos`, que venía de la réplica de la PC de JP con 1 día de atraso). Una fila por
+    // local y SKU → se agrupa por SKU y se guarda el stock de cada local para mostrarlo.
     const params = {
-      select: 'sku,descripcion',
-      'activo': 'eq.true',
+      select: 'sku,descripcion,local,stock',
+      'discontinuado': 'not.is.true',
       'or': `(sku.ilike.*${q}*,descripcion.ilike.*${q}*)`,
       'order': 'sku.asc',
-      'limit': '100',
+      'limit': '300',
     };
-    const data = await supaGet('articulos', params);
-    // Dedupe por sku
-    const seen = new Set();
-    const deduped = data.filter(a => { if (seen.has(a.sku)) return false; seen.add(a.sku); return true; });
+    const data = await supaGet('stock_articulos', params);
+    const deduped = agruparStockPorSku(data);
     // Priorizar: SKU exacto > SKU empieza con q > SKU contiene q > solo descripción contiene q
     const qu = q.toUpperCase();
     const tier0 = deduped.filter(a => a.sku.toUpperCase() === qu);
@@ -1987,7 +2013,7 @@ function onLineSkuInput(id, val) {
     }
     freshDd.innerHTML = matches.map((a, i) =>
       `<div class="sku-opt" data-i="${i}" onclick="selectSkuLine(${id},'${a.sku}','${escHtml(a.descripcion||'')}')">
-        <span class="sku-code">${escHtml(a.sku)}</span>
+        <span class="sku-code">${escHtml(a.sku)}${stockChip(a)}</span>
         <span class="sku-desc">${escHtml(a.descripcion||'')}</span>
       </div>`
     ).join('');
@@ -4124,10 +4150,12 @@ async function runGlobalSearch(q) {
         order: 'created_at.desc',
         limit: '8',
       }).catch(() => []),
-      supaGet('articulos', {
-        select: 'sku,descripcion,local_id',
+      supaGet('stock_articulos', {
+        select: 'sku,descripcion,local,stock',
         or: `(sku.ilike.${qLike},descripcion.ilike.${qLike})`,
-        limit: '8',
+        discontinuado: 'not.is.true',
+        order: 'sku.asc',
+        limit: '24',
       }).catch(() => []),
       supaGet('compras', {
         select: 'id,fecha,letra,numero,punto_venta,cliente_factura,cuit_factura,local_id,total,cliente_globalid',
@@ -4140,8 +4168,7 @@ async function runGlobalSearch(q) {
     if (globalSearchToken !== thisToken) return;
 
     // Dedupe artículos por SKU
-    const seenSku = new Set();
-    const uniqueArt = articulos.filter(a => { if (seenSku.has(a.sku)) return false; seenSku.add(a.sku); return true; });
+    const uniqueArt = agruparStockPorSku(articulos).slice(0, 8);
 
     const total = clientes.length + pedidos.length + uniqueArt.length + compras.length;
     if (total === 0) {
@@ -4186,7 +4213,7 @@ async function runGlobalSearch(q) {
         <div class="res-icon">📦</div>
         <div class="res-body">
           <div class="res-title">${escHtml(a.sku)} — ${escHtml(a.descripcion || '')}</div>
-          <div class="res-sub">Local: ${escHtml(a.local_id || '')}</div>
+          <div class="res-sub">Stock vivo: ${stockChip(a)}</div>
         </div>
       </div>`).join('');
       html += '</div>';
@@ -4732,7 +4759,7 @@ function onEditSkuInput(val) {
     editSkuMatches = matches;
     freshEditDd.innerHTML = matches.map((a, i) =>
       `<div class="sku-opt" data-i="${i}" onclick="pickEditSku(${i})">
-        <span class="sku-code">${escHtml(a.sku)}</span>
+        <span class="sku-code">${escHtml(a.sku)}${stockChip(a)}</span>
         <span class="sku-desc">${escHtml(a.descripcion||'')}</span>
       </div>`
     ).join('');
@@ -5245,6 +5272,6 @@ document.addEventListener('input', function(e) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=6"></script>
+<script src="manual.js?v=7"></script>
 </body>
 </html>
