@@ -40,6 +40,7 @@ function _manualSecciones() {
         'Agregá los artículos buscando por descripción o SKU (salen de Dragonfish, con stock real).',
         'Anotá seña si dejó, y cualquier aclaración en las notas.',
         'El pedido arranca en estado "Pendiente".',
+        'Si el DNI no tenía ficha, el pedido muestra "⏳ Dragon": el cliente se da de alta solo en Dragonfish desde Oficina (cada 15 min) y pasa a "✔ Dragon". No hace falta cargarlo a mano.',
       ],
     },
     {

@@ -76,3 +76,27 @@ _catalogo/
 
 # Archivos del paso de Cowork a Claude Code (datos internos, nunca al repo)
 _migracion_code/
+
+# Memoria del proyecto dividida por modulo (datos internos, nunca al repo publico)
+memoria/
+CLAUDE.md
+
+# --- REPO PUBLICO MINIMO (30-sep-2026) ---
+# Lista blanca: se ignora TODO lo de la raiz salvo lo que sirve GitHub Pages.
+# Un archivo nuevo que tenga que publicarse se agrega aca (o con git add -f).
+/*
+!/.gitignore
+!/README.md
+!/index.html
+!/manifest.json
+!/manual.js
+!/service-worker.js
+!/favicon.png
+!/icon-*.png
+!/fonts/
+!/assets/
+!/git_push.bat
+naitiva/credenciales_naitiva.json
+
+# paquete con .env para instalar el motor en otra PC (NUNCA commitear)
+_paquete_motor_marisa/

@@ -677,6 +677,11 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .pedido-info { flex: 1; min-width: 0; }
 .pedido-client { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pedido-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.dragon-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; cursor: help; }
+.dragon-pendiente { background: #fef3c7; color: #92400e; }
+.dragon-insertado { background: #dcfce7; color: #166534; }
+.dragon-omitido   { background: #f1f5f9; color: #64748b; }
+.dragon-error     { background: #fee2e2; color: #991b1b; }
 .motivo-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; background: #ede9fe; color: #5b21b6; font-size: 11px; font-weight: 600; vertical-align: middle; }
 .estado-badge {
   flex-shrink: 0; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700;
@@ -1789,6 +1794,44 @@ async function searchArticulos(q) {
   }
 }
 
+// ─── Push diferido de clientes nuevos al Dragonfish (cola clientes_push_dragon) ───
+let pushDragonMap = {};  // dni → estado (pendiente | insertado | omitido | error)
+async function loadPushDragon() {
+  try {
+    const q = await supaGet('clientes_push_dragon', { select: 'dni,estado', order: 'id.desc', limit: '1000' });
+    const m = {};
+    q.forEach(x => { if (!m[x.dni]) m[x.dni] = x.estado; });
+    pushDragonMap = m;
+  } catch(e) { console.warn('No se pudo leer la cola del Dragon:', e); }
+}
+async function encolarClienteDragon(d) {
+  const dniNum = (d.dni || '').replace(/\D/g, '');
+  if (dniNum.length < 7 || dniNum.length > 8) return;  // CUIT o basura: no es un alta de persona
+  try {
+    await supaPost('clientes_push_dragon', {
+      pedido_id: d.pedido_id, local_id: session.local_id, vendedora: d.vendedora || null,
+      dni: dniNum, apellido: d.apellido || null, nombre: d.nombre || null,
+      celular: d.celular || null, email: d.email || null, fecha_nacimiento: d.fecha_nacimiento || null,
+      creado_por: session.email || session.local_id || null,
+    });
+    pushDragonMap[dniNum] = 'pendiente';
+  } catch(e) {
+    // 409 = ya estaba encolado (índice único por DNI): no es error
+    if (!/409|duplicate/i.test(String(e.message))) console.warn('No se pudo encolar el cliente para el Dragon:', e);
+  }
+}
+function dragonBadge(dni) {
+  const est = pushDragonMap[(dni || '').replace(/\D/g, '')];
+  if (!est) return '';
+  const T = {
+    pendiente: ['⏳', 'Cliente nuevo: se carga en Dragonfish automáticamente (cada 15 min desde Oficina)'],
+    insertado: ['✔', 'Cliente dado de alta en Dragonfish desde el CRM'],
+    omitido:   ['–', 'No hizo falta cargarlo en Dragonfish (ya existía o el DNI no era válido)'],
+    error:     ['⚠', 'No se pudo cargar en Dragonfish: avisarle a JP'],
+  }[est] || ['?', est];
+  return `<span class="dragon-badge dragon-${est}" title="${escHtml(T[1])}">${T[0]} Dragon</span>`;
+}
+
 async function loadPedidos() {
   try {
     // Sin filtro temporal: traer todos los pedidos (necesario para pedidos viejos pendientes
@@ -1797,6 +1840,7 @@ async function loadPedidos() {
     if (!session.isAdmin && session.local_id) params['local_id'] = 'ilike.' + session.local_id;
     pedidosCache = await supaGet('pedidos', params);
     pedidosCargados = true;
+    loadPushDragon().then(() => { if (typeof renderPedidos === 'function') renderPedidos(); });
     updateAlertBadge();
     renderPedidos();
     renderAlertas();
@@ -2192,12 +2236,14 @@ async function submitPedido() {
   //  Si el DNI ya existe Y los datos del form no coinciden,
   //  prevenir guardar con datos divergentes.
   // ════════════════════════════════════════════════════════
+  let dniSinFicha = false;  // true = cliente nuevo → se encola para el Dragon
   try {
     const existentes = await supaGet('clientes', {
       select: 'globalid,nombre_completo,celular,email,dni',
       dni: 'eq.' + dni,
       limit: '1',
     });
+    dniSinFicha = !existentes.length;
     if (existentes.length) {
       const cli = existentes[0];
       // Normalizar nombres para comparar (sin acentos, lowercase, sin separadores)
@@ -2286,6 +2332,11 @@ async function submitPedido() {
     }
     if (!creados.length) {
       throw new Error('No se pudo crear ningún pedido — verificá los datos');
+    }
+    // Cliente nuevo (DNI sin ficha en `clientes`): a la cola para darlo de alta en Dragonfish
+    if (dniSinFicha && !clienteDetectado) {
+      encolarClienteDragon({ pedido_id: creados[0].id, dni, apellido: apellidoInput, nombre: primerNombreInput,
+                             celular, email, fecha_nacimiento: fnac, vendedora });
     }
 
     const count = validLines.length;
@@ -2790,7 +2841,7 @@ function renderPedidos() {
       <div class="pedido-header">
         <span class="pedido-sku">${escHtml(skuDisplay)}${skuOrig}</span>
         <div class="pedido-info">
-          <div class="pedido-client">${escHtml(p.nombre_cliente||'Sin nombre')}${p.motivo ? ' <span class="motivo-tag">' + escHtml(p.motivo) + '</span>' : ''}</div>
+          <div class="pedido-client">${escHtml(p.nombre_cliente||'Sin nombre')}${dragonBadge(p.dni)}${p.motivo ? ' <span class="motivo-tag">' + escHtml(p.motivo) + '</span>' : ''}</div>
           <div class="pedido-desc">${escHtml(p.descripcion_sku||p.sku_resuelto||p.sku||'')}${p.cantidad > 1 ? ' <strong>x'+p.cantidad+'</strong>' : ''} · ${escHtml(p.celular||'')}</div>
         </div>
         <span class="estado-badge estado-${escHtml(estadoKey)}">${escHtml(p.estado||'')}</span>
@@ -4501,7 +4552,7 @@ function renderAdmin() {
       <div class="pedido-header">
         <span class="pedido-sku">${escHtml(p.sku||'—')}</span>
         <div class="pedido-info">
-          <div class="pedido-client">${escHtml(p.nombre_cliente||'Sin nombre')}</div>
+          <div class="pedido-client">${escHtml(p.nombre_cliente||'Sin nombre')}${dragonBadge(p.dni)}</div>
           <div class="pedido-desc">${localInfo.nombre||p.local_id||''} · ${escHtml(p.celular||'')}</div>
         </div>
         <span class="estado-badge estado-${escHtml(estadoKey)}">${escHtml(p.estado||'')}</span>
@@ -5194,6 +5245,6 @@ document.addEventListener('input', function(e) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=5"></script>
+<script src="manual.js?v=6"></script>
 </body>
 </html>
