@@ -1771,6 +1771,8 @@ function enterApp() {
 
   showScreen('app-screen');
   switchTab(session.isAdmin ? 'admin' : 'hoy');
+  // Los push del CRM abren ?tab=alertas (o la pestaña que indiquen)
+  try { const _t = new URLSearchParams(window.location.search).get('tab'); if (_t && document.querySelector(`.tab-btn[data-tab="${_t}"]`)) switchTab(_t); } catch(_) {}
   loadData();
 }
 
