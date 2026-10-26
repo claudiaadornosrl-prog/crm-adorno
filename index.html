@@ -5534,6 +5534,17 @@ function respSheet(accion) {
   else if (accion === 'no') markEstado(id, 'No contestó');
 }
 window.addEventListener('focus', () => setTimeout(_preguntarRespuesta, 500));
+
+// (26-oct-2026, JP) Modo kiosco en los locales: la ventana queda abierta todo el día en Alertas.
+// Cada 2 minutos (solo si la pestaña del navegador está visible y hay sesión) vuelve a traer los pedidos,
+// así las alertas nuevas (stock vivo, respuestas) aparecen solas sin tocar nada.
+setInterval(() => {
+  try {
+    if (document.visibilityState !== 'visible') return;
+    if (!session || (!session.local_id && !session.isAdmin)) return;
+    if (document.getElementById('app-screen')?.classList.contains('active')) loadPedidos();
+  } catch(_) {}
+}, 2 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(_preguntarRespuesta, 500); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const sh = document.getElementById('resp-sheet'); if (sh && sh.classList.contains('active')) sh.classList.remove('active'); } });
 
