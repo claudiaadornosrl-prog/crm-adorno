@@ -499,15 +499,17 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .alert-banner-arrow { font-size: 18px; opacity: 0.7; }
 
 /* Tab bar */
+/* (26-oct-2026, JP, opción B) header y pestañas en UN solo bloque oscuro */
 .tab-bar {
-  display: flex; background: white; border-bottom: 1px solid var(--border);
+  display: flex; background: var(--accent); border-bottom: none; padding: 0 8px;
   flex-shrink: 0;
 }
+.header { padding-bottom: 4px; }
 .tab-btn {
   flex: 1; padding: 11px 8px 9px; border: none; background: none; cursor: pointer;
-  font-size: 13px; font-weight: 600; color: var(--muted); display: flex;
+  font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); display: flex;
   flex-direction: row; align-items: center; justify-content: center; gap: 0;
-  border-bottom: 3px solid transparent; transition: color .15s, background .15s;
+  border-bottom: 3px solid transparent; border-radius: 10px 10px 0 0; transition: color .15s, background .15s;
   position: relative;
 }
 /* (26-oct-2026, regla JP) banner de pestañas: solo el ícono; el nombre aparece en la activa y al pasar el mouse */
@@ -515,13 +517,13 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .tab-btn .tab-icon svg { width: 22px; height: 22px; }
 .tab-btn .lb { max-width: 0; overflow: hidden; opacity: 0; margin-left: 0; white-space: nowrap; transition: max-width .25s ease, opacity .18s, margin-left .25s; }
 .tab-btn:hover .lb, .tab-btn.active .lb { max-width: 120px; opacity: 1; margin-left: 7px; }
-.tab-btn:hover { background: #faf8ff; color: var(--text); }
-.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+.tab-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+.tab-btn.active { color: white; border-bottom-color: white; font-weight: 700; }
 /* (26-oct-2026, JP) hay alertas → la pestaña entera en verde, con el nombre siempre visible */
 .tab-btn.has-alert { background: #16a34a; color: white; }
 .tab-btn.has-alert .lb { max-width: 120px; opacity: 1; margin-left: 7px; }
 .tab-btn.has-alert:hover { background: #15803d; color: white; }
-.tab-btn.has-alert.active { color: white; border-bottom-color: #14532d; }
+.tab-btn.has-alert.active { color: white; border-bottom-color: #86efac; }
 .tab-btn.has-alert .tab-badge { background: white; color: #166534; }
 @media (max-width: 600px) {
   .tab-btn { flex-direction: column; gap: 2px; padding: 8px 4px 6px; font-size: 10px; }
