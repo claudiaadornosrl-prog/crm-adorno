@@ -23,14 +23,12 @@ function _manualSecciones() {
       ],
     },
     {
-      icon: '📅', titulo: 'Hoy',
-      desc: 'El tablero del día: qué pedidos necesitan acción ahora.',
+      icon: '🧭', titulo: 'Cómo se navega',
+      desc: 'La barra de arriba tiene, en orden, Nuevo pedido, Alertas y Pedidos (y Satisfacción).',
       pasos: [
-        'Las tarjetas de Hoy tienen un solo botón de color por fila: el que resuelve esa tarjeta (avisar, respondió, re-contactar, saludar). Dejá el mouse encima para ver qué hace.',
-        'Arriba ves los pedidos "Listos para avisar" (llegó la mercadería → hay que avisar a la clienta).',
-        'Los avisados sin respuesta hace más de 60 minutos aparecen en alerta — hay que reintentar el contacto.',
-        'También lista recontactos programados, pedidos viejos sin resolver y los cumpleaños del día.',
-        'El ranking del local muestra los pedidos completados de la semana por vendedora.',
+        'Al entrar, el CRM abre directo en Nuevo pedido, que es lo que más se usa.',
+        'Cuando hay algo para hacer, la pestaña Alertas se pone toda en verde con el número de pendientes. Si está gris, no hay nada.',
+        'La pestaña Hoy ya no existe (26-oct-2026): lo que mostraba está en Alertas y en Pedidos.',
       ],
     },
     {
@@ -71,6 +69,7 @@ function _manualSecciones() {
       icon: '⏰', titulo: 'Alertas',
       desc: 'Todos los pedidos que están esperando una acción tuya.',
       pasos: [
+        'Primero aparecen siempre los artículos que ya llegaron y hay que avisar; abajo, los pedidos avisados hace más de una hora que esperan que cargues si el cliente respondió. Cuando los avisos salgan por la API, esa segunda parte se completa sola.',
         'Concentra los avisados sin respuesta (+60 min) y otros vencimientos.',
         'El numerito rojo del encabezado te dice cuántas alertas hay sin resolver.',
       ],
