@@ -27,7 +27,7 @@ function _manualSecciones() {
       desc: 'La barra de arriba tiene, en orden, Nuevo pedido, Alertas y Pedidos (y Satisfacción).',
       pasos: [
         'Al entrar, el CRM abre directo en Nuevo pedido, que es lo que más se usa.',
-        'Cuando hay algo para hacer, la pestaña Alertas se pone toda en verde con el número de pendientes. Si está gris, no hay nada.',
+        'Cuando hay algo para hacer, la pestaña Alertas se pone toda en verde con el número de pendientes. Si está gris, no hay nada. Ese mismo número aparece en rojo sobre el ícono de la ventana en la barra de tareas (y en el ícono de la app en el celular), aunque la tengas minimizada.',
         'La pestaña Hoy ya no existe (26-oct-2026): lo que mostraba está en Alertas y en Pedidos.',
       ],
     },

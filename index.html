@@ -2246,6 +2246,40 @@ function updateAlertBadge() {
     badge.classList.add('hidden');
     if (tabAl) { tabAl.classList.remove('has-alert'); tabAl.title = 'Alertas'; }
   }
+  badgeIcono(total);
+}
+
+// (26-oct, JP) Número rojo sobre el ícono de la ventana/pestaña y de la barra de tareas, como en el celular.
+// Dos vías: navigator.setAppBadge (PWA instalada / Edge --app con manifest) y el favicon redibujado con el
+// número (es lo que Edge muestra en la barra de tareas para las ventanas del kiosco).
+let _badgeIconoBase = null, _badgeIconoUlt = -1;
+function badgeIcono(n) {
+  if (n === _badgeIconoUlt) return;
+  _badgeIconoUlt = n;
+  try {
+    if (navigator.setAppBadge) { n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge(); }
+  } catch (e) {}
+  const link = document.querySelector('link[rel="icon"]');
+  if (!link) return;
+  if (!_badgeIconoBase) _badgeIconoBase = link.href;
+  document.title = (n > 0 ? `(${n}) ` : '') + 'Claudia Adorno — Clientes';
+  if (n <= 0) { link.href = _badgeIconoBase; return; }
+  const img = new Image();
+  img.onload = () => {
+    const S = 64, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0, S, S);
+    const txt = n > 99 ? '99+' : String(n);
+    const r = 20, cx = S - r - 1, cy = r + 1;
+    g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.fillStyle = '#dc2626'; g.fill();
+    g.lineWidth = 3; g.strokeStyle = '#fff'; g.stroke();
+    g.fillStyle = '#fff'; g.font = `bold ${txt.length > 2 ? 18 : 24}px system-ui, Arial`;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(txt, cx, cy + 1);
+    link.href = c.toDataURL('image/png');
+  };
+  img.src = _badgeIconoBase;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5802,6 +5836,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=14"></script>
+<script src="manual.js?v=15"></script>
 </body>
 </html>
