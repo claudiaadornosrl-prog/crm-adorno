@@ -26,6 +26,7 @@ function _manualSecciones() {
       icon: '📅', titulo: 'Hoy',
       desc: 'El tablero del día: qué pedidos necesitan acción ahora.',
       pasos: [
+        'Las tarjetas de Hoy tienen un solo botón de color por fila: el que resuelve esa tarjeta (avisar, respondió, re-contactar, saludar). Dejá el mouse encima para ver qué hace.',
         'Arriba ves los pedidos "Listos para avisar" (llegó la mercadería → hay que avisar a la clienta).',
         'Los avisados sin respuesta hace más de 60 minutos aparecen en alerta — hay que reintentar el contacto.',
         'También lista recontactos programados, pedidos viejos sin resolver y los cumpleaños del día.',

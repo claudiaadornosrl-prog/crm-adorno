@@ -722,8 +722,8 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .hoy-card .age.urgente { color: #ef4444; }
 .hoy-card .age.warn { color: #f59e0b; }
 .hoy-card .age.ok { color: #10b981; }
-.hoy-card .acciones { display: flex; gap: 4px; }
-.hoy-card .acciones button, .hoy-card .acciones a {
+.hoy-card .acciones { display: flex; gap: 2px; align-items: center; }
+.hoy-card .acciones button:not(.act), .hoy-card .acciones a:not(.act) {
   padding: 5px 9px; border-radius: 6px; font-size: 11px; font-weight: 600;
   border: none; cursor: pointer; text-decoration: none;
   display: inline-flex; align-items: center; gap: 3px;
@@ -740,7 +740,8 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .wa-templates-header { background: linear-gradient(135deg, #25d366 0%, #128c7e 100%); color: white; padding: 16px 20px; position: relative; }
 .wa-templates-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
 .wa-templates-header .subtitle { font-size: 12px; opacity: 0.85; margin-top: 2px; }
-.wa-templates-close { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 16px; }
+.wa-templates-close { position: absolute; top: 10px; right: 10px; }
+.hdr-ico svg { width: 20px; height: 20px; }
 .wa-templates-list { padding: 12px; max-height: 60vh; overflow-y: auto; }
 .wa-template-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
 .wa-template-card:hover { border-color: #25d366; background: var(--card); }
@@ -782,8 +783,7 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .cliente-modal-header { background: linear-gradient(135deg, var(--accent) 0%, #5b21b6 100%); padding: 20px 24px; color: white; position: relative; }
 .cliente-modal-header h2 { font-size: 20px; font-weight: 700; margin: 0 0 6px; padding-right: 40px; }
 .cliente-modal-header .subtitle { font-size: 13px; opacity: 0.85; }
-.cliente-modal-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
-.cliente-modal-close:hover { background: rgba(255,255,255,0.35); }
+.cliente-modal-close { position: absolute; top: 12px; right: 12px; }
 .cliente-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px 18px; background: #f9fafb; border-bottom: 1px solid var(--border); }
 .cliente-stat-box { text-align: center; padding: 4px; }
 .cliente-stat-num { font-size: 16px; font-weight: 700; color: var(--accent); line-height: 1.2; }
@@ -1446,7 +1446,7 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 <div id="wa-templates-modal">
   <div class="wa-templates-box">
     <div class="wa-templates-header">
-      <button class="wa-templates-close" onclick="closeWaTemplates()">✕</button>
+      <button class="wa-templates-close hdr-ico" onclick="closeWaTemplates()" title="Cerrar" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       <h3>💬 Plantillas de WhatsApp</h3>
       <div class="subtitle" id="wa-templates-subtitle"></div>
     </div>
@@ -1479,7 +1479,7 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
   <div style="background:white; border-radius:16px; max-width:420px; margin:0 auto; overflow:hidden;">
     <div style="background:var(--accent); color:white; padding:16px 18px; display:flex; align-items:center; justify-content:space-between;">
       <span style="font-size:16px; font-weight:700;">✏️ Editar pedido</span>
-      <button onclick="closeEditModal()" style="background:rgba(255,255,255,0.15); border:none; color:white; width:32px; height:32px; border-radius:50%; font-size:18px; line-height:1;">✕</button>
+      <button class="hdr-ico" onclick="closeEditModal()" title="Cerrar sin guardar" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div style="padding:20px;">
       <div class="form-grid">
@@ -1530,9 +1530,9 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
           <textarea id="edit-notas"></textarea>
         </div>
         <button class="btn-submit" id="edit-save-btn" onclick="saveEdit()">
-          <span>💾</span> Guardar cambios
+          <span style="display:inline-flex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg></span> Guardar cambios
         </button>
-        <button class="btn-delete" id="edit-delete-btn" onclick="deletePedido()" style="display:none">🗑 Eliminar pedido</button>
+        <button class="btn-delete" id="edit-delete-btn" onclick="deletePedido()" style="display:none" title="Borra el pedido definitivamente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;vertical-align:-3px;margin-right:4px"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>Eliminar pedido</button>
       <div class="audit-section">
         <div class="audit-title">📜 Historial de cambios</div>
         <div id="edit-audit-content"><div class="audit-empty">Cargando...</div></div>
@@ -2977,9 +2977,9 @@ function renderHoyCardVencido(p) {
       <div class="titulo">${cliente} — ${desc}</div>
       <div class="desc">Avisado hace <span class="age warn">${ageTxt}</span> · ${sucursal} · ${escHtml(p.vendedora || '—')}</div>
     </div>
-    <div class="acciones" style="display:flex;gap:6px;">
-      <button class="btn-mini-wa" style="background:#16a34a;border:none;color:white;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;" onclick="event.stopPropagation(); markEstado(${p.id},'Respondió')">✓ Respondió</button>
-      <button class="btn-mini-wa" style="background:#dc2626;border:none;color:white;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;" onclick="event.stopPropagation(); markEstado(${p.id},'No contestó')">✗ No contestó</button>
+    <div class="acciones">
+      ${_act('primary ok', `event.stopPropagation(); markEstado(${p.id},'Respondió')`, 'El cliente respondió', ICO.check)}
+      ${_act('bad', `event.stopPropagation(); markEstado(${p.id},'No contestó')`, 'El cliente no contestó', ICO.cruz)}
     </div>
   </div>`;
 }
@@ -2990,8 +2990,8 @@ function renderHoyCardListo(p) {
   const sucursal = escHtml(p.local_id || '');
   const tieneWa = !!p.celular;
   const waBtn = !tieneWa ? '' : (waApiActiva(p.local_id)
-    ? `<button class="btn-mini-wa" onclick="event.stopPropagation(); enviarAvisoApi(${p.id},'pedido_listo')" title="Manda el aviso por WhatsApp desde el número del local">${waSvg()} Enviar aviso</button>`
-    : `<a class="btn-mini-wa" href="${buildWa(p)}" target="_blank" onclick="markEstado(${p.id},'Avisado'); event.stopPropagation()">${waSvg()} Avisar</a>`);
+    ? _act('primary wa', `event.stopPropagation(); enviarAvisoApi(${p.id},'pedido_listo')`, 'Enviar el aviso por WhatsApp desde el número del local (marca Avisado)', ICO.enviar)
+    : _actLink('primary wa', buildWa(p), `markEstado(${p.id},'Avisado'); event.stopPropagation()`, 'Avisar por WhatsApp (marca Avisado)', waSvg()));
   return `<div class="hoy-card" onclick="${session.isAdmin ? `openEditModal(${p.id})` : `switchTab('pedidos')`}">
     <div class="info">
       <div class="titulo">${cliente} — ${desc}</div>
@@ -3009,7 +3009,7 @@ function renderHoyCardRecontacto(p) {
   const ageTxt = horasAviso ? (horasAviso >= 48 ? `${Math.floor(horasAviso/24)} días` : `${horasAviso}h`) : '';
   const ageClass = horasAviso >= 72 ? 'urgente' : 'warn';
   const tieneWa = !!p.celular;
-  const recontactarBtn = tieneWa ? `<button class="btn-mini-wa" onclick="event.stopPropagation(); openWaTemplates(${p.id})">${waSvg()} Re-contactar</button>` : '';
+  const recontactarBtn = tieneWa ? _act('primary wa', `event.stopPropagation(); openWaTemplates(${p.id})`, 'Re-contactar con una plantilla de WhatsApp', ICO.plantilla) : '';
   return `<div class="hoy-card" onclick="${session.isAdmin ? `openEditModal(${p.id})` : `switchTab('pedidos')`}">
     <div class="info">
       <div class="titulo">${cliente} — ${desc}</div>
@@ -3036,7 +3036,7 @@ function renderHoyCardCumple(c) {
     else if (m3) digits = m3[1] + m3[3];
     else if (m4) digits = m4[1] + m4[3];
     const phone = digits.startsWith('549') ? digits : '549' + digits;
-    wa = `<a class="btn-mini-wa" href="https://wa.me/${phone}?text=${saludo}" target="_blank" onclick="event.stopPropagation()">${waSvg()} Saludar</a>`;
+    wa = _actLink('primary wa', `https://wa.me/${phone}?text=${saludo}`, 'event.stopPropagation()', 'Saludar por WhatsApp por el cumpleaños', waSvg());
   }
   return `<div class="hoy-card" onclick="openClienteDetail('${escHtml(c.globalid)}')">
     <div class="info">
@@ -4324,7 +4324,7 @@ function renderClienteDetail() {
 
   document.getElementById('cliente-detail-content').innerHTML = `
     <div class="cliente-modal-header">
-      <button class="cliente-modal-close" onclick="closeClienteDetail()">✕</button>
+      <button class="cliente-modal-close hdr-ico" onclick="closeClienteDetail()" title="Cerrar la ficha" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       <button class="export-btn export-btn-sm" onclick="exportClienteHistorial()" style="position:absolute;top:18px;right:60px;background:rgba(255,255,255,0.2);color:white;border:none">📥 Excel</button>
       <h2>${escHtml(c.nombre_completo || 'Sin nombre')}</h2>
       <div class="subtitle">
@@ -5745,6 +5745,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=12"></script>
+<script src="manual.js?v=13"></script>
 </body>
 </html>
