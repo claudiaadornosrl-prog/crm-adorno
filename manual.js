@@ -160,9 +160,10 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarManual
   const hdr = document.querySelector('.header-right');
   if (hdr) {
     const b = document.createElement('button');
-    b.className = 'header-search-btn';
+    b.className = 'hdr-ico';
     b.title = 'Manual de uso';
-    b.textContent = '📖';
+    b.setAttribute('aria-label', 'Manual');
+    b.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h6v16H6a2 2 0 0 0-2 2z"/><path d="M20 5a2 2 0 0 0-2-2h-6v16h6a2 2 0 0 1 2 2z"/></svg>';
     b.onclick = () => abrirManual();
     hdr.insertBefore(b, hdr.firstChild);
   }

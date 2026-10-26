@@ -286,6 +286,9 @@ a { color: inherit; text-decoration: none; }
 .cumple-group-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 12px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
 
 /* ═══ Búsqueda global (Command palette) ═══ */
+.hdr-ico { background: transparent; border: none; color: white; opacity: .85; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: background .15s, opacity .15s; }
+.hdr-ico:hover { background: rgba(255,255,255,0.16); opacity: 1; }
+.hdr-ico:active { background: rgba(255,255,255,0.28); }
 .header-search-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-right: 4px; }
 .header-search-btn:hover { background: rgba(255,255,255,0.22); }
 
@@ -311,8 +314,7 @@ a { color: inherit; text-decoration: none; }
 .search-empty { padding: 30px 20px; text-align: center; color: var(--muted); font-size: 13px; }
 .search-loading { padding: 20px; text-align: center; color: var(--muted); font-size: 12px; }
 
-.header-refresh { background: rgba(255,255,255,0.12); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; display: flex; align-items: center; justify-content: center; }
-.header-refresh:active { background: rgba(255,255,255,0.25); }
+.header-refresh { background: transparent; border: none; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
 /* Alert banner */
 .alert-banner {
@@ -960,17 +962,16 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 <div id="app-screen" class="screen">
   <!-- Header -->
   <div class="header">
-    <a href="https://claudiaadornosrl-prog.github.io/hub/" title="Volver al Hub" aria-label="Volver al Hub" style="text-decoration:none;font-size:17px;line-height:1;color:inherit;opacity:0.65;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,0.12);">↩</a>
+    <a href="https://claudiaadornosrl-prog.github.io/hub/" class="hdr-ico" title="Volver al Hub" aria-label="Volver al Hub" style="text-decoration:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg></a>
     <div class="header-left">
       <span class="header-local" id="hdr-local"></span>
       <span class="header-name" id="hdr-nombre"></span>
     </div>
     <div class="header-right">
       <span class="local-badge" id="hdr-badge"></span>
-      <button class="header-search-btn" id="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
-      <button class="header-search-btn" onclick="openGlobalSearch()" title="Buscar (Ctrl+B)">🔍</button>
-      <button class="header-refresh" onclick="refreshAll()" title="Actualizar">↻</button>
-      <button class="btn-salir" onclick="logout()">Salir</button>
+      <button class="hdr-ico" onclick="openGlobalSearch()" title="Buscar clientes, pedidos y artículos (Ctrl+B)" aria-label="Buscar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+      <button class="hdr-ico header-refresh" onclick="refreshAll()" title="Actualizar los datos" aria-label="Actualizar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></button>
+      <button class="hdr-ico" onclick="logout()" title="Salir de la sesión" aria-label="Salir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 4v16"/></svg></button>
     </div>
   </div>
 
@@ -4367,12 +4368,6 @@ async function runGlobalSearch(q) {
   }
 }
 
-// Setear icono del tema al cargar (si arrancó en dark)
-setTimeout(() => {
-  const btn = document.getElementById('theme-toggle');
-  if (btn && document.documentElement.classList.contains('dark')) btn.textContent = '☀️';
-}, 0);
-
 // Listeners para el modal de búsqueda
 setTimeout(() => {
   const inp = document.getElementById('global-search-input');
@@ -5440,22 +5435,10 @@ function waSvg() {
 // ═══════════════════════════════════════════════════════
 //  Modo oscuro (theme toggle)
 // ═══════════════════════════════════════════════════════
-(function initTheme() {
-  // Aplicar guardado o preferencia del sistema antes del primer render
-  try {
-    const saved = localStorage.getItem('ca_theme');
-    if (saved === 'dark' || (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-    }
-  } catch(e) {}
-})();
+// (26-oct-2026, JP) Modo oscuro eliminado: siempre claro. Se limpia lo guardado para no dejar a nadie en dark.
+try { localStorage.removeItem('ca_theme'); } catch(e) {}
+document.documentElement.classList.remove('dark');
 
-function toggleTheme() {
-  const isDark = document.documentElement.classList.toggle('dark');
-  try { localStorage.setItem('ca_theme', isDark ? 'dark' : 'light'); } catch(e) {}
-  const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = isDark ? '☀️' : '🌙';
-}
 
 // ═══════════════════════════════════════════════════════
 //  Service Worker (PWA)
@@ -5482,10 +5465,10 @@ window.addEventListener('beforeinstallprompt', e => {
     if (!refresh || document.getElementById('install-btn')) return;
     const btn = document.createElement('button');
     btn.id = 'install-btn';
-    btn.className = 'header-refresh';
-    btn.title = 'Instalar como app';
-    btn.style.marginRight = '4px';
-    btn.textContent = '⬇';
+    btn.className = 'hdr-ico';
+    btn.title = 'Instalar como app en este dispositivo';
+    btn.setAttribute('aria-label', 'Instalar');
+    btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>';
     btn.onclick = async () => {
       if (!deferredInstallPrompt) return;
       deferredInstallPrompt.prompt();
@@ -5566,6 +5549,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=10"></script>
+<script src="manual.js?v=11"></script>
 </body>
 </html>
