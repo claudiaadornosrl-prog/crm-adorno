@@ -1960,9 +1960,36 @@ function enterApp() {
 // ═══════════════════════════════════════════════════════
 //  Navigation
 // ═══════════════════════════════════════════════════════
+// (26-oct-2026, JP) PC de local en modo kiosco: ?local=unicenter|alcorta|oficina deja la pantalla de
+// ingreso fijada en ese local (se oculta el resto y el link de admin). Se guarda en localStorage para que
+// siga fijado después de salir o de recargar sin el parámetro. Para destrabar: ?local=libre
+(function () {
+  try {
+    const q = new URLSearchParams(window.location.search).get('local');
+    if (q === 'libre') localStorage.removeItem('ca_kiosco_local');
+    else if (q && LOCALES[q]) localStorage.setItem('ca_kiosco_local', q);
+  } catch(_) {}
+})();
+function aplicarKioscoLocal() {
+  let k = null;
+  try { k = localStorage.getItem('ca_kiosco_local'); } catch(_) {}
+  if (!k || !LOCALES[k]) return;
+  document.querySelectorAll('.local-opt').forEach(e => {
+    const es = e.dataset.local === k;
+    e.style.display = es ? '' : 'none';
+    if (es) e.classList.add('selected');
+  });
+  const adm = document.querySelector('.setup-admin-link');
+  if (adm) adm.style.display = 'none';
+  checkSetupReady();
+  setTimeout(() => { const p = document.getElementById('setup-pass'); if (p) p.focus(); }, 50);
+}
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+
+  if (id === 'setup-screen') aplicarKioscoLocal();
 }
 
 function switchTab(tab) {
@@ -2518,6 +2545,7 @@ function _wireDetectCliente() {
   if (dni) dni.addEventListener('input', handler);
 }
 setTimeout(_wireDetectCliente, 0);
+setTimeout(aplicarKioscoLocal, 0);
 
 // ═══════════════════════════════════════════════════════
 //  Submit pedido  (multi-SKU: one pedido per line)
