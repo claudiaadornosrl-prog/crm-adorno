@@ -40,6 +40,7 @@ function _manualSecciones() {
         'Agregá los artículos buscando por descripción o SKU. Al lado de cada código ves el stock vivo de cada local: A = Alcorta, U = Unicenter, O = Oficina (verde si hay).',
         'Anotá seña si dejó, y cualquier aclaración en las notas.',
         'El pedido arranca en estado "Pendiente".',
+        'Si tu local tiene el WhatsApp conectado al sistema, vas a ver el botón verde "Enviar aviso": manda el mensaje desde el número del local y marca Avisado solo. Cuando el cliente responde, el pedido pasa a "Respondió" automáticamente y ves su mensaje en la tarjeta, junto con ✓✓ entregado / leído.',
         'Si el DNI no tenía ficha, el pedido muestra "⏳ Dragon": el cliente se da de alta solo en Dragonfish desde Oficina (cada 15 min) y pasa a "✔ Dragon". No hace falta cargarlo a mano.',
       ],
     },

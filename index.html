@@ -755,6 +755,13 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .btn-listo:hover { background: var(--listo); color: white; }
 .btn-completar { background: #f3f4f6; color: #374151; border: 2px solid #d1d5db; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
 .btn-completar:hover { background: #374151; color: white; border-color: #374151; }
+.btn-wa-api { display: inline-flex; align-items: center; gap: 5px; background: #25d366; color: white; border: none; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-wa-api:hover { background: #1ebe5d; }
+.btn-wa-api.sec { background: #fef3c7; color: #92400e; }
+.btn-wa-api.sec:hover { background: #fde68a; }
+.wa-acuse { margin-left: 6px; font-size: 11px; font-weight: 700; color: #94a3b8; cursor: help; }
+.wa-acuse.leido { color: #2563eb; }
+.pedido-wa-resp { margin: 0 14px 6px; padding: 6px 10px; background: #ecfdf5; border-left: 3px solid #25d366; border-radius: 6px; font-size: 12px; color: #065f46; }
 .btn-quick-avisar { background: #dbeafe; color: #1e40af; border: 2px solid #bfdbfe; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
 .btn-quick-avisar:hover { background: #1e40af; color: white; border-color: #1e40af; }
 
@@ -1890,6 +1897,69 @@ function dragonBadge(dni) {
   return `<span class="dragon-badge dragon-${est}" title="${escHtml(T[1])}">${T[0]} Dragon</span>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  WhatsApp Business API (Fase B, 26-oct-2026): si el local tiene número conectado
+//  (wa_cuentas.activa), el aviso sale por la Edge Function wa-enviar desde el número del local
+//  y el pedido pasa a Avisado solo. Si no, siguen los botones wa.me de siempre.
+// ═══════════════════════════════════════════════════════════════════════
+let waApiLocales = {};   // local_id → true si tiene la API activa
+async function loadWaApiLocales() {
+  try {
+    const rows = await supaGet('wa_cuentas_pub', { select: 'local_id,activa' });
+    const m = {}; (rows || []).forEach(r => { if (r.activa) m[(r.local_id || '').toLowerCase()] = true; });
+    waApiLocales = m;
+  } catch(e) { console.warn('wa_cuentas_pub:', e); }
+}
+function waApiActiva(local) { return !!waApiLocales[(local || '').toLowerCase()]; }
+
+const WA_API_PLANTILLAS = {
+  pedido_listo:      { titulo: 'Aviso: ya llegó tu pedido', pregunta: '¿Qué vendedora avisa al cliente?' },
+  pedido_recontacto: { titulo: 'Recontacto (no respondió)', pregunta: '¿Qué vendedora re-contacta al cliente?' },
+  pedido_confirmado: { titulo: 'Confirmación del pedido', pregunta: null },
+};
+async function enviarAvisoApi(id, plantilla) {
+  const p = pedidosCache.find(x => x.id === id);
+  if (!p) { toast('Pedido no encontrado'); return; }
+  if (!p.celular) { toast('⚠️ Este pedido no tiene celular cargado'); return; }
+  const meta = WA_API_PLANTILLAS[plantilla] || { titulo: plantilla, pregunta: null };
+  let vendedora = null;
+  if (meta.pregunta) {
+    vendedora = await _pedirVendedora(p.local_id, meta.pregunta);
+    if (!vendedora) return;  // canceló
+  }
+  const ok = confirm(`${meta.titulo}\n\nSe manda por WhatsApp desde el número del local a:\n${p.nombre_cliente || ''} · ${p.celular}\n\n¿Enviar?`);
+  if (!ok) return;
+  toast('📤 Enviando por WhatsApp...');
+  try {
+    await _ensureFreshToken();
+    const r = await fetch(`${SUPA_URL}/functions/v1/wa-enviar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
+      body: JSON.stringify({ pedido_id: id, plantilla, vendedora }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    const idx = pedidosCache.findIndex(x => x.id === id);
+    if (idx >= 0) {
+      pedidosCache[idx].estado = j.estado_pedido || pedidosCache[idx].estado;
+      if (j.estado_pedido === 'Avisado') { pedidosCache[idx].avisado_at = new Date().toISOString(); pedidosCache[idx].fecha_aviso = pedidosCache[idx].avisado_at; }
+      if (plantilla === 'pedido_recontacto') pedidosCache[idx].fecha_recontacto = new Date().toISOString();
+    }
+    if (vendedora) window._pedidosLogCache = null;
+    updateAlertBadge(); renderPedidos(); renderAlertas(); renderHoy();
+    if (session.isAdmin) renderAdmin();
+    toast(`✅ WhatsApp enviado a ${p.nombre_cliente || p.celular}`);
+  } catch(e) {
+    toast('❌ No se pudo enviar: ' + e.message);
+  }
+}
+// ✓ enviado · ✓✓ entregado · ✓✓ leído (azul), según los acuses que manda Meta al webhook
+function waAcuses(p) {
+  if (p.wa_leido_at) return `<span class="wa-acuse leido" title="Leído ${escHtml(formatDate(p.wa_leido_at))}">✓✓ leído</span>`;
+  if (p.wa_entregado_at) return `<span class="wa-acuse entregado" title="Entregado ${escHtml(formatDate(p.wa_entregado_at))}">✓✓ entregado</span>`;
+  return '';
+}
+
 async function loadPedidos() {
   try {
     // Sin filtro temporal: traer todos los pedidos (necesario para pedidos viejos pendientes
@@ -1899,6 +1969,7 @@ async function loadPedidos() {
     pedidosCache = await supaGet('pedidos', params);
     pedidosCargados = true;
     loadPushDragon().then(() => { if (typeof renderPedidos === 'function') renderPedidos(); });
+    loadWaApiLocales().then(() => { if (typeof renderPedidos === 'function') renderPedidos(); });
     updateAlertBadge();
     renderPedidos();
     renderAlertas();
@@ -2731,7 +2802,9 @@ function renderHoyCardListo(p) {
   const cliente = escHtml(p.nombre_cliente || 'Sin nombre');
   const sucursal = escHtml(p.local_id || '');
   const tieneWa = !!p.celular;
-  const waBtn = tieneWa ? `<a class="btn-mini-wa" href="${buildWa(p)}" target="_blank" onclick="markEstado(${p.id},'Avisado'); event.stopPropagation()">${waSvg()} Avisar</a>` : '';
+  const waBtn = !tieneWa ? '' : (waApiActiva(p.local_id)
+    ? `<button class="btn-mini-wa" onclick="event.stopPropagation(); enviarAvisoApi(${p.id},'pedido_listo')" title="Manda el aviso por WhatsApp desde el número del local">${waSvg()} Enviar aviso</button>`
+    : `<a class="btn-mini-wa" href="${buildWa(p)}" target="_blank" onclick="markEstado(${p.id},'Avisado'); event.stopPropagation()">${waSvg()} Avisar</a>`);
   return `<div class="hoy-card" onclick="${session.isAdmin ? `openEditModal(${p.id})` : `switchTab('pedidos')`}">
     <div class="info">
       <div class="titulo">${cliente} — ${desc}</div>
@@ -2906,8 +2979,9 @@ function renderPedidos() {
       </div>
       ${p.compra_id ? `<div style="padding:0 14px 6px"><span class="pedido-vendido-badge"><span class="check">✓</span> VENDIDO ${p.factura_monto ? Number(p.factura_monto).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : ''}${p.factura_fecha ? ' · '+formatDate(p.factura_fecha).split(' ')[0] : ''}</span></div>` : ''}
       ${p.notas ? `<div class="pedido-notas">📝 ${escHtml(p.notas)}</div>` : ''}
+      ${p.wa_respuesta ? `<div class="pedido-wa-resp" title="Último mensaje del cliente por WhatsApp">💬 ${escHtml(p.wa_respuesta)}</div>` : ''}
       <div class="pedido-footer">
-        <span class="pedido-date">📅 ${fecha}${p.vendedora ? ' · ' + escHtml(p.vendedora) : ''}</span>
+        <span class="pedido-date">📅 ${fecha}${p.vendedora ? ' · ' + escHtml(p.vendedora) : ''} ${waAcuses(p)}</span>
         ${actions}
         <button class="btn-edit" onclick="openEditModal(${p.id})" title="Editar pedido">✏️</button>
       </div>
@@ -2921,23 +2995,28 @@ function pedidoActions(p) {
   const waUrl = buildWa(p);
   let btns = '';
 
+  const api = waApiActiva(p.local_id) && !!p.celular;
   if (estado === 'Pendiente') {
     btns += `<button class="btn-listo" onclick="markListo(${id})">✓ Stock</button>`;
-    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="markEstado(${id},'Avisado')">${waSvg()} WA</a>`;
+    if (api) btns += `<button class="btn-wa-api" onclick="enviarAvisoApi(${id},'pedido_listo')" title="Manda el aviso por WhatsApp desde el número del local y marca Avisado">${waSvg()} Enviar aviso</button>`;
+    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="markEstado(${id},'Avisado')" title="${api ? 'Abrir el chat en tu WhatsApp (sin API)' : 'Avisar por WhatsApp'}">${waSvg()}${api ? '' : ' WA'}</a>`;
     if (p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Plantillas WhatsApp">💬</button>`;
 
   } else if (estado === 'Listo para avisar') {
-    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="onWaClick(${id})">${waSvg()} Avisar por WA</a>`;
+    if (api) btns += `<button class="btn-wa-api" onclick="enviarAvisoApi(${id},'pedido_listo')" title="Manda el aviso por WhatsApp desde el número del local y marca Avisado">${waSvg()} Enviar aviso</button>`;
+    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="onWaClick(${id})" title="${api ? 'Abrir el chat en tu WhatsApp (sin API)' : 'Avisar por WhatsApp'}">${waSvg()}${api ? '' : ' Avisar por WA'}</a>`;
     btns += `<button class="btn-quick-avisar" onclick="markEstado(${id},'Avisado')">✓ Avisar</button>`;
     if (p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Plantillas WhatsApp">💬</button>`;
 
   } else if (estado === 'Avisado') {
+    if (api) btns += `<button class="btn-wa-api sec" onclick="enviarAvisoApi(${id},'pedido_recontacto')" title="Volver a escribirle por WhatsApp desde el número del local">🔔 Recontactar</button>`;
     if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank">${waSvg()}</a>`;
     btns += `<button class="btn-resp" style="background:#16a34a;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;" onclick="markEstado(${id},'Respondió')" title="El cliente respondió">✓ Respondió</button>`;
     btns += `<button class="btn-norep" style="background:#dc2626;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;" onclick="markEstado(${id},'No contestó')" title="El cliente no contestó">✗ No contestó</button>`;
     if (p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Plantillas WhatsApp">💬</button>`;
 
   } else if (estado === 'Respondió' || estado === 'No contestó') {
+    if (api && estado === 'No contestó') btns += `<button class="btn-wa-api sec" onclick="enviarAvisoApi(${id},'pedido_recontacto')" title="Volver a escribirle por WhatsApp desde el número del local">🔔 Recontactar</button>`;
     if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank">${waSvg()}</a>`;
     btns += `<button class="btn-completar" onclick="markEstado(${id},'Completado')">✔ Ya retiró</button>`;
     if (estado === 'No contestó' && p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Re-intentar plantillas">💬</button>`;
@@ -5435,6 +5514,6 @@ document.addEventListener('input', function(e) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=8"></script>
+<script src="manual.js?v=9"></script>
 </body>
 </html>
