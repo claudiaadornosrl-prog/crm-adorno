@@ -95,6 +95,7 @@ function _manualSecciones() {
       icon: '🛠', titulo: 'Admin',
       desc: 'Panel de administración — solo JP.',
       pasos: [
+        'Pestaña ⏱ Métricas: cuánto tardan las vendedoras en avisar desde que hay stock, cuánto en cargar la respuesta, cuántos pedidos quedan colgados y cuántos se completan. Por local, por vendedora y por mes; elegí el período arriba. Verde = bien, rojo = atrasado.',
         'Auditoría: registro de todos los cambios (quién tocó qué y cuándo).',
         'Demanda no satisfecha: qué pidieron las clientas que no teníamos — insumo para compras.',
         'Gestión de vendedoras, plantillas de WhatsApp y configuración general.',

@@ -801,6 +801,23 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .stat-box { background: white; border-radius: 10px; padding: 14px; box-shadow: var(--shadow); text-align: center; }
 .stat-num   { font-size: 30px; font-weight: 800; line-height: 1; }
 .stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+/* ⏱ Métricas */
+.met-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
+.met-toolbar select { padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--border); font: inherit; font-size: 13px; background: white; }
+.met-toolbar-hint { cursor: help; font-size: 12px; margin-left: auto; }
+.met-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.met-grid .stat-num { font-size: 24px; }
+.stat-box.met-bien .stat-num { color: #166534; } .stat-box.met-regular .stat-num { color: #b45309; } .stat-box.met-mal .stat-num { color: #b91c1c; }
+.met-card { background: white; border-radius: 10px; box-shadow: var(--shadow); padding: 12px 14px; margin-bottom: 12px; }
+.met-card-title { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+.met-scroll { overflow-x: auto; }
+.met-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+.met-table th { text-align: right; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; padding: 4px 8px; border-bottom: 1px solid var(--border); cursor: help; }
+.met-table td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.met-table th:first-child, .met-table td:first-child { text-align: left; }
+.met-table .met-nombre { font-weight: 600; }
+.met-sub { font-weight: 400; color: var(--muted); font-size: 11px; }
+.met-table td.met-bien { color: #166534; font-weight: 600; } .met-table td.met-regular { color: #b45309; font-weight: 600; } .met-table td.met-mal { color: #b91c1c; font-weight: 700; }
 .stat-pend .stat-num  { color: var(--pend); }
 .stat-avis .stat-num  { color: var(--avis); }
 .stat-comp .stat-num  { color: var(--comp); }
@@ -1142,6 +1159,21 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
         <button class="admin-vtab-btn active" data-view="resumen" onclick="setAdminView('resumen')">📊 Resumen</button>
         <button class="admin-vtab-btn" data-view="clientes" onclick="setAdminView('clientes')">👥 Clientes 360°</button>
         <button class="admin-vtab-btn" data-view="cumple" onclick="setAdminView('cumple')">🎂 Cumpleaños</button>
+        <button class="admin-vtab-btn" data-view="metricas" onclick="setAdminView('metricas')">⏱ Métricas</button>
+      </div>
+      <div id="admin-view-metricas" class="hidden">
+        <div class="met-toolbar">
+          <span class="met-toolbar-label">Pedidos creados en los últimos</span>
+          <select id="met-periodo" onchange="loadMetricas(true)">
+            <option value="30">30 días</option>
+            <option value="90" selected>90 días</option>
+            <option value="180">180 días</option>
+            <option value="365">12 meses</option>
+          </select>
+          <span class="met-toolbar-hint" title="Listo = cuando el sistema detectó stock (o el pedido pasó a Listo para avisar). Aviso = cuando la vendedora marcó Avisado. Respuesta = cuando cargó Respondió / No contestó. Mediana = la mitad de los casos tardó menos que eso.">ⓘ cómo se mide</span>
+        </div>
+        <div class="stats-grid met-grid" id="met-kpis"></div>
+        <div id="met-tablas"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
       </div>
       <div id="admin-view-resumen">
         <div class="stats-grid" id="admin-stats"></div>
@@ -3154,6 +3186,8 @@ function setAdminView(v) {
   document.getElementById('admin-view-resumen').classList.toggle('hidden', v !== 'resumen');
   document.getElementById('admin-view-clientes').classList.toggle('hidden', v !== 'clientes');
   document.getElementById('admin-view-cumple').classList.toggle('hidden', v !== 'cumple');
+  document.getElementById('admin-view-metricas').classList.toggle('hidden', v !== 'metricas');
+  if (v === 'metricas') loadMetricas();
   if (v === 'clientes' && clientesCache.length === 0) {
     loadClientes('');
   }
@@ -4415,6 +4449,134 @@ function renderDemandaNoSatisfecha(items) {
 }
 
 
+// ═══════════════════════════════════════════════════════════════════════
+//  ⏱ Métricas del flujo de avisos (vista SQL crm_pedidos_tiempos: una fila por pedido con
+//  listo_at / avisado_at / respuesta_at / completado_at y las horas entre hitos). 26-oct-2026, JP.
+// ═══════════════════════════════════════════════════════════════════════
+let metricasCache = null;      // filas de la vista para el período elegido
+let metricasPeriodo = null;    // días del período cargado
+
+async function loadMetricas(forzar) {
+  const dias = Number(document.getElementById('met-periodo').value) || 90;
+  if (!forzar && metricasCache && metricasPeriodo === dias) { renderMetricas(); return; }
+  const cont = document.getElementById('met-tablas');
+  cont.innerHTML = '<div class="loading"><span class="spinner"></span> Cargando...</div>';
+  try {
+    const desde = new Date(Date.now() - dias * 86400000).toISOString();
+    metricasCache = await supaGet('crm_pedidos_tiempos', {
+      select: 'id,local_id,vendedora,estado,mes,created_at,listo_at,avisado_at,respuesta_at,completado_at,cancelado_at,vendido,hs_listo_a_aviso,hs_aviso_a_respuesta,dias_a_completado,dias_en_estado',
+      created_at: 'gte.' + desde,
+      order: 'created_at.desc',
+      limit: '5000',
+    });
+    metricasPeriodo = dias;
+    renderMetricas();
+  } catch(e) {
+    console.error('loadMetricas:', e);
+    cont.innerHTML = `<div class="empty">❌ No se pudieron cargar las métricas: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function _mediana(nums) {
+  const a = nums.filter(x => x !== null && x !== undefined && !isNaN(x)).map(Number).sort((x, y) => x - y);
+  if (!a.length) return null;
+  const m = Math.floor(a.length / 2);
+  return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+}
+function _fmtHoras(h) {
+  if (h === null || h === undefined) return '–';
+  if (h < 1) return Math.round(h * 60) + ' min';
+  if (h < 48) return (Math.round(h * 10) / 10).toLocaleString('es-AR') + ' h';
+  return (Math.round(h / 24 * 10) / 10).toLocaleString('es-AR') + ' d';
+}
+function _pct(n, d) { return d ? Math.round(n * 100 / d) + '%' : '–'; }
+function _claseHoras(h, bien, mal) {
+  if (h === null || h === undefined) return '';
+  return h <= bien ? 'met-bien' : (h >= mal ? 'met-mal' : 'met-regular');
+}
+
+// Resume un grupo de filas de la vista en los indicadores que mostramos
+function _resumirMetricas(rows) {
+  const abiertos = ['Pendiente', 'Listo para avisar', 'Avisado', 'Respondió', 'No contestó'];
+  const conAviso = rows.filter(r => r.avisado_at);
+  const hsAviso = rows.map(r => r.hs_listo_a_aviso).filter(x => x !== null);
+  const hsResp = rows.map(r => r.hs_aviso_a_respuesta).filter(x => x !== null);
+  return {
+    pedidos: rows.length,
+    medAviso: _mediana(hsAviso),
+    avisoEn24: hsAviso.length ? _pct(hsAviso.filter(h => h <= 24).length, hsAviso.length) : '–',
+    medResp: _mediana(hsResp),
+    avisadosSinResp: rows.filter(r => r.estado === 'Avisado').length,
+    listosSinAvisar: rows.filter(r => r.estado === 'Listo para avisar').length,
+    colgados30: rows.filter(r => abiertos.includes(r.estado) && Number(r.dias_en_estado) > 30).length,
+    completados: rows.filter(r => r.estado === 'Completado').length,
+    vendidos: rows.filter(r => r.vendido).length,
+    cancelados: rows.filter(r => r.estado === 'Cancelado').length,
+    abiertos: rows.filter(r => abiertos.includes(r.estado)).length,
+    conAviso: conAviso.length,
+  };
+}
+
+function renderMetricas() {
+  if (!metricasCache) return;
+  let rows = metricasCache;
+  if (adminLocalFilter !== 'todos') rows = rows.filter(r => r.local_id === adminLocalFilter);
+  const t = _resumirMetricas(rows);
+
+  document.getElementById('met-kpis').innerHTML = [
+    { n: _fmtHoras(t.medAviso), l: 'Listo → aviso (mediana)', c: _claseHoras(t.medAviso, 4, 48),
+      tip: 'Cuánto tarda la vendedora en avisar desde que hay stock. Verde ≤ 4 h, rojo ≥ 2 días.' },
+    { n: t.avisoEn24, l: 'Avisados dentro de las 24 h', c: '', tip: 'De los pedidos avisados, qué parte se avisó el mismo día.' },
+    { n: _fmtHoras(t.medResp), l: 'Aviso → respuesta cargada (mediana)', c: _claseHoras(t.medResp, 24, 72),
+      tip: 'Cuánto tarda en quedar registrado si el cliente respondió o no. Verde ≤ 24 h, rojo ≥ 3 días.' },
+    { n: t.colgados30, l: 'Abiertos hace más de 30 días', c: t.colgados30 ? 'met-mal' : 'met-bien', tip: 'Pedidos sin cerrar (ni Completado ni Cancelado) con más de un mes en el mismo estado.' },
+    { n: t.listosSinAvisar, l: 'Listos sin avisar hoy', c: t.listosSinAvisar ? 'met-regular' : 'met-bien', tip: 'Hay stock y todavía nadie avisó.' },
+    { n: t.avisadosSinResp, l: 'Avisados sin respuesta hoy', c: t.avisadosSinResp > 5 ? 'met-mal' : (t.avisadosSinResp ? 'met-regular' : 'met-bien'), tip: 'Se avisó y nadie cargó si respondió o no.' },
+    { n: _pct(t.completados, t.pedidos), l: `Completados (${t.completados} de ${t.pedidos})`, c: '', tip: 'Pedidos cerrados como Completado sobre el total del período.' },
+    { n: _pct(t.vendidos, t.pedidos), l: `Con factura cruzada (${t.vendidos})`, c: '', tip: 'Pedidos que el sync nocturno encontró facturados en Dragonfish.' },
+  ].map(k => `<div class="stat-box ${k.c}" title="${escHtml(k.tip)}"><div class="stat-num">${k.n}</div><div class="stat-label">${k.l}</div></div>`).join('');
+
+  const fila = (nombre, g, extra = '') => `<tr>
+      <td class="met-nombre">${escHtml(nombre)}${extra}</td>
+      <td>${g.pedidos}</td>
+      <td class="${_claseHoras(g.medAviso, 4, 48)}">${_fmtHoras(g.medAviso)}</td>
+      <td>${g.avisoEn24}</td>
+      <td class="${_claseHoras(g.medResp, 24, 72)}">${_fmtHoras(g.medResp)}</td>
+      <td>${g.listosSinAvisar || ''}</td>
+      <td class="${g.avisadosSinResp > 5 ? 'met-mal' : ''}">${g.avisadosSinResp || ''}</td>
+      <td class="${g.colgados30 ? 'met-mal' : ''}">${g.colgados30 || ''}</td>
+      <td>${_pct(g.completados, g.pedidos)}</td>
+    </tr>`;
+  const cab = `<thead><tr>
+      <th></th><th title="Pedidos creados en el período">Pedidos</th>
+      <th title="Mediana desde que hay stock hasta que se avisa">Listo→aviso</th>
+      <th title="% de avisos dados dentro de las 24 h">≤24 h</th>
+      <th title="Mediana desde el aviso hasta cargar la respuesta">Aviso→resp.</th>
+      <th title="Listos para avisar hoy">Listos</th>
+      <th title="Avisados sin respuesta hoy">Avisados</th>
+      <th title="Abiertos hace más de 30 días">+30 d</th>
+      <th title="% completados">Compl.</th>
+    </tr></thead>`;
+  const tabla = (titulo, grupos) => `<div class="met-card"><div class="met-card-title">${titulo}</div>
+      <div class="met-scroll"><table class="met-table">${cab}<tbody>${grupos.join('')}</tbody></table></div></div>`;
+
+  const agrupar = (key) => {
+    const m = {};
+    rows.forEach(r => { const k = r[key] || 'Sin dato'; (m[k] = m[k] || []).push(r); });
+    return Object.entries(m);
+  };
+  const porLocal = agrupar('local_id').sort((a, b) => b[1].length - a[1].length)
+    .map(([k, v]) => fila(LOCALES[k] ? LOCALES[k].nombre : k, _resumirMetricas(v)));
+  const porVend = agrupar('vendedora').sort((a, b) => b[1].length - a[1].length)
+    .map(([k, v]) => fila(k, _resumirMetricas(v), ` <span class="met-sub">${escHtml(LOCALES[v[0].local_id] ? LOCALES[v[0].local_id].nombre : v[0].local_id || '')}</span>`));
+  const porMes = agrupar('mes').sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([k, v]) => fila(k, _resumirMetricas(v)));
+
+  document.getElementById('met-tablas').innerHTML = rows.length
+    ? tabla('Por local', porLocal) + tabla('Por vendedora', porVend) + tabla('Por mes', porMes)
+    : '<div class="empty">Sin pedidos en el período.</div>';
+}
+
 async function _refreshPedidosLogCache() {
   try {
     // Limitar a últimos 12 meses para que el ranking refleje rendimiento reciente
@@ -4430,6 +4592,7 @@ async function _refreshPedidosLogCache() {
 }
 
 function renderAdmin() {
+  if (adminView === 'metricas' && metricasCache) renderMetricas();
   // Cargar cache de logs en background y re-renderear el ranking cuando lleguen
   if (!window._pedidosLogCache) {
     _refreshPedidosLogCache().then(() => { if (currentTab === 'admin') renderAdmin(); });
@@ -5272,6 +5435,6 @@ document.addEventListener('input', function(e) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=7"></script>
+<script src="manual.js?v=8"></script>
 </body>
 </html>
