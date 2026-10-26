@@ -965,6 +965,37 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .wa-acuse { margin-left: 6px; font-size: 11px; font-weight: 700; color: #94a3b8; cursor: help; }
 .wa-acuse.leido { color: #2563eb; }
 .pedido-wa-resp { margin: 0 14px 6px; padding: 6px 10px; background: #ecfdf5; border-left: 3px solid #25d366; border-radius: 6px; font-size: 12px; color: #065f46; }
+/* (27-oct-2026, Fase C) Hilo de WhatsApp + cuadro de respuesta + sugerencias del bot, dentro de la tarjeta */
+.wa-hilo { margin: 0 14px 8px; border: 1px solid #d1fae5; border-radius: 10px; background: #f6fef9; font-size: 12px; overflow: hidden; }
+.wa-hilo-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; color: #065f46; font-weight: 700; user-select: none; }
+.wa-hilo-head:hover { background: #ecfdf5; }
+.wa-hilo-head .wa-hilo-ult { font-weight: 400; color: #047857; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wa-hilo-head .wa-hilo-chev { transition: transform .15s; display: inline-flex; }
+.wa-hilo.abierto .wa-hilo-chev { transform: rotate(90deg); }
+.wa-hilo-body { display: none; padding: 4px 10px 10px; border-top: 1px solid #d1fae5; }
+.wa-hilo.abierto .wa-hilo-body { display: block; }
+.wa-msgs { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; padding: 6px 0; }
+.wa-msg { max-width: 86%; padding: 6px 10px; border-radius: 12px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; position: relative; }
+.wa-msg.in { align-self: flex-start; background: #ffffff; border: 1px solid #e2e8f0; color: #1e293b; border-bottom-left-radius: 3px; }
+.wa-msg.out { align-self: flex-end; background: #dcf8c6; color: #14532d; border-bottom-right-radius: 3px; }
+.wa-msg.out.bot { background: #ede9fe; color: #3b0764; }
+.wa-msg.out.failed { background: #fee2e2; color: #991b1b; }
+.wa-msg .wa-msg-meta { display: block; font-size: 10px; opacity: .65; margin-top: 2px; text-align: right; }
+.wa-msg.in .wa-msg-meta { text-align: left; }
+.wa-sug { margin-top: 6px; border: 1px dashed #8b5cf6; background: #f5f3ff; border-radius: 10px; padding: 8px 10px; }
+.wa-sug-t { font-weight: 700; color: #6d28d9; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+.wa-sug-txt { white-space: pre-wrap; color: #1e1b4b; margin: 4px 0; line-height: 1.4; }
+.wa-sug-motivo { font-size: 11px; color: #6b7280; font-style: italic; }
+.wa-sug-acts { display: flex; align-items: center; gap: 2px; justify-content: flex-end; margin-top: 2px; }
+.wa-reply { display: flex; gap: 6px; align-items: flex-end; margin-top: 8px; }
+.wa-reply textarea { flex: 1; min-height: 38px; max-height: 120px; resize: vertical; border: 1px solid #a7f3d0; border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; background: #fff; text-transform: none; }
+.wa-reply textarea:focus { outline: none; border-color: #25d366; box-shadow: 0 0 0 3px rgba(37,211,102,.15); }
+.wa-reply-nota { font-size: 11px; color: #92400e; background: #fef3c7; border-radius: 8px; padding: 6px 10px; margin-top: 8px; }
+.wa-bot-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #ede9fe; color: #5b21b6; }
+.wa-bot-chip.pausa { background: #fef3c7; color: #92400e; }
+.wa-bot-chip.derivado { background: #fee2e2; color: #991b1b; }
+.wa-bot-chip .act { width: 24px; height: 24px; } .wa-bot-chip .act svg { width: 14px; height: 14px; }
+.alert-wa-ult { font-size: 12px; color: #1e293b; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px 10px; margin: 6px 0; white-space: pre-wrap; }
 .btn-quick-avisar { background: #dbeafe; color: #1e40af; border: 2px solid #bfdbfe; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
 .btn-quick-avisar:hover { background: #1e40af; color: white; border-color: #1e40af; }
 
@@ -2133,11 +2164,12 @@ function dragonBadge(dni) {
 //  y el pedido pasa a Avisado solo. Si no, siguen los botones wa.me de siempre.
 // ═══════════════════════════════════════════════════════════════════════
 let waApiLocales = {};   // local_id → true si tiene la API activa
+let waBotModo = {};      // local_id → 'off' | 'sugerir' | 'auto' (27-oct-2026)
 async function loadWaApiLocales() {
   try {
-    const rows = await supaGet('wa_cuentas_pub', { select: 'local_id,activa' });
-    const m = {}; (rows || []).forEach(r => { if (r.activa) m[(r.local_id || '').toLowerCase()] = true; });
-    waApiLocales = m;
+    const rows = await supaGet('wa_cuentas_pub', { select: 'local_id,activa,bot_modo' });
+    const m = {}, mb = {}; (rows || []).forEach(r => { if (r.activa) m[(r.local_id || '').toLowerCase()] = true; mb[(r.local_id || '').toLowerCase()] = r.bot_modo || 'off'; });
+    waApiLocales = m; waBotModo = mb;
   } catch(e) { console.warn('wa_cuentas_pub:', e); }
 }
 function waApiActiva(local) { return !!waApiLocales[(local || '').toLowerCase()]; }
@@ -2190,6 +2222,191 @@ function waAcuses(p) {
   return '';
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  Fase C (27-oct-2026): hilo de WhatsApp en la tarjeta, respuesta de texto libre dentro de la
+//  ventana de 24 h (wa-enviar v4) y sugerencias del bot IA (wa-bot) para aprobar / editar / descartar.
+// ═══════════════════════════════════════════════════════════════════════
+let waMensajesPorPedido = {};   // pedido_id → [mensajes] (orden cronológico)
+let waConvPorCel = {};          // local|últimos10 → fila de wa_conversaciones
+const waHiloAbierto = new Set();
+const waBorradores = {};        // pedido_id → texto que estaba escribiendo (sobrevive al refresco de 2 min)
+const WA_VENTANA_H = 24;
+
+async function loadWaMensajes() {
+  try {
+    const hayApi = Object.keys(waApiLocales).length || Object.values(waBotModo).some(m => m && m !== 'off');
+    if (!hayApi && !session.isAdmin) { waMensajesPorPedido = {}; return; }
+    const rows = await supaGet('wa_mensajes', { select: 'id,direccion,tipo,texto,plantilla,estado,estado_at,creado_at,pedido_id,enviado_por,bot_estado,bot_clasificacion,responde_a,error,motivo:raw->>motivo', pedido_id: 'not.is.null', tipo: 'neq.status', order: 'id.desc', limit: '800' });
+    const m = {};
+    (rows || []).forEach(r => { (m[r.pedido_id] = m[r.pedido_id] || []).push(r); });
+    Object.values(m).forEach(arr => arr.reverse());
+    waMensajesPorPedido = m;
+    const convs = await supaGet('wa_conversaciones', { select: 'local_id,celular,bot_estado,humano_por,humano_at,derivado_motivo,derivado_at', order: 'id.desc', limit: '500' });
+    const c = {}; (convs || []).forEach(r => { c[(r.local_id || '').toLowerCase() + '|' + String(r.celular || '').slice(-10)] = r; });
+    waConvPorCel = c;
+  } catch(e) { console.warn('wa_mensajes:', e); }
+}
+function _waCel10(cel) { return (cel || '').replace(/\D/g, '').slice(-10); }
+function waConvDe(p) { return waConvPorCel[(p.local_id || '').toLowerCase() + '|' + _waCel10(p.celular)] || null; }
+function waUltimoEntrante(p) {
+  const arr = waMensajesPorPedido[p.id] || [];
+  for (let i = arr.length - 1; i >= 0; i--) if (arr[i].direccion === 'in') return arr[i];
+  return null;
+}
+function waDentroVentana(p) {
+  const u = waUltimoEntrante(p);
+  return !!u && (Date.now() - new Date(u.estado_at || u.creado_at).getTime()) < WA_VENTANA_H * 3600 * 1000;
+}
+function waSugerenciaPendiente(p) { return (waMensajesPorPedido[p.id] || []).find(x => x.bot_estado === 'sugerido') || null; }
+// Pedidos con un mensaje del cliente sin responder (dentro de la ventana) o con una sugerencia del bot esperando
+function pedidosConMensajeSinResponder() {
+  return pedidosCache.filter(p => {
+    if (!p.celular) return false;
+    const arr = waMensajesPorPedido[p.id] || [];
+    if (!arr.length) return false;
+    if (waSugerenciaPendiente(p)) return true;
+    const ult = arr.filter(x => !(x.direccion === 'out' && (x.bot_estado === 'sugerido' || x.bot_estado === 'descartado' || x.bot_estado === 'error'))).slice(-1)[0];
+    return !!ult && ult.direccion === 'in' && waDentroVentana(p) && p.estado !== 'Completado' && p.estado !== 'Cancelado';
+  });
+}
+function _waHora(iso) {
+  if (!iso) return '';
+  const d = new Date(iso), hoy = new Date();
+  const hm = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === hoy.toDateString() ? hm : `${d.getDate()}/${d.getMonth() + 1} ${hm}`;
+}
+function _waEstadoTxt(x) {
+  if (x.direccion === 'in') return '';
+  return { sent: '✓', delivered: '✓✓', read: '✓✓ leído', failed: '✗ no salió', simulado: '(simulado)', sugerido: '', sin_respuesta: '', error: '✗ error' }[x.estado] ?? '';
+}
+function toggleWaHilo(id) {
+  if (waHiloAbierto.has(id)) waHiloAbierto.delete(id); else waHiloAbierto.add(id);
+  document.querySelectorAll('#wa-hilo-' + id).forEach(el => { el.classList.toggle('abierto', waHiloAbierto.has(id)); const m = el.querySelector('.wa-msgs'); if (m) m.scrollTop = m.scrollHeight; });
+}
+function renderWaHilo(p) {
+  const arr = (waMensajesPorPedido[p.id] || []).filter(x => !(x.bot_estado === 'descartado' && x.estado === 'sin_respuesta') && x.bot_estado !== 'error');
+  const api = waApiActiva(p.local_id) && !!p.celular;
+  if (!arr.length) return p.wa_respuesta ? `<div class="pedido-wa-resp" title="Último mensaje del cliente por WhatsApp">💬 ${escHtml(p.wa_respuesta)}</div>` : '';
+  const sug = waSugerenciaPendiente(p);
+  const visibles = arr.filter(x => x.bot_estado !== 'sugerido' && x.bot_estado !== 'descartado');
+  const ult = visibles[visibles.length - 1];
+  const abierto = waHiloAbierto.has(p.id) || !!sug;
+  const conv = waConvDe(p);
+  const modo = waBotModo[(p.local_id || '').toLowerCase()] || 'off';
+  const dentro = waDentroVentana(p);
+
+  const burbujas = visibles.map(x => {
+    const bot = x.direccion === 'out' && /^bot/i.test(x.enviado_por || '');
+    const quien = x.direccion === 'in' ? (p.nombre_cliente || 'Cliente').split(' ')[0] : (bot ? '🤖 bot' : (x.bot_estado === 'aprobado' || x.bot_estado === 'editado' ? '🤖→' : '') + (x.enviado_por || 'local').replace(/@.*$/, '').replace(/^sistema.*$/, 'sistema'));
+    const fallo = x.estado === 'failed' ? ' failed' : '';
+    return `<div class="wa-msg ${x.direccion}${bot ? ' bot' : ''}${fallo}" title="${escHtml(x.error || x.bot_clasificacion || '')}">${escHtml(x.texto || '[' + (x.tipo || 'mensaje') + ']')}<span class="wa-msg-meta">${escHtml(quien)} · ${_waHora(x.estado_at || x.creado_at)} ${_waEstadoTxt(x)}</span></div>`;
+  }).join('');
+
+  let sugHtml = '';
+  if (sug) {
+    sugHtml = `<div class="wa-sug" id="wa-sug-${sug.id}">
+      <div class="wa-sug-t">${ICO.robot} Respuesta sugerida por el bot${sug.bot_clasificacion ? ` · <span style="font-weight:400">${escHtml(sug.bot_clasificacion.replace('_', ' '))}</span>` : ''}</div>
+      <div class="wa-sug-txt">${escHtml(sug.texto || '')}</div>
+      ${sug.motivo ? `<div class="wa-sug-motivo">${escHtml(sug.motivo)}</div>` : ''}
+      <div class="wa-sug-acts">
+        ${api && dentro ? _act('primary ok', `waEnviarTexto(${p.id}, ${sug.id}); event.stopPropagation()`, 'Enviar esta respuesta tal cual al cliente', ICO.enviar) : `<span class="wa-reply-nota" style="margin:0">${api ? 'Pasaron más de 24 h: no se puede mandar texto libre' : 'WhatsApp del local no activo'}</span>`}
+        ${_act('', `waSugerenciaEditar(${p.id}, ${sug.id}); event.stopPropagation()`, 'Editarla antes de mandarla', ICO.lapiz)}
+        ${_act('bad', `waSugerenciaDescartar(${p.id}, ${sug.id}); event.stopPropagation()`, 'Descartar la sugerencia (no se manda nada)', ICO.cruz)}
+      </div>
+    </div>`;
+  }
+
+  let botChip = '';
+  if (modo !== 'off') {
+    if (conv && conv.bot_estado === 'derivado') botChip = `<span class="wa-bot-chip derivado" title="${escHtml(conv.derivado_motivo || '')}">${ICO.robot} derivado a una persona ${_act('', `waBotToggle(${p.id}, true); event.stopPropagation()`, 'Volver a activar el bot en esta conversación', ICO.check)}</span>`;
+    else if (conv && conv.bot_estado === 'humano') botChip = `<span class="wa-bot-chip pausa" title="Lo retomó ${escHtml((conv.humano_por || '').replace(/@.*$/, ''))}">${ICO.robot} bot en pausa ${_act('', `waBotToggle(${p.id}, true); event.stopPropagation()`, 'Devolver la conversación al bot', ICO.check)}</span>`;
+    else botChip = `<span class="wa-bot-chip" title="El bot ${modo === 'auto' ? 'contesta solo' : 'sugiere respuestas y vos las aprobás'}">${ICO.robot} bot ${modo === 'auto' ? 'automático' : 'sugiere'} ${_act('', `waBotToggle(${p.id}, false); event.stopPropagation()`, 'Pausar el bot en esta conversación (la seguís vos)', ICO.cruz)}</span>`;
+  }
+
+  const borrador = waBorradores[p.id] || '';
+  const reply = !api ? ''
+    : dentro ? `<div class="wa-reply"><textarea id="wa-txt-${p.id}" data-no-upper placeholder="Escribile al cliente desde el número del local…" oninput="waBorradores[${p.id}] = this.value" onclick="event.stopPropagation()" onkeydown="if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { waEnviarTexto(${p.id}); }">${escHtml(borrador)}</textarea>${_act('primary wa', `waEnviarTexto(${p.id}); event.stopPropagation()`, 'Enviar el mensaje por WhatsApp (Ctrl+Enter)', ICO.enviar)}</div>`
+    : `<div class="wa-reply-nota">Pasaron más de ${WA_VENTANA_H} h desde el último mensaje del cliente: Meta solo permite una plantilla (botón de recontacto).</div>`;
+
+  return `<div class="wa-hilo${abierto ? ' abierto' : ''}" id="wa-hilo-${p.id}">
+    <div class="wa-hilo-head" onclick="toggleWaHilo(${p.id})" title="Ver la conversación de WhatsApp">
+      <span class="wa-hilo-chev">${ICO.chevron}</span>
+      <span>💬 WhatsApp</span>
+      <span class="wa-hilo-ult">${ult ? `${ult.direccion === 'in' ? '← ' : '→ '}${escHtml(ult.texto || '[' + ult.tipo + ']')}` : ''}</span>
+      ${sug ? `<span class="wa-bot-chip">${ICO.robot} sugerencia</span>` : ''}
+      <span style="font-weight:400;color:#047857">${visibles.length}</span>
+    </div>
+    <div class="wa-hilo-body" onclick="event.stopPropagation()">
+      ${botChip ? `<div style="margin:6px 0 2px">${botChip}</div>` : ''}
+      <div class="wa-msgs">${burbujas}</div>
+      ${sugHtml}
+      ${reply}
+    </div>
+  </div>`;
+}
+
+async function _waEnviarFetch(body, extraHeaders) {
+  await _ensureFreshToken();
+  const r = await fetch(`${SUPA_URL}/functions/v1/wa-enviar`, {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) }, extraHeaders || {}),
+    body: JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+async function _waRefrescar() {
+  await loadWaMensajes();
+  renderPedidos(); renderAlertas(); updateAlertBadge();
+}
+async function waEnviarTexto(id, sugerenciaId) {
+  const p = pedidosCache.find(x => x.id === id);
+  if (!p) return;
+  let texto;
+  if (sugerenciaId) {
+    const sug = (waMensajesPorPedido[id] || []).find(x => x.id === sugerenciaId);
+    texto = sug ? sug.texto : '';
+  } else {
+    const ta = document.getElementById('wa-txt-' + id);
+    texto = (ta ? ta.value : waBorradores[id] || '').trim();
+  }
+  if (!texto) { toast('⚠️ Escribí el mensaje primero'); return; }
+  toast('📤 Enviando por WhatsApp...');
+  try {
+    await _waEnviarFetch({ pedido_id: id, texto, sugerencia_id: sugerenciaId || undefined });
+    delete waBorradores[id];
+    waHiloAbierto.add(id);
+    await _waRefrescar();
+    toast(`✅ Mensaje enviado a ${p.nombre_cliente || p.celular}`);
+  } catch(e) { toast('❌ No se pudo enviar: ' + e.message); }
+}
+function waSugerenciaEditar(id, sugerenciaId) {
+  const sug = (waMensajesPorPedido[id] || []).find(x => x.id === sugerenciaId);
+  if (!sug) return;
+  waBorradores[id] = sug.texto || '';
+  waHiloAbierto.add(id);
+  // La sugerencia se descarta y el texto pasa al cuadro: lo que salga queda como mensaje de la vendedora
+  _waEnviarFetch({ accion: 'descartar', sugerencia_id: sugerenciaId }).then(_waRefrescar).then(() => {
+    const ta = document.getElementById('wa-txt-' + id); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  }).catch(e => toast('❌ ' + e.message));
+}
+async function waSugerenciaDescartar(id, sugerenciaId) {
+  try {
+    await _waEnviarFetch({ accion: 'descartar', sugerencia_id: sugerenciaId });
+    await _waRefrescar();
+    toast('Sugerencia descartada');
+  } catch(e) { toast('❌ ' + e.message); }
+}
+async function waBotToggle(id, on) {
+  try {
+    await _waEnviarFetch({ accion: on ? 'bot_on' : 'bot_off', pedido_id: id });
+    waHiloAbierto.add(id);
+    await _waRefrescar();
+    toast(on ? '🤖 Bot activo en esta conversación' : '⏸ Bot en pausa: la conversación la seguís vos');
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
 async function loadPedidos() {
   try {
     // Sin filtro temporal: traer todos los pedidos (necesario para pedidos viejos pendientes
@@ -2199,7 +2416,7 @@ async function loadPedidos() {
     pedidosCache = await supaGet('pedidos', params);
     pedidosCargados = true;
     loadPushDragon().then(() => { if (typeof renderPedidos === 'function') renderPedidos(); });
-    loadWaApiLocales().then(() => { if (typeof renderPedidos === 'function') renderPedidos(); });
+    loadWaApiLocales().then(() => loadWaMensajes()).then(() => { if (typeof renderPedidos === 'function') { renderPedidos(); renderAlertas(); updateAlertBadge(); } });
     updateAlertBadge();
     renderPedidos();
     renderAlertas();
@@ -2237,7 +2454,8 @@ function pedidosVencidos60() {
 function updateAlertBadge() {
   const listos = pedidosCache.filter(p => p.estado === 'Listo para avisar').length;
   const vencidos = pedidosVencidos60().length;
-  const total = listos + vencidos;
+  const mensajes = pedidosConMensajeSinResponder().length;   // (27-oct) WhatsApp sin responder / sugerencias del bot
+  const total = listos + vencidos + mensajes;
   const badge = document.getElementById('alertas-badge');
   const tabAl = document.querySelector('.tab-btn[data-tab="alertas"]');  // (26-oct) la pestaña entera se pone verde
   if (total > 0) {
@@ -2246,6 +2464,7 @@ function updateAlertBadge() {
     const partes = [];
     if (listos > 0) partes.push(listos === 1 ? '1 listo para avisar' : `${listos} listos para avisar`);
     if (vencidos > 0) partes.push(vencidos === 1 ? '1 esperando confirmar respuesta' : `${vencidos} esperando confirmar respuesta`);
+    if (mensajes > 0) partes.push(mensajes === 1 ? '1 WhatsApp para responder' : `${mensajes} WhatsApp para responder`);
     if (tabAl) { tabAl.classList.add('has-alert'); tabAl.title = partes.join(' · '); }
   } else {
     badge.classList.add('hidden');
@@ -3256,7 +3475,7 @@ function renderPedidos() {
       </div>
       ${p.compra_id ? `<div style="padding:0 14px 6px"><span class="pedido-vendido-badge"><span class="check">✓</span> VENDIDO ${p.factura_monto ? Number(p.factura_monto).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : ''}${p.factura_fecha ? ' · '+formatDate(p.factura_fecha).split(' ')[0] : ''}</span></div>` : ''}
       ${p.notas ? `<div class="pedido-notas">📝 ${escHtml(p.notas)}</div>` : ''}
-      ${p.wa_respuesta ? `<div class="pedido-wa-resp" title="Último mensaje del cliente por WhatsApp">💬 ${escHtml(p.wa_respuesta)}</div>` : ''}
+      ${renderWaHilo(p)}
       <div class="pedido-footer">
         <span class="pedido-date">📅 ${fecha}${p.vendedora ? ' · ' + escHtml(p.vendedora) : ''} ${waAcuses(p)}</span>
         ${actions}
@@ -3276,6 +3495,8 @@ const ICO = {
   cruz:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>',
   bolsa:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 14H5z"/><path d="M9 7a3 3 0 0 1 6 0"/><path d="m9.5 14 2 2 3.5-3.5"/></svg>',
   lapiz:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  robot:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4M9 4h6"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/><path d="M2 13h2M20 13h2"/></svg>',
+  chevron:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="m9 6 6 6-6 6"/></svg>',
 };
 function _act(cls, onclick, title, svg) {
   return `<button class="act ${cls}" onclick="${onclick}" title="${escHtml(title)}" aria-label="${escHtml(title)}">${svg}</button>`;
@@ -3469,8 +3690,9 @@ function renderAlertas() {
   const el = document.getElementById('alertas-list');
   const listos = pedidosCache.filter(p => p.estado === 'Listo para avisar');
   const vencidos = pedidosVencidos60();
+  const mensajes = pedidosConMensajeSinResponder();
 
-  if (!listos.length && !vencidos.length) {
+  if (!listos.length && !vencidos.length && !mensajes.length) {
     el.innerHTML = `<div class="empty"><div class="icon">✅</div><p>¡Todo en orden! No hay artículos para avisar ni pedidos esperando confirmar respuesta.</p></div>`;
     return;
   }
@@ -3532,6 +3754,30 @@ function renderAlertas() {
             ${_act('bad', `markEstado(${p.id},'No contestó')`, 'El cliente no contestó', ICO.cruz)}
             ${waUrl ? _actLink('wa', waUrl, `waAbierto(${p.id})`, 'Abrir el chat; al volver te pregunto si respondió', waSvg()) : ''}
           </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // (27-oct-2026) Sección 3: WhatsApp del cliente sin responder (ventana de 24 h) o sugerencia del bot esperando
+  if (mensajes.length) {
+    html += `<div class="alert-sec-title" style="color:#128c7e;${(listos.length || vencidos.length) ? 'margin-top:18px;' : ''}">💬 ${mensajes.length} WhatsApp para responder</div>`;
+    html += mensajes.map(p => {
+      const u = waUltimoEntrante(p), sug = waSugerenciaPendiente(p);
+      return `<div class="alert-card" style="border-left:4px solid #25d366;">
+        <div class="alert-card-header">
+          <div>
+            <div class="alert-sku-tag">${escHtml(p.sku_resuelto||p.sku||'')}</div>
+            <div class="alert-desc">${escHtml(p.descripcion_sku||'')}</div>
+          </div>
+          <span style="font-size:11px;background:#dcfce7;color:#166534;padding:3px 8px;border-radius:10px;font-weight:600;">${sug ? '🤖 sugerencia lista' : 'escribió ' + _waHora(u && (u.estado_at || u.creado_at))}</span>
+        </div>
+        <div class="alert-body" style="display:block">
+          <div class="alert-client-info">
+            <div class="alert-client-name">${escHtml(p.nombre_cliente||'Sin nombre')}</div>
+            <div class="alert-client-cel">📱 ${escHtml(p.celular||'')} · ${escHtml(p.vendedora||'')} · <em>${escHtml(p.estado||'')}</em></div>
+          </div>
+          ${renderWaHilo(p)}
         </div>
       </div>`;
     }).join('');
@@ -5841,6 +6087,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=15"></script>
+<script src="manual.js?v=16"></script>
 </body>
 </html>
