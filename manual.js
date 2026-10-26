@@ -48,6 +48,7 @@ function _manualSecciones() {
       icon: '📦', titulo: 'Pedidos',
       desc: 'El listado completo con el circuito de estados de cada pedido.',
       pasos: [
+        'Cuando abrís el chat de WhatsApp de un pedido Avisado y volvés al CRM, aparece abajo "¿Respondió?": tocás Sí, No o Después y listo. No hace falta entrar al pedido para cargar la respuesta.',
         'El circuito es: Pendiente → Listo para avisar → Avisado → Respondió / No contestó → Completado o Cancelado.',
         'Cuando llega la mercadería, pasá el pedido a "Listo para avisar".',
         'El botón de WhatsApp arma el mensaje solo, con la plantilla que corresponde al estado.',

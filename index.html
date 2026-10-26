@@ -755,6 +755,14 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .btn-listo:hover { background: var(--listo); color: white; }
 .btn-completar { background: #f3f4f6; color: #374151; border: 2px solid #d1d5db; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
 .btn-completar:hover { background: #374151; color: white; border-color: #374151; }
+.resp-sheet { position: fixed; left: 50%; bottom: -200px; transform: translateX(-50%); width: min(420px, calc(100% - 24px)); background: white; border-radius: 14px; box-shadow: 0 -4px 30px rgba(0,0,0,.25); padding: 14px 16px 12px; z-index: 9000; transition: bottom .25s ease; }
+.resp-sheet.active { bottom: 16px; }
+.resp-sheet-x { position: absolute; right: 8px; top: 6px; border: none; background: transparent; font-size: 16px; color: var(--muted); cursor: pointer; }
+.resp-sheet-t { font-weight: 800; font-size: 16px; margin-right: 24px; }
+.resp-sheet-d { font-size: 12px; color: var(--muted); margin: 2px 0 10px; }
+.resp-sheet-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.resp-sheet-btns button { flex: 1; border: none; border-radius: 10px; padding: 10px 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.resp-si { background: #16a34a; color: white; } .resp-no { background: #dc2626; color: white; } .resp-luego { background: #f1f5f9; color: #475569; flex: 0 0 auto; }
 .btn-wa-api { display: inline-flex; align-items: center; gap: 5px; background: #25d366; color: white; border: none; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
 .btn-wa-api:hover { background: #1ebe5d; }
 .btn-wa-api.sec { background: #fef3c7; color: #92400e; }
@@ -3012,7 +3020,7 @@ function pedidoActions(p) {
 
   } else if (estado === 'Avisado') {
     if (api) btns += `<button class="btn-wa-api sec" onclick="enviarAvisoApi(${id},'pedido_recontacto')" title="Volver a escribirle por WhatsApp desde el número del local">🔔 Recontactar</button>`;
-    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank">${waSvg()}</a>`;
+    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="waAbierto(${id})" title="Abrir el chat; al volver te pregunto si respondió">${waSvg()}</a>`;
     btns += `<button class="btn-resp" style="background:#16a34a;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;" onclick="markEstado(${id},'Respondió')" title="El cliente respondió">✓ Respondió</button>`;
     btns += `<button class="btn-norep" style="background:#dc2626;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;" onclick="markEstado(${id},'No contestó')" title="El cliente no contestó">✗ No contestó</button>`;
     if (p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Plantillas WhatsApp">💬</button>`;
@@ -5312,10 +5320,42 @@ function onWaClick(id) {
   setTimeout(() => {
     const p = pedidosCache.find(x => x.id === id);
     if (p && p.estado === 'Listo para avisar') {
-      markEstado(id, 'Avisado');
+      Promise.resolve(markEstado(id, 'Avisado')).then(() => waAbierto(id));
     }
   }, 1500);
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Respuesta en un tap (26-oct-2026, JP): al volver de WhatsApp con un pedido Avisado,
+//  una tarjeta abajo pregunta "¿Respondió?" con Sí / No / Después. Sin esto, cargar la
+//  respuesta implicaba entrar al pedido y cambiar el estado, y se colgaba.
+// ═══════════════════════════════════════════════════════════════════════
+let waRespPendiente = null;   // { id, ts } del último chat abierto
+function waAbierto(id) { waRespPendiente = { id, ts: Date.now() }; }
+function _preguntarRespuesta() {
+  if (!waRespPendiente) return;
+  const { id, ts } = waRespPendiente;
+  if (Date.now() - ts > 45 * 60 * 1000) { waRespPendiente = null; return; }   // volvió mucho después: no molestar
+  if (Date.now() - ts < 3000) return;                                          // todavía no fue al chat
+  const p = pedidosCache.find(x => x.id === id);
+  waRespPendiente = null;
+  if (!p || p.estado !== 'Avisado') return;
+  const sheet = document.getElementById('resp-sheet');
+  document.getElementById('resp-sheet-nombre').textContent = p.nombre_cliente || 'la clienta';
+  document.getElementById('resp-sheet-desc').textContent = p.descripcion_sku || p.sku || '';
+  sheet.dataset.id = id;
+  sheet.classList.add('active');
+}
+function respSheet(accion) {
+  const sheet = document.getElementById('resp-sheet');
+  const id = Number(sheet.dataset.id);
+  sheet.classList.remove('active');
+  if (accion === 'si') markEstado(id, 'Respondió');
+  else if (accion === 'no') markEstado(id, 'No contestó');
+}
+window.addEventListener('focus', () => setTimeout(_preguntarRespuesta, 500));
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(_preguntarRespuesta, 500); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const sh = document.getElementById('resp-sheet'); if (sh && sh.classList.contains('active')) sh.classList.remove('active'); } });
 
 // ═══════════════════════════════════════════════════════
 //  Utils
@@ -5516,6 +5556,16 @@ document.addEventListener('input', function(e) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=9"></script>
+<div id="resp-sheet" class="resp-sheet" role="dialog" aria-label="¿Respondió?">
+  <button class="resp-sheet-x" onclick="respSheet('despues')" title="Cerrar (después)">✕</button>
+  <div class="resp-sheet-t">¿<span id="resp-sheet-nombre"></span> respondió?</div>
+  <div class="resp-sheet-d" id="resp-sheet-desc"></div>
+  <div class="resp-sheet-btns">
+    <button class="resp-si" onclick="respSheet('si')">✓ Sí, respondió</button>
+    <button class="resp-no" onclick="respSheet('no')">✗ No contestó</button>
+    <button class="resp-luego" onclick="respSheet('despues')">Después</button>
+  </div>
+</div>
+<script src="manual.js?v=10"></script>
 </body>
 </html>
