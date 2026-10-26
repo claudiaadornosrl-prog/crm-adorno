@@ -346,14 +346,23 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
   flex-shrink: 0;
 }
 .tab-btn {
-  flex: 1; padding: 12px 8px 10px; border: none; background: none;
-  font-size: 12px; font-weight: 600; color: var(--muted); display: flex;
-  flex-direction: column; align-items: center; gap: 3px;
-  border-bottom: 3px solid transparent; transition: all 0.15s;
+  flex: 1; padding: 11px 8px 9px; border: none; background: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--muted); display: flex;
+  flex-direction: row; align-items: center; justify-content: center; gap: 0;
+  border-bottom: 3px solid transparent; transition: color .15s, background .15s;
   position: relative;
 }
-.tab-btn .tab-icon { font-size: 20px; }
-.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+/* (26-oct-2026, regla JP) banner de pestañas: solo el ícono; el nombre aparece en la activa y al pasar el mouse */
+.tab-btn .tab-icon { display: inline-flex; width: 22px; height: 22px; }
+.tab-btn .tab-icon svg { width: 22px; height: 22px; }
+.tab-btn .lb { max-width: 0; overflow: hidden; opacity: 0; margin-left: 0; white-space: nowrap; transition: max-width .25s ease, opacity .18s, margin-left .25s; }
+.tab-btn:hover .lb, .tab-btn.active .lb { max-width: 120px; opacity: 1; margin-left: 7px; }
+.tab-btn:hover { background: #faf8ff; color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+@media (max-width: 600px) {
+  .tab-btn { flex-direction: column; gap: 2px; padding: 8px 4px 6px; font-size: 10px; }
+  .tab-btn .lb, .tab-btn:hover .lb, .tab-btn.active .lb { max-width: none; opacity: 1; margin-left: 0; }
+}
 .tab-badge {
   position: absolute; top: 6px; right: calc(50% - 16px);
   background: var(--listo); color: white; border-radius: 10px;
@@ -700,7 +709,17 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .estado-Completado    { background: #f3f4f6; color: #6b7280; }
 .estado-Cancelado     { background: #fee2e2; color: #991b1b; }
 
-.pedido-footer { padding: 0 14px 12px; display: flex; align-items: center; gap: 8px; }
+.pedido-footer { padding: 0 14px 10px; display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+/* (26-oct-2026, regla JP) acciones de la tarjeta: solo ícono, transparente, fondo suave al pasar; la principal en color y más grande */
+.act { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: none; border-radius: 50%; background: transparent; color: #64748b; cursor: pointer; padding: 0; text-decoration: none; transition: background .15s, color .15s; flex: 0 0 auto; }
+.act svg { width: 18px; height: 18px; }
+.act:hover { background: #eef2f7; color: #334155; }
+.act.primary { width: 40px; height: 40px; color: var(--accent); }
+.act.primary svg { width: 22px; height: 22px; }
+.act.primary:hover { background: #ede9fe; }
+.act.wa { color: var(--wa); } .act.wa:hover { background: #dcfce7; }
+.act.ok { color: #16a34a; } .act.ok:hover { background: #dcfce7; }
+.act.bad { color: #dc2626; } .act.bad:hover { background: #fee2e2; }
 .pedido-notas {
   margin: 0 14px 10px; padding: 8px 10px;
   background: #fffbea; border-left: 3px solid #f59e0b;
@@ -744,7 +763,8 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
   border-radius: 8px; opacity: 0.5;
 }
 .btn-edit:hover { opacity: 1; background: #f3f4f6; }
-.estado-select {
+.estado-select { border: none !important; background: transparent !important; color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; padding: 4px 2px; margin-left: auto; }
+.estado-select-viejo {
   padding: 5px 8px; border: 2px solid var(--border); border-radius: 20px;
   font-size: 12px; font-weight: 600; color: var(--muted); background: white;
   cursor: pointer; outline: none; appearance: none; -webkit-appearance: none;
@@ -987,34 +1007,34 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 
   <!-- Tab bar -->
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="hoy" onclick="switchTab('hoy')">
-      <span class="tab-icon">🏠</span>
-      <span>Hoy</span>
+    <button class="tab-btn active" data-tab="hoy" onclick="switchTab('hoy')" title="Hoy">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg></span>
+      <span class="lb">Hoy</span>
     </button>
-    <button class="tab-btn" data-tab="nuevo" onclick="switchTab('nuevo')">
-      <span class="tab-icon">➕</span>
-      <span>Nuevo</span>
+    <button class="tab-btn" data-tab="nuevo" onclick="switchTab('nuevo')" title="Nuevo">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span>
+      <span class="lb">Nuevo</span>
     </button>
-    <button class="tab-btn" data-tab="pedidos" onclick="switchTab('pedidos')">
-      <span class="tab-icon">📋</span>
-      <span>Pedidos</span>
+    <button class="tab-btn" data-tab="pedidos" onclick="switchTab('pedidos')" title="Pedidos">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6"/><path d="M9 10h6M9 14h6M9 18h3"/></svg></span>
+      <span class="lb">Pedidos</span>
     </button>
-    <button class="tab-btn" data-tab="alertas" onclick="switchTab('alertas')">
-      <span class="tab-icon">🔔</span>
-      <span>Alertas</span>
+    <button class="tab-btn" data-tab="alertas" onclick="switchTab('alertas')" title="Alertas">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+      <span class="lb">Alertas</span>
       <span class="tab-badge hidden" id="alertas-badge">0</span>
     </button>
-    <button class="tab-btn" data-tab="satisfaccion" onclick="switchTab('satisfaccion')">
-      <span class="tab-icon">⭐</span>
-      <span>Satisfacción</span>
+    <button class="tab-btn" data-tab="satisfaccion" onclick="switchTab('satisfaccion')" title="Satisfacción">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg></span>
+      <span class="lb">Satisfacción</span>
     </button>
-    <button class="tab-btn" data-tab="clientes" onclick="switchTab('clientes')" id="tab-clientes" style="display:none">
-      <span class="tab-icon">👥</span>
-      <span>Clientes</span>
+    <button class="tab-btn" data-tab="clientes" onclick="switchTab('clientes')" id="tab-clientes" style="display:none" title="Clientes">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5a5 5 0 0 1 6 4.5"/></svg></span>
+      <span class="lb">Clientes</span>
     </button>
-    <button class="tab-btn" data-tab="admin" onclick="switchTab('admin')" id="tab-admin" style="display:none">
-      <span class="tab-icon">👁️</span>
-      <span>Admin</span>
+    <button class="tab-btn" data-tab="admin" onclick="switchTab('admin')" id="tab-admin" style="display:none" title="Admin">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
+      <span class="lb">Admin</span>
     </button>
   </div>
 
@@ -2994,50 +3014,70 @@ function renderPedidos() {
       <div class="pedido-footer">
         <span class="pedido-date">📅 ${fecha}${p.vendedora ? ' · ' + escHtml(p.vendedora) : ''} ${waAcuses(p)}</span>
         ${actions}
-        <button class="btn-edit" onclick="openEditModal(${p.id})" title="Editar pedido">✏️</button>
+        <button class="act" onclick="openEditModal(${p.id})" title="Editar el pedido" aria-label="Editar">${ICO.lapiz}</button>
       </div>
     </div>`;
   }).join('');
+}
+
+// Íconos de acción (SVG en currentColor; regla JP 21-oct-2026: sin recuadro, tooltip, el principal en color y más grande)
+const ICO = {
+  caja:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>',
+  enviar:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>',
+  plantilla: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>',
+  campana:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/><path d="m16 3 2 2"/></svg>',
+  check:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 5-5"/></svg>',
+  cruz:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>',
+  bolsa:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 14H5z"/><path d="M9 7a3 3 0 0 1 6 0"/><path d="m9.5 14 2 2 3.5-3.5"/></svg>',
+  lapiz:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+};
+function _act(cls, onclick, title, svg) {
+  return `<button class="act ${cls}" onclick="${onclick}" title="${escHtml(title)}" aria-label="${escHtml(title)}">${svg}</button>`;
+}
+function _actLink(cls, href, onclick, title, svg) {
+  return `<a class="act ${cls}" href="${href}" target="_blank" onclick="${onclick}" title="${escHtml(title)}" aria-label="${escHtml(title)}">${svg}</a>`;
 }
 
 function pedidoActions(p) {
   const id = p.id;
   const estado = p.estado;
   const waUrl = buildWa(p);
-  let btns = '';
-
   const api = waApiActiva(p.local_id) && !!p.celular;
+  let btns = '';
+  const plantillas = () => p.celular ? _act('', `openWaTemplates(${id})`, 'Plantillas de mensajes de WhatsApp', ICO.plantilla) : '';
+  const enviarApi = (tpl, title) => _act('primary wa', `enviarAvisoApi(${id},'${tpl}')`, title, ICO.enviar);
+
   if (estado === 'Pendiente') {
-    btns += `<button class="btn-listo" onclick="markListo(${id})">✓ Stock</button>`;
-    if (api) btns += `<button class="btn-wa-api" onclick="enviarAvisoApi(${id},'pedido_listo')" title="Manda el aviso por WhatsApp desde el número del local y marca Avisado">${waSvg()} Enviar aviso</button>`;
-    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="markEstado(${id},'Avisado')" title="${api ? 'Abrir el chat en tu WhatsApp (sin API)' : 'Avisar por WhatsApp'}">${waSvg()}${api ? '' : ' WA'}</a>`;
-    if (p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Plantillas WhatsApp">💬</button>`;
+    if (api) btns += enviarApi('pedido_listo', 'Enviar el aviso por WhatsApp desde el número del local (marca Avisado)');
+    if (waUrl) btns += _actLink(api ? 'wa' : 'primary wa', waUrl, `markEstado(${id},'Avisado')`, api ? 'Abrir el chat en tu WhatsApp' : 'Avisar por WhatsApp (marca Avisado)', waSvg());
+    btns += _act('', `markListo(${id})`, 'Ya hay stock: pasar a Listo para avisar', ICO.caja);
+    btns += plantillas();
 
   } else if (estado === 'Listo para avisar') {
-    if (api) btns += `<button class="btn-wa-api" onclick="enviarAvisoApi(${id},'pedido_listo')" title="Manda el aviso por WhatsApp desde el número del local y marca Avisado">${waSvg()} Enviar aviso</button>`;
-    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="onWaClick(${id})" title="${api ? 'Abrir el chat en tu WhatsApp (sin API)' : 'Avisar por WhatsApp'}">${waSvg()}${api ? '' : ' Avisar por WA'}</a>`;
-    btns += `<button class="btn-quick-avisar" onclick="markEstado(${id},'Avisado')">✓ Avisar</button>`;
-    if (p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Plantillas WhatsApp">💬</button>`;
+    if (api) btns += enviarApi('pedido_listo', 'Enviar el aviso por WhatsApp desde el número del local (marca Avisado)');
+    if (waUrl) btns += _actLink(api ? 'wa' : 'primary wa', waUrl, `onWaClick(${id})`, api ? 'Abrir el chat en tu WhatsApp' : 'Avisar por WhatsApp (marca Avisado)', waSvg());
+    btns += _act('', `markEstado(${id},'Avisado')`, 'Ya le avisé por otro medio: marcar Avisado', ICO.campana);
+    btns += plantillas();
 
   } else if (estado === 'Avisado') {
-    if (api) btns += `<button class="btn-wa-api sec" onclick="enviarAvisoApi(${id},'pedido_recontacto')" title="Volver a escribirle por WhatsApp desde el número del local">🔔 Recontactar</button>`;
-    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank" onclick="waAbierto(${id})" title="Abrir el chat; al volver te pregunto si respondió">${waSvg()}</a>`;
-    btns += `<button class="btn-resp" style="background:#16a34a;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;" onclick="markEstado(${id},'Respondió')" title="El cliente respondió">✓ Respondió</button>`;
-    btns += `<button class="btn-norep" style="background:#dc2626;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;" onclick="markEstado(${id},'No contestó')" title="El cliente no contestó">✗ No contestó</button>`;
-    if (p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Plantillas WhatsApp">💬</button>`;
+    btns += _act('primary ok', `markEstado(${id},'Respondió')`, 'El cliente respondió', ICO.check);
+    btns += _act('bad', `markEstado(${id},'No contestó')`, 'El cliente no contestó', ICO.cruz);
+    if (api) btns += _act('wa', `enviarAvisoApi(${id},'pedido_recontacto')`, 'Volver a escribirle por WhatsApp desde el número del local', ICO.enviar);
+    if (waUrl) btns += _actLink('wa', waUrl, `waAbierto(${id})`, 'Abrir el chat; al volver te pregunto si respondió', waSvg());
+    btns += plantillas();
 
   } else if (estado === 'Respondió' || estado === 'No contestó') {
-    if (api && estado === 'No contestó') btns += `<button class="btn-wa-api sec" onclick="enviarAvisoApi(${id},'pedido_recontacto')" title="Volver a escribirle por WhatsApp desde el número del local">🔔 Recontactar</button>`;
-    if (waUrl) btns += `<a class="btn-wa" href="${waUrl}" target="_blank">${waSvg()}</a>`;
-    btns += `<button class="btn-completar" onclick="markEstado(${id},'Completado')">✔ Ya retiró</button>`;
-    if (estado === 'No contestó' && p.celular) btns += `<button class="btn-wa-tpl" onclick="openWaTemplates(${id})" title="Re-intentar plantillas">💬</button>`;
+    btns += _act('primary ok', `markEstado(${id},'Completado')`, 'Ya retiró: marcar Completado', ICO.bolsa);
+    if (api && estado === 'No contestó') btns += _act('wa', `enviarAvisoApi(${id},'pedido_recontacto')`, 'Volver a escribirle por WhatsApp desde el número del local', ICO.enviar);
+    if (waUrl) btns += _actLink('wa', waUrl, '', 'Abrir el chat de WhatsApp', waSvg());
+    if (estado === 'No contestó') btns += plantillas();
   }
 
   // Estado dropdown always available
   const todos = ['Pendiente', 'Listo para avisar', 'Avisado', 'Respondió', 'No contestó', 'Completado', 'Cancelado'];
   const otros = todos.filter(e => e !== estado);
-  btns += `<select class="estado-select" onchange="markEstado(${id}, this.value); this.value=''">
-    <option value="" disabled selected>Estado ▾</option>
+  btns += `<select class="estado-select" title="Cambiar el estado a mano" onchange="markEstado(${id}, this.value); this.value=''">
+    <option value="" disabled selected>Estado</option>
     ${otros.map(e => `<option value="${e}">${e}</option>`).join('')}
   </select>`;
 
@@ -5549,6 +5589,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=11"></script>
+<script src="manual.js?v=12"></script>
 </body>
 </html>
