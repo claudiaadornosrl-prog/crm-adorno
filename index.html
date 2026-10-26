@@ -357,6 +357,8 @@ a { color: inherit; text-decoration: none; }
 /* (26-oct-2026, JP) logo del local en el banner, sobre una pastilla blanca para que se vea en el fondo oscuro */
 .hdr-logo { display: inline-flex; align-items: center; justify-content: center; height: 32px; min-width: 32px; padding: 3px 6px; background: white; border-radius: 8px; }  /* (26-oct) -20% a pedido de JP */
 .hdr-logo .logo-local { height: 24px; }
+.hdr-logo.sin-fondo { background: transparent; padding: 0; border-radius: 0; }  /* (26-oct) Unicenter: logo blanco, va sin recuadro */
+.hdr-logo.sin-fondo .logo-local { height: 30px; }
 .header-local { font-size: 11px; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.08em; }
 .header-name  { font-size: 17px; font-weight: 700; line-height: 1.2; }
 .local-badge {
@@ -1927,6 +1929,7 @@ function enterApp() {
   if (hdrLogo) {
     const lg = session.local_id ? logoLocal(session.local_id, 24) : '';
     hdrLogo.innerHTML = lg;
+    hdrLogo.classList.toggle('sin-fondo', session.local_id === 'unicenter');
     hdrLogo.style.display = lg ? 'inline-flex' : 'none';
   }
 
