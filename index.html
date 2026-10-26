@@ -864,7 +864,7 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .pedido-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .dragon-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; cursor: help; }
 .dragon-pendiente { background: #fef3c7; color: #92400e; }
-.dragon-insertado { background: #dcfce7; color: #166534; }
+.dragon-insertado, .dragon-actualizado { background: #dcfce7; color: #166534; }
 .dragon-omitido   { background: #f1f5f9; color: #64748b; }
 .dragon-error     { background: #fee2e2; color: #991b1b; }
 .motivo-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; background: #ede9fe; color: #5b21b6; font-size: 11px; font-weight: 600; vertical-align: middle; }
@@ -2101,7 +2101,7 @@ async function encolarClienteDragon(d) {
       pedido_id: d.pedido_id, local_id: session.local_id, vendedora: d.vendedora || null,
       dni: dniNum, apellido: d.apellido || null, nombre: d.nombre || null,
       celular: d.celular || null, email: d.email || null, fecha_nacimiento: d.fecha_nacimiento || null,
-      creado_por: session.email || session.local_id || null,
+      creado_por: session.email || session.local_id || null, accion: d.accion || 'alta',
     });
     pushDragonMap[dniNum] = 'pendiente';
   } catch(e) {
@@ -2115,6 +2115,7 @@ function dragonBadge(dni) {
   const T = {
     pendiente: ['⏳', 'Cliente nuevo: se carga en Dragonfish automáticamente (cada 15 min desde Oficina)'],
     insertado: ['✔', 'Cliente dado de alta en Dragonfish desde el CRM'],
+    actualizado: ['✔', 'Celular/email del cliente actualizados en Dragonfish desde el CRM'],
     omitido:   ['–', 'No hizo falta cargarlo en Dragonfish (ya existía o el DNI no era válido)'],
     error:     ['⚠', 'No se pudo cargar en Dragonfish: avisarle a JP'],
   }[est] || ['?', est];
@@ -2590,6 +2591,7 @@ async function submitPedido() {
   //  prevenir guardar con datos divergentes.
   // ════════════════════════════════════════════════════════
   let dniSinFicha = false;  // true = cliente nuevo → se encola para el Dragon
+  let clienteExistente = null;  // (26-oct) si ya existe, se encola "completar" (celular/email al Dragon)
   try {
     const existentes = await supaGet('clientes', {
       select: 'globalid,nombre_completo,celular,email,dni',
@@ -2597,6 +2599,7 @@ async function submitPedido() {
       limit: '1',
     });
     dniSinFicha = !existentes.length;
+    clienteExistente = existentes[0] || null;
     if (existentes.length) {
       const cli = existentes[0];
       // Normalizar nombres para comparar (sin acentos, lowercase, sin separadores)
@@ -2690,6 +2693,17 @@ async function submitPedido() {
     if (dniSinFicha && !clienteDetectado) {
       encolarClienteDragon({ pedido_id: creados[0].id, dni, apellido: apellidoInput, nombre: primerNombreInput,
                              celular, email, fecha_nacimiento: fnac, vendedora });
+    } else {
+      // Cliente que ya existe: si el celular del pedido es distinto al que tiene (o no tiene), o trae
+      // email y no tenía, se encola "completar" para que el Dragon reciba el dato (regla JP 26-oct).
+      const cli = clienteDetectado || clienteExistente;
+      const celNuevo = (celular || '').replace(/\D/g, '').slice(-10);
+      const celViejo = ((cli && cli.celular) || '').replace(/\D/g, '').slice(-10);
+      const emailNuevo = !!email && !(cli && cli.email);
+      if (cli && ((celNuevo && celNuevo !== celViejo) || emailNuevo)) {
+        encolarClienteDragon({ pedido_id: creados[0].id, dni, apellido: apellidoInput, nombre: primerNombreInput,
+                               celular, email, fecha_nacimiento: fnac, vendedora, accion: 'completar' });
+      }
     }
 
     const count = validLines.length;
