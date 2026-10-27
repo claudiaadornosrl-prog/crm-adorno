@@ -52,6 +52,7 @@ function _manualSecciones() {
         'Los botones de cada pedido son solo íconos: dejá el mouse encima (o mantené apretado en el celular) y te dice qué hace. El más grande y de color es la acción principal de ese estado: avisar, marcar que respondió o que ya retiró. El verde siempre es WhatsApp.',
         'Cuando llega la mercadería, pasá el pedido a "Listo para avisar".',
         'El botón de WhatsApp arma el mensaje solo, con la plantilla que corresponde al estado.',
+        'En las PC de los locales, el botón de WhatsApp abre el chat directo en WhatsApp de escritorio con el mensaje ya escrito (la primera vez Edge pregunta si abre WhatsApp: tildá "Permitir siempre"). Si la PC usa WhatsApp Web, se abre siempre en la misma ventana.',
         'Al avisar, marcá "Avisado" — si en 60 minutos no hay respuesta, el sistema te lo recuerda solo.',
         'Filtrá por vendedora, estado o etiquetas para encontrar rápido lo que buscás.',
         'Si el local tiene el WhatsApp conectado, en la tarjeta aparece "💬 WhatsApp" con toda la conversación: tocalo para abrirla. Mientras el cliente escribió en las últimas 24 h podés contestarle ahí mismo desde el número del local (Ctrl+Enter envía). Pasadas las 24 h solo se puede mandar la plantilla de recontacto.',

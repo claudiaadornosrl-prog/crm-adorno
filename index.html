@@ -1712,6 +1712,46 @@ function logoLocal(loc, h) { const u = LOGO_LOCAL[loc]; return u ? `<img class="
 const _LOCALES_FIN = {
 };
 const WA_PREFIX = 'https://wa.me/';
+// (27-oct-2026, JP) En las PC de los locales el link wa.me abría la página "¿app o WhatsApp Web?" y, al elegir web,
+// una ventana NUEVA con el perfil de Edge del CRM, sin sesión (pedía el QR). Modo por PC, lo fija el kiosco con
+// ?wa=app|web (queda en localStorage; ?wa=off lo saca):
+//   app → abre el chat en WhatsApp de escritorio (whatsapp://send), con el mensaje ya escrito.
+//   web → abre web.whatsapp.com/send siempre en la MISMA ventana ('crm_whatsapp'); pide el QR una sola vez.
+//   sin modo (celulares, oficina) → wa.me como siempre.
+(function () {
+  try {
+    const m = new URLSearchParams(location.search).get('wa');
+    if (m === 'app' || m === 'web') localStorage.setItem('ca_wa_modo', m);
+    if (m === 'off') localStorage.removeItem('ca_wa_modo');
+  } catch (_) {}
+})();
+function waModo() { try { return localStorage.getItem('ca_wa_modo') || ''; } catch (_) { return ''; } }
+const _winOpenOrig = window.open.bind(window);
+function waConvertir(url) {
+  const m = String(url || '').match(/^https:\/\/wa\.me\/(\d+)\/?(?:\?text=(.*))?$/);
+  if (!m) return null;
+  const modo = waModo(), phone = m[1], text = m[2] ? '&text=' + m[2] : '';
+  if (modo === 'app') return { url: `whatsapp://send?phone=${phone}${text}`, app: true };
+  if (modo === 'web') return { url: `https://web.whatsapp.com/send?phone=${phone}${text}`, app: false };
+  return null;
+}
+function waAbrir(url) {
+  const c = waConvertir(url);
+  if (!c) return _winOpenOrig(url, '_blank');
+  if (c.app) { location.href = c.url; return null; }   // protocolo externo: la página del CRM no se va
+  return _winOpenOrig(c.url, 'crm_whatsapp');
+}
+// Todos los botones de WhatsApp del CRM pasan por acá: los <a href="https://wa.me/..."> y los window.open(wa.me)
+window.open = function (url, name, feats) {
+  if (typeof url === 'string' && waConvertir(url)) return waAbrir(url);
+  return _winOpenOrig(url, name, feats);
+};
+document.addEventListener('click', (e) => {
+  const a = e.target && e.target.closest ? e.target.closest('a[href^="https://wa.me/"]') : null;
+  if (!a || !waConvertir(a.getAttribute('href'))) return;
+  e.preventDefault();                 // el onclick propio del botón (marcar Avisado, etc.) igual se ejecuta
+  waAbrir(a.getAttribute('href'));
+}, true);
 // Números de WhatsApp Business por local (para mensajes automáticos del sistema)
 const WA_LOCAL_NUMBERS = {
   'unicenter': { numero: '5491169784741', label: 'Unicenter' },
@@ -6507,6 +6547,7 @@ setInterval(() => {
   } catch(_) {}
 }, 2 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(_preguntarRespuesta, 500); });
+window.addEventListener('focus', () => setTimeout(_preguntarRespuesta, 500));  // (27-oct) al volver desde WhatsApp de escritorio la ventana no se oculta
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const sh = document.getElementById('resp-sheet'); if (sh && sh.classList.contains('active')) sh.classList.remove('active'); } });
 
 // ═══════════════════════════════════════════════════════
@@ -6706,6 +6747,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=22"></script>
+<script src="manual.js?v=23"></script>
 </body>
 </html>
