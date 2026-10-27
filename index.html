@@ -2463,9 +2463,10 @@ async function loadBotConfig() {
 // ── (27-oct-2026) Enseñarle al bot: estilo, preguntas frecuentes, probador y correcciones de las vendedoras ──
 const BOT_REGLAS_FIJAS = [
   'Nunca dice precios, descuentos, promociones ni cuotas.',
-  'Nunca confirma stock sin consultar el sistema, y aun así aclara que lo confirma una vendedora.',
-  'Pasa la charla a una vendedora si la clienta lo pide, se queja o pregunta algo que no está en las preguntas frecuentes.',
-  'Si le preguntan si es un bot, dice la verdad.',
+  'Nunca confirma stock sin consultar el sistema, y aun así aclara que lo confirman en el local.',
+  'Pasa la charla al local si la clienta lo pide, se queja o la nota insatisfecha, pide un presupuesto a medida o un asesoramiento de diseño complejo, o pregunta algo que no está en las preguntas frecuentes.',
+  'Si le preguntan si es un bot, dice que es el asistente virtual y ofrece pasarla con alguien del local.',
+  'Audios, fotos y archivos no los puede ver: los pasa al local.',
   'Nunca menciona el atelier.',
 ];
 async function loadBotTextos() {
