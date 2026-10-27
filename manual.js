@@ -107,6 +107,7 @@ function _manualSecciones() {
         'Gestión de vendedoras, plantillas de WhatsApp y configuración general.',
         'Pestaña 🤖 Bot WhatsApp: prendé o apagá el bot de cada local. "Sugiere respuestas" deja que la vendedora apruebe cada mensaje; "Responde solo" contesta directo. Para probar, cargá tu celular en la lista: el bot te contesta solo a vos y al resto le sigue dejando sugerencias. No prende los avisos por API ni el recontacto automático.',
         'Más abajo, en la misma pestaña, le enseñás al bot: "Cómo habla" (tono, largo, emojis) y "Preguntas frecuentes" (lo que puede contestar: reservas, cambios, medios de pago, envíos). Lo que no esté ahí, no lo inventa: lo pasa a una vendedora. Con "Probar el bot" ves qué contestaría antes de guardar. También aprende de cómo las vendedoras corrigen sus respuestas; si una corrección no te gusta, la sacás con ✗.',
+        'Cuando una clienta pregunta por un producto, el bot lo busca en la web y le pasa el link (ahí está el precio, las medidas y las fotos), y le dice si según el sistema hay en el local. En "Web que usa el bot" elegís www.claudiaadorno.com o la tienda del Atelier (cuando esté abierta al público).',
       ],
     });
   }

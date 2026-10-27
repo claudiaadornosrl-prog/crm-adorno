@@ -2469,6 +2469,7 @@ const BOT_REGLAS_FIJAS = [
   'Si le preguntan si es un bot, dice que es el asistente virtual y ofrece pasarla con alguien del local.',
   'Audios, fotos y archivos no los puede ver: los pasa al local.',
   'Locales nuevos y el Atelier: solo lo que digan las preguntas frecuentes, y cuando ellas lo indiquen.',
+  'Cuando preguntan por un producto lo busca en la web y pasa el link (ahí está el precio, las medidas y las fotos). Solo manda links que existen en el catálogo de la web; si escribe otro, la respuesta no sale.',
 ];
 async function loadBotTextos() {
   const el = document.getElementById('bot-textos');
@@ -2479,6 +2480,8 @@ async function loadBotTextos() {
     const pie = (r) => r && r.actualizado_at ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">Guardado ${escHtml(formatDate(r.actualizado_at))}${r.actualizado_por ? ' · ' + escHtml(String(r.actualizado_por).replace(/@.*$/, '')) : ''}</div>` : '<span></span>';
     const ta = 'width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:13px;line-height:1.45;resize:vertical;text-transform:none';
     el.innerHTML = `
+      <div class="card"><div class="card-header"><span class="card-title">🌐 Web que usa el bot para los productos</span></div>
+        <div class="card-body" id="bot-web"><div class="loading"><span class="spinner"></span> Cargando...</div></div></div>
       <div class="card"><div class="card-header"><span class="card-title">🗣 Cómo habla el bot (estilo)</span></div>
         <div class="card-body">
           <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Escribilo como se lo explicarías a una vendedora nueva: tono, largo de los mensajes, palabras que sí y que no, emojis, cómo saluda y cómo se despide.</div>
@@ -2510,7 +2513,43 @@ async function loadBotTextos() {
         <div class="card-body" style="font-size:12px;color:var(--muted);line-height:1.5">${BOT_REGLAS_FIJAS.map(r => '• ' + escHtml(r)).join('<br>')}
           <br><br>Si el estilo o las preguntas frecuentes dicen algo distinto a estas reglas, mandan estas reglas.</div></div>`;
     loadBotCorrecciones();
+    loadBotWeb();
   } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudieron cargar los textos del bot: ${escHtml(e.message)}</p></div>`; }
+}
+// (27-oct-2026) Qué web usa el bot para pasar links de productos: la oficial hoy, la del Atelier cuando esté activa.
+// Los catálogos los copia todas las mañanas el módulo Marketing; acá solo se elige cuál usa el bot.
+async function _rpcBot(nombre, body) {
+  await _ensureFreshToken();
+  const r = await fetch(`${SUPA_URL}/rest/v1/rpc/${nombre}`, { method: 'POST', headers: supaHeaders(), body: JSON.stringify(body || {}) });
+  const t = await r.text();
+  if (!r.ok) throw new Error((t.match(/"message":"([^"]+)"/) || [])[1] || `HTTP ${r.status}`);
+  try { return JSON.parse(t); } catch(_) { return null; }
+}
+async function loadBotWeb() {
+  const el = document.getElementById('bot-web');
+  if (!el) return;
+  try {
+    const w = await _rpcBot('crm_wa_bot_web_estado') || {};
+    const fecha = (iso) => iso ? formatDate(iso) : 'sin datos';
+    const dominio = (u) => String(u || '').replace(/^https?:\/\//, '');
+    const opt = (v, titulo, detalle) => `<label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;cursor:pointer">
+        <input type="radio" name="bot-web-fuente" value="${v}"${w.fuente === v ? ' checked' : ''} style="margin-top:3px">
+        <span><strong style="font-size:13px">${titulo}</strong><br><span style="font-size:12px;color:var(--muted)">${detalle}</span></span></label>`;
+    el.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Cuando una clienta pregunta por un producto, el bot lo busca en esta web y le pasa el link exacto (ahí ve el precio, las medidas y las fotos). Si no lo encuentra, le pasa la portada: <strong>${escHtml(dominio(w.portada))}</strong>.</div>
+      ${opt('oficial', 'www.claudiaadorno.com', `${w.oficial_productos || 0} productos · actualizado ${escHtml(fecha(w.oficial_actualizado))}`)}
+      ${opt('atelier', `Tienda del Atelier${w.atelier_dominio ? ' (' + escHtml(dominio(w.atelier_dominio)) + ')' : ''}`, `${w.atelier_productos || 0} productos · actualizado ${escHtml(fecha(w.atelier_actualizado))} · usala cuando la tienda esté abierta al público`)}
+      <div style="display:flex;justify-content:flex-end">${_act('primary ok', 'guardarBotWeb()', 'Guardar la web que usa el bot', ICO.check)}</div>`;
+  } catch(e) { el.innerHTML = `<div class="wa-reply-nota">No se pudo cargar: ${escHtml(e.message)}</div>`; }
+}
+async function guardarBotWeb() {
+  const sel = document.querySelector('input[name="bot-web-fuente"]:checked');
+  if (!sel) return;
+  if (sel.value === 'atelier' && !confirm('El bot va a pasar links de la tienda del Atelier.\n\n¿La tienda ya está abierta al público (sin contraseña)?')) return;
+  try {
+    const r = await _rpcBot('crm_wa_bot_web', { p_fuente: sel.value });
+    toast(`✅ El bot usa ${String((r && r.portada) || '').replace(/^https?:\/\//, '')}`);
+    loadBotWeb();
+  } catch(e) { toast('❌ No se pudo guardar: ' + e.message); }
 }
 async function guardarBotTextos() {
   const estilo = (document.getElementById('bot-estilo') || {}).value || '';
@@ -6290,6 +6329,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=19"></script>
+<script src="manual.js?v=20"></script>
 </body>
 </html>
