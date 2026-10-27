@@ -105,6 +105,7 @@ function _manualSecciones() {
         'Auditoría: registro de todos los cambios (quién tocó qué y cuándo).',
         'Demanda no satisfecha: qué pidieron las clientas que no teníamos — insumo para compras.',
         'Gestión de vendedoras, plantillas de WhatsApp y configuración general.',
+        'Pestaña 🤖 Bot WhatsApp: prendé o apagá el bot de cada local. "Sugiere respuestas" deja que la vendedora apruebe cada mensaje; "Responde solo" contesta directo. Para probar, cargá tu celular en la lista: el bot te contesta solo a vos y al resto le sigue dejando sugerencias. No prende los avisos por API ni el recontacto automático.',
       ],
     });
   }

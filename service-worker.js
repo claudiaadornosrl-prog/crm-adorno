@@ -3,7 +3,7 @@
 //  Estrategia: network-first para HTML/datos, cache-first para assets
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'crm-adorno-v50-bot-sigue-tras-aprobar';
+const CACHE_VERSION = 'crm-adorno-v51-interruptor-bot';
 const CACHE_ASSETS = [
   './',
   './index.html',

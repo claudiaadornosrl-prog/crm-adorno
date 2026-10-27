@@ -1389,6 +1389,10 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
         <button class="admin-vtab-btn" data-view="clientes" onclick="setAdminView('clientes')">👥 Clientes 360°</button>
         <button class="admin-vtab-btn" data-view="cumple" onclick="setAdminView('cumple')">🎂 Cumpleaños</button>
         <button class="admin-vtab-btn" data-view="metricas" onclick="setAdminView('metricas')">⏱ Métricas</button>
+        <button class="admin-vtab-btn" data-view="bot" onclick="setAdminView('bot')">🤖 Bot WhatsApp</button>
+      </div>
+      <div id="admin-view-bot" class="hidden">
+        <div id="bot-config"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
       </div>
       <div id="admin-view-metricas" class="hidden">
         <div class="met-toolbar">
@@ -2285,7 +2289,8 @@ function toggleWaHilo(id) {
   document.querySelectorAll('#wa-hilo-' + id).forEach(el => { el.classList.toggle('abierto', waHiloAbierto.has(id)); const m = el.querySelector('.wa-msgs'); if (m) m.scrollTop = m.scrollHeight; });
 }
 function renderWaHilo(p) {
-  const arr = (waMensajesPorPedido[p.id] || []).filter(x => !(x.bot_estado === 'descartado' && x.estado === 'sin_respuesta') && x.bot_estado !== 'error');
+  // (27-oct) Las respuestas automáticas que Meta rechazó (bot_estado error CON texto) se muestran en rojo; las fallas de la IA (sin texto) no
+  const arr = (waMensajesPorPedido[p.id] || []).filter(x => !(x.bot_estado === 'descartado' && x.estado === 'sin_respuesta') && !(x.bot_estado === 'error' && !x.texto));
   const api = waApiActiva(p.local_id) && !!p.celular;
   if (!arr.length) return p.wa_respuesta ? `<div class="pedido-wa-resp" title="Último mensaje del cliente por WhatsApp">💬 ${escHtml(p.wa_respuesta)}</div>` : '';
   const sug = waSugerenciaPendiente(p);
@@ -2410,6 +2415,67 @@ async function waSugerenciaDescartar(id, sugerenciaId) {
     toast('Sugerencia descartada');
   } catch(e) { toast('❌ ' + e.message); }
 }
+// ═══════════════════════════════════════════════════════════════════════
+//  Admin → 🤖 Bot WhatsApp (27-oct-2026): interruptor del bot por local. No toca wa_cuentas.activa
+//  (avisos por API y automatismos de recontacto / no contestó), solo bot_modo y la lista de celulares de prueba.
+// ═══════════════════════════════════════════════════════════════════════
+const BOT_MODOS = [
+  { v: 'off',     t: 'Apagado',                  d: 'El bot no hace nada. Los mensajes llegan igual a la tarjeta del pedido.' },
+  { v: 'sugerir', t: 'Sugiere respuestas',       d: 'El bot propone la respuesta y la vendedora la aprueba, la corrige o la descarta. Nada sale sin una persona.' },
+  { v: 'auto',    t: 'Responde solo',            d: 'El bot contesta directamente al cliente. Si cargás celulares abajo, contesta solo a esos y al resto le deja sugerencia.' },
+];
+function _fmtNumeroWa(n) {
+  const d = String(n || '').replace(/\D/g, '');
+  if (d.length === 11 && d.startsWith('1')) return `+1 ${d.slice(1, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+  return d ? '+' + d : '';
+}
+async function loadBotConfig() {
+  const el = document.getElementById('bot-config');
+  if (!el) return;
+  try {
+    const rows = await supaGet('wa_cuentas_pub', { select: 'local_id,numero,activa,bot_modo,bot_solo_celulares', order: 'local_id' });
+    const intro = `<div class="card"><div class="card-body" style="font-size:13px;color:var(--muted);line-height:1.5">
+      El bot contesta los WhatsApp que llegan a los números del sistema (no al WhatsApp del celular del local).
+      Cambiar el modo acá no prende los avisos por API ni el recontacto automático.
+      <br><strong style="color:#92400e">Mientras Meta no habilite el pago de la cuenta, las respuestas no le llegan al cliente:</strong>
+      en la conversación figuran como "✗ no salió".</div></div>`;
+    el.innerHTML = intro + (rows || []).map(r => {
+      const lid = escHtml(r.local_id);
+      const nombre = (LOCALES[r.local_id] && LOCALES[r.local_id].nombre) || r.local_id;
+      return `<div class="card">
+        <div class="card-header"><span class="card-title">${escHtml(nombre)} · ${escHtml(_fmtNumeroWa(r.numero))}</span>
+          <span style="font-size:11px;color:${r.activa ? '#16a34a' : '#92400e'}">${r.activa ? 'Avisos por API: activos' : 'Avisos por API: apagados'}</span></div>
+        <div class="card-body">
+          ${BOT_MODOS.map(m => `<label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;cursor:pointer">
+            <input type="radio" name="bot-modo-${lid}" value="${m.v}"${(r.bot_modo || 'off') === m.v ? ' checked' : ''} style="margin-top:3px">
+            <span><strong style="font-size:13px">${m.t}</strong><br><span style="font-size:12px;color:var(--muted)">${m.d}</span></span></label>`).join('')}
+          <div style="font-size:12px;color:var(--muted);margin:10px 0 4px">Responde solo únicamente a estos celulares (pruebas, separados por coma). Vacío = a todos.</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="text" id="bot-solo-${lid}" data-no-upper value="${escHtml(r.bot_solo_celulares || '')}" placeholder="Ej: 1162476803" style="flex:1;min-width:0;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+            ${_act('primary ok', `guardarBotConfig('${lid}')`, 'Guardar el modo del bot de este local', ICO.check)}
+          </div>
+        </div></div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudo cargar la configuración del bot: ${escHtml(e.message)}</p></div>`; }
+}
+async function guardarBotConfig(local) {
+  const sel = document.querySelector(`input[name="bot-modo-${local}"]:checked`);
+  const modo = sel ? sel.value : 'off';
+  const solo = (document.getElementById('bot-solo-' + local) || {}).value || '';
+  if (modo === 'auto' && !solo.trim() && !confirm('Sin celulares cargados, el bot va a contestar solo a TODOS los clientes que escriban a este número.\n\n¿Seguro?')) return;
+  try {
+    await _ensureFreshToken();
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/crm_wa_bot_config`, {
+      method: 'POST', headers: supaHeaders(), body: JSON.stringify({ p_local: local, p_modo: modo, p_solo_celulares: solo }),
+    });
+    if (!r.ok) { const t = await r.text(); throw new Error((t.match(/"message":"([^"]+)"/) || [])[1] || `HTTP ${r.status}`); }
+    await loadWaApiLocales();
+    await loadBotConfig();
+    renderPedidos(); renderAlertas();
+    toast(`✅ Bot de ${(LOCALES[local] && LOCALES[local].nombre) || local}: ${BOT_MODOS.find(m => m.v === modo).t}`);
+  } catch(e) { toast('❌ No se pudo guardar: ' + e.message); }
+}
+
 async function waBotToggle(id, on) {
   try {
     await _waEnviarFetch({ accion: on ? 'bot_on' : 'bot_off', pedido_id: id });
@@ -3816,7 +3882,9 @@ function setAdminView(v) {
   document.getElementById('admin-view-clientes').classList.toggle('hidden', v !== 'clientes');
   document.getElementById('admin-view-cumple').classList.toggle('hidden', v !== 'cumple');
   document.getElementById('admin-view-metricas').classList.toggle('hidden', v !== 'metricas');
+  document.getElementById('admin-view-bot').classList.toggle('hidden', v !== 'bot');
   if (v === 'metricas') loadMetricas();
+  if (v === 'bot') loadBotConfig();
   if (v === 'clientes' && clientesCache.length === 0) {
     loadClientes('');
   }
@@ -6099,6 +6167,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=17"></script>
+<script src="manual.js?v=18"></script>
 </body>
 </html>
