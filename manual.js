@@ -56,6 +56,7 @@ function _manualSecciones() {
         'Filtrá por vendedora, estado o etiquetas para encontrar rápido lo que buscás.',
         'Si el local tiene el WhatsApp conectado, en la tarjeta aparece "💬 WhatsApp" con toda la conversación: tocalo para abrirla. Mientras el cliente escribió en las últimas 24 h podés contestarle ahí mismo desde el número del local (Ctrl+Enter envía). Pasadas las 24 h solo se puede mandar la plantilla de recontacto.',
         'Si el bot está prendido, cuando el cliente escribe te deja una "respuesta sugerida" en la tarjeta y en Alertas: ✓ la mandás tal cual, ✎ la corregís antes de mandarla o ✗ la descartás. Nada sale al cliente sin que alguien lo apruebe. Si el cliente pide hablar con una persona o pregunta precios, el bot avisa por notificación a la vendedora y a la encargada y se queda callado hasta que alguien retome la conversación.',
+        'Si aprobás o corregís la sugerencia, el bot sigue atendiendo esa conversación. Si escribís vos un mensaje propio, el bot se corre durante 12 horas para no pisarte; con el ✓ del recuadro "bot en pausa" se lo devolvés antes.',
       ],
     },
     {

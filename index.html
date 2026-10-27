@@ -2230,6 +2230,7 @@ let waMensajesPorPedido = {};   // pedido_id → [mensajes] (orden cronológico)
 let waConvPorCel = {};          // local|últimos10 → fila de wa_conversaciones
 const waHiloAbierto = new Set();
 const waBorradores = {};        // pedido_id → texto que estaba escribiendo (sobrevive al refresco de 2 min)
+const waEditando = {};          // pedido_id → id de la sugerencia del bot que se está corrigiendo en el cuadro (27-oct)
 const WA_VENTANA_H = 24;
 
 async function loadWaMensajes() {
@@ -2303,7 +2304,10 @@ function renderWaHilo(p) {
   }).join('');
 
   let sugHtml = '';
-  if (sug) {
+  if (sug && waEditando[p.id] === sug.id) {
+    // Se está corrigiendo en el cuadro de abajo: no mostrar la sugerencia dos veces
+    sugHtml = `<div class="wa-sug"><div class="wa-sug-t">${ICO.robot} Corrigiendo la respuesta del bot en el cuadro de abajo ${_act('', `waSugerenciaCancelarEdicion(${p.id}); event.stopPropagation()`, 'Volver a la sugerencia original', ICO.cruz)}</div></div>`;
+  } else if (sug) {
     sugHtml = `<div class="wa-sug" id="wa-sug-${sug.id}">
       <div class="wa-sug-t">${ICO.robot} Respuesta sugerida por el bot${sug.bot_clasificacion ? ` · <span style="font-weight:400">${escHtml(sug.bot_clasificacion.replace('_', ' '))}</span>` : ''}</div>
       <div class="wa-sug-txt">${escHtml(sug.texto || '')}</div>
@@ -2372,10 +2376,12 @@ async function waEnviarTexto(id, sugerenciaId) {
     texto = (ta ? ta.value : waBorradores[id] || '').trim();
   }
   if (!texto) { toast('⚠️ Escribí el mensaje primero'); return; }
+  // Si el cuadro tiene una sugerencia del bot corregida, viaja su id: queda "editado" y el bot sigue activo
+  const sugId = sugerenciaId || waEditando[id] || undefined;
   toast('📤 Enviando por WhatsApp...');
   try {
-    await _waEnviarFetch({ pedido_id: id, texto, sugerencia_id: sugerenciaId || undefined });
-    delete waBorradores[id];
+    await _waEnviarFetch({ pedido_id: id, texto, sugerencia_id: sugId });
+    delete waBorradores[id]; delete waEditando[id];
     waHiloAbierto.add(id);
     await _waRefrescar();
     toast(`✅ Mensaje enviado a ${p.nombre_cliente || p.celular}`);
@@ -2384,14 +2390,20 @@ async function waEnviarTexto(id, sugerenciaId) {
 function waSugerenciaEditar(id, sugerenciaId) {
   const sug = (waMensajesPorPedido[id] || []).find(x => x.id === sugerenciaId);
   if (!sug) return;
+  // (27-oct) El texto pasa al cuadro para corregirlo; la sugerencia NO se descarta: al mandar viaja su id,
+  // queda como "editado" y el bot sigue activo en la conversación.
   waBorradores[id] = sug.texto || '';
+  waEditando[id] = sugerenciaId;
   waHiloAbierto.add(id);
-  // La sugerencia se descarta y el texto pasa al cuadro: lo que salga queda como mensaje de la vendedora
-  _waEnviarFetch({ accion: 'descartar', sugerencia_id: sugerenciaId }).then(_waRefrescar).then(() => {
-    const ta = document.getElementById('wa-txt-' + id); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
-  }).catch(e => toast('❌ ' + e.message));
+  renderPedidos(); renderAlertas();
+  const ta = document.getElementById('wa-txt-' + id); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+function waSugerenciaCancelarEdicion(id) {
+  delete waEditando[id]; delete waBorradores[id];
+  renderPedidos(); renderAlertas();
 }
 async function waSugerenciaDescartar(id, sugerenciaId) {
+  delete waEditando[id];
   try {
     await _waEnviarFetch({ accion: 'descartar', sugerencia_id: sugerenciaId });
     await _waRefrescar();
@@ -6087,6 +6099,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=16"></script>
+<script src="manual.js?v=17"></script>
 </body>
 </html>
