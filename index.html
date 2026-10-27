@@ -2455,8 +2455,129 @@ async function loadBotConfig() {
             ${_act('primary ok', `guardarBotConfig('${lid}')`, 'Guardar el modo del bot de este local', ICO.check)}
           </div>
         </div></div>`;
-    }).join('');
+    }).join('') + `<div id="bot-textos"><div class="loading"><span class="spinner"></span> Cargando...</div></div>`;
+    loadBotTextos();
   } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudo cargar la configuración del bot: ${escHtml(e.message)}</p></div>`; }
+}
+
+// ── (27-oct-2026) Enseñarle al bot: estilo, preguntas frecuentes, probador y correcciones de las vendedoras ──
+const BOT_REGLAS_FIJAS = [
+  'Nunca dice precios, descuentos, promociones ni cuotas.',
+  'Nunca confirma stock sin consultar el sistema, y aun así aclara que lo confirma una vendedora.',
+  'Pasa la charla a una vendedora si la clienta lo pide, se queja o pregunta algo que no está en las preguntas frecuentes.',
+  'Si le preguntan si es un bot, dice la verdad.',
+  'Nunca menciona el atelier.',
+];
+async function loadBotTextos() {
+  const el = document.getElementById('bot-textos');
+  if (!el) return;
+  try {
+    const rows = await supaGet('wa_bot_textos', { select: 'clave,texto,actualizado_por,actualizado_at' });
+    const t = {}; (rows || []).forEach(r => { t[r.clave] = r; });
+    const pie = (r) => r && r.actualizado_at ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">Guardado ${escHtml(formatDate(r.actualizado_at))}${r.actualizado_por ? ' · ' + escHtml(String(r.actualizado_por).replace(/@.*$/, '')) : ''}</div>` : '<span></span>';
+    const ta = 'width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:13px;line-height:1.45;resize:vertical;text-transform:none';
+    el.innerHTML = `
+      <div class="card"><div class="card-header"><span class="card-title">🗣 Cómo habla el bot (estilo)</span></div>
+        <div class="card-body">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Escribilo como se lo explicarías a una vendedora nueva: tono, largo de los mensajes, palabras que sí y que no, emojis, cómo saluda y cómo se despide.</div>
+          <textarea id="bot-estilo" data-no-upper rows="10" style="${ta}">${escHtml((t.estilo && t.estilo.texto) || '')}</textarea>
+          <div style="display:flex;align-items:center;justify-content:space-between">${pie(t.estilo)}${_act('primary ok', 'guardarBotTextos()', 'Guardar el estilo y las preguntas frecuentes', ICO.check)}</div>
+        </div></div>
+      <div class="card"><div class="card-header"><span class="card-title">❓ Preguntas frecuentes (lo que el bot puede responder)</span></div>
+        <div class="card-body">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Una pregunta y su respuesta por renglón, como quieras. Lo que no esté acá, el bot no lo inventa: se lo pasa a una vendedora.
+            Ideas de lo que hoy no sabe: <em>cuántos días guardamos un pedido · cambios y devoluciones · medios de pago · envíos · señas · cómo llegar al local</em>. No pongas precios: el bot nunca los dice.</div>
+          <textarea id="bot-faq" data-no-upper rows="14" style="${ta}">${escHtml((t.faq && t.faq.texto) || '')}</textarea>
+          <div style="display:flex;align-items:center;justify-content:space-between">${pie(t.faq)}${_act('primary ok', 'guardarBotTextos()', 'Guardar el estilo y las preguntas frecuentes', ICO.check)}</div>
+        </div></div>
+      <div class="card"><div class="card-header"><span class="card-title">🧪 Probar el bot</span></div>
+        <div class="card-body">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Escribí un mensaje como si fueras una clienta. Usa lo que está escrito en los cuadros de arriba, aunque no lo hayas guardado. No se manda nada a nadie.</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select id="bot-prueba-local" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+              <option value="unicenter">Unicenter</option><option value="alcorta">Alcorta</option>
+            </select>
+            <input type="text" id="bot-prueba-texto" data-no-upper placeholder="Ej: ¿hasta cuándo me guardan el pedido?" onkeydown="if (event.key === 'Enter') probarBot()" style="flex:1;min-width:180px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+            ${_act('primary wa', 'probarBot()', 'Ver qué contestaría el bot', ICO.enviar)}
+          </div>
+          <div id="bot-prueba-resultado" style="margin-top:8px"></div>
+        </div></div>
+      <div class="card"><div class="card-header"><span class="card-title">📚 Lo que aprende de las correcciones</span></div>
+        <div class="card-body" id="bot-correcciones"><div class="loading"><span class="spinner"></span> Cargando...</div></div></div>
+      <div class="card"><div class="card-header"><span class="card-title">🔒 Reglas fijas (no se cambian desde acá)</span></div>
+        <div class="card-body" style="font-size:12px;color:var(--muted);line-height:1.5">${BOT_REGLAS_FIJAS.map(r => '• ' + escHtml(r)).join('<br>')}
+          <br><br>Si el estilo o las preguntas frecuentes dicen algo distinto a estas reglas, mandan estas reglas.</div></div>`;
+    loadBotCorrecciones();
+  } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudieron cargar los textos del bot: ${escHtml(e.message)}</p></div>`; }
+}
+async function guardarBotTextos() {
+  const estilo = (document.getElementById('bot-estilo') || {}).value || '';
+  const faq = (document.getElementById('bot-faq') || {}).value || '';
+  try {
+    await _ensureFreshToken();
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/crm_wa_bot_textos_guardar`, {
+      method: 'POST', headers: supaHeaders(), body: JSON.stringify({ p_estilo: estilo, p_faq: faq }),
+    });
+    if (!r.ok) { const t = await r.text(); throw new Error((t.match(/"message":"([^"]+)"/) || [])[1] || `HTTP ${r.status}`); }
+    toast('✅ Guardado: el bot lo usa desde el próximo mensaje');
+    loadBotTextos();
+  } catch(e) { toast('❌ No se pudo guardar: ' + e.message); }
+}
+async function probarBot() {
+  const texto = ((document.getElementById('bot-prueba-texto') || {}).value || '').trim();
+  const out = document.getElementById('bot-prueba-resultado');
+  if (!texto) { toast('⚠️ Escribí un mensaje de prueba'); return; }
+  out.innerHTML = `<div class="loading"><span class="spinner"></span> El bot está pensando...</div>`;
+  try {
+    await _ensureFreshToken();
+    const r = await fetch(`${SUPA_URL}/functions/v1/wa-bot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
+      body: JSON.stringify({ prueba: true, texto, local_id: document.getElementById('bot-prueba-local').value,
+        estilo: (document.getElementById('bot-estilo') || {}).value, faq: (document.getElementById('bot-faq') || {}).value }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    const o = j.out || {};
+    out.innerHTML = `<div class="wa-msgs" style="max-height:none">
+        <div class="wa-msg in">${escHtml(texto)}</div>
+        ${o.respuesta ? `<div class="wa-msg out bot">${escHtml(o.respuesta)}</div>` : `<div class="wa-msg out bot" style="opacity:.7"><em>(no contestaría nada)</em></div>`}
+      </div>
+      ${o.derivar ? `<div class="wa-reply-nota" style="margin-top:4px">Le pasaría la charla a una vendedora y le avisaría por notificación.</div>` : ''}
+      <div class="wa-sug-motivo" style="margin-top:4px">Lo que entendió: ${escHtml(o.motivo || '')}</div>`;
+  } catch(e) { out.innerHTML = `<div class="wa-reply-nota">No se pudo probar: ${escHtml(e.message)}</div>`; }
+}
+async function loadBotCorrecciones() {
+  const el = document.getElementById('bot-correcciones');
+  if (!el) return;
+  try {
+    const rows = await supaGet('wa_mensajes', { select: 'id,local_id,texto,texto_bot,responde_a,no_ejemplo,enviado_por,estado_at', bot_estado: 'eq.editado', texto_bot: 'not.is.null', order: 'id.desc', limit: '15' });
+    const cor = (rows || []).filter(r => (r.texto_bot || '').trim() !== (r.texto || '').trim());
+    if (!cor.length) {
+      el.innerHTML = `<div style="font-size:12px;color:var(--muted)">Todavía no hay correcciones. Cada vez que una vendedora toca ✎ y cambia la respuesta del bot antes de mandarla, aparece acá y el bot la toma como ejemplo (usa las 8 más nuevas).</div>`;
+      return;
+    }
+    const ids = cor.map(r => r.responde_a).filter(Boolean);
+    const entr = {};
+    if (ids.length) (await supaGet('wa_mensajes', { select: 'id,texto', id: 'in.(' + ids.join(',') + ')' }) || []).forEach(x => { entr[x.id] = x.texto; });
+    el.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">El bot imita cómo las vendedoras corrigieron sus respuestas (usa las 8 más nuevas). Si una corrección no te gusta, sacala con ✗.</div>` +
+      cor.map(r => `<div style="border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:12px;${r.no_ejemplo ? 'opacity:.5' : ''}">
+        <div><strong>Clienta:</strong> ${escHtml(entr[r.responde_a] || '—')}</div>
+        <div style="color:#6d28d9;margin-top:2px"><strong>El bot propuso:</strong> ${escHtml(r.texto_bot)}</div>
+        <div style="color:#065f46;margin-top:2px"><strong>Se mandó:</strong> ${escHtml(r.texto)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
+          <span style="color:var(--muted)">${escHtml((LOCALES[r.local_id] && LOCALES[r.local_id].nombre) || r.local_id || '')} · ${escHtml(String(r.enviado_por || '').replace(/@.*$/, ''))} · ${escHtml(formatDate(r.estado_at))}${r.no_ejemplo ? ' · <em>no se usa</em>' : ''}</span>
+          ${r.no_ejemplo ? _act('ok', `botEjemplo(${r.id}, true)`, 'Volver a usarla como ejemplo', ICO.check) : _act('bad', `botEjemplo(${r.id}, false)`, 'No usar esta corrección como ejemplo', ICO.cruz)}
+        </div></div>`).join('');
+  } catch(e) { el.innerHTML = `<div class="wa-reply-nota">No se pudieron cargar las correcciones: ${escHtml(e.message)}</div>`; }
+}
+async function botEjemplo(id, usar) {
+  try {
+    await _ensureFreshToken();
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/crm_wa_bot_ejemplo`, { method: 'POST', headers: supaHeaders(), body: JSON.stringify({ p_id: id, p_usar: usar }) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    loadBotCorrecciones();
+  } catch(e) { toast('❌ ' + e.message); }
 }
 async function guardarBotConfig(local) {
   const sel = document.querySelector(`input[name="bot-modo-${local}"]:checked`);
@@ -6167,6 +6288,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=18"></script>
+<script src="manual.js?v=19"></script>
 </body>
 </html>
