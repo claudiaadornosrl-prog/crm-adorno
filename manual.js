@@ -66,6 +66,7 @@ function _manualSecciones() {
         'Buscá por nombre, DNI o CUIT — están todas las clientas de Dragonfish.',
         'La ficha muestra el historial completo de compras y los pedidos que hizo.',
         'Podés ponerle etiquetas (tags) para agruparlas y filtrarlas después.',
+        'En la ficha aparece "💬 Lo que sabemos por WhatsApp": lo que le gusta, los productos que pidió (marcados los que no había), fechas que mencionó (cumpleaños, eventos) y un resumen de las últimas charlas. Sale solo de los chats analizados.',
       ],
     },
     {
@@ -75,6 +76,7 @@ function _manualSecciones() {
         'Primero aparecen siempre los artículos que ya llegaron y hay que avisar; abajo, los pedidos avisados hace más de una hora que esperan que cargues si el cliente respondió. Cuando los avisos salgan por la API, esa segunda parte se completa sola.',
         'Concentra los avisados sin respuesta (+60 min) y otros vencimientos.',
         'El numerito rojo del encabezado te dice cuántas alertas hay sin resolver.',
+        'Abajo de todo, "🪪 Clientes con datos para confirmar": son datos que el cliente pasó por WhatsApp (DNI, mail, cumpleaños). Con ✓ los revisás, corregís si hace falta y confirmás: si es nuevo se da de alta en Dragonfish (lo sube la PC de Oficina cada 15 min); si ya era cliente se completa lo que le faltaba, sin pisar nada. Con ✗ los descartás. Nada se carga sin que una persona lo confirme.',
       ],
     },
     {
@@ -107,6 +109,7 @@ function _manualSecciones() {
         'Gestión de vendedoras, plantillas de WhatsApp y configuración general.',
         'Pestaña 🤖 Bot WhatsApp: prendé o apagá el bot de cada local. "Sugiere respuestas" deja que la vendedora apruebe cada mensaje; "Responde solo" contesta directo. Para probar, cargá tu celular en la lista: el bot te contesta solo a vos y al resto le sigue dejando sugerencias. No prende los avisos por API ni el recontacto automático.',
         'Más abajo, en la misma pestaña, le enseñás al bot: "Cómo habla" (tono, largo, emojis) y "Preguntas frecuentes" (lo que puede contestar: reservas, cambios, medios de pago, envíos). Lo que no esté ahí, no lo inventa: lo pasa a una vendedora. Con "Probar el bot" ves qué contestaría antes de guardar. También aprende de cómo las vendedoras corrigen sus respuestas; si una corrección no te gusta, la sacás con ✗.',
+        'Pestaña 💬 Chats: subí chats exportados del WhatsApp del local (en el chat: Exportar chat › Sin archivos; el .txt de Android o el .zip de iPhone, varios a la vez) y el sistema los analiza: resumen, gustos, productos pedidos y sin stock, y los datos del cliente para confirmar en Alertas. Más abajo está el informe mensual (se arma solo el día 1 de cada mes con el mes anterior; "Generar ahora" muestra el mes en curso) y la lista de conversaciones analizadas: tocá una para ver el detalle. Las charlas de los números del local se analizan solas 6 horas después de que quedan quietas.',
         'Cuando una clienta pregunta por un producto, el bot lo busca en la web y le pasa el link (ahí está el precio, las medidas y las fotos), y le dice si según el sistema hay en el local. En "Web que usa el bot" elegís www.claudiaadorno.com o la tienda del Atelier (cuando esté abierta al público).',
       ],
     });

@@ -481,6 +481,42 @@ a { color: inherit; text-decoration: none; }
 
 /* Alert banner */
 .alert-sec-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin: 4px 0 8px; display: flex; align-items: center; gap: 8px; }
+/* (27-oct-2026, JP) Tarjetas con colores alternos para leer más fácil */
+#pedidos-list > .pedido-card:nth-child(even of .pedido-card) { background: #e6ecfa; box-shadow: 0 1px 3px rgba(30,41,90,.12), inset 0 0 0 1px #d5def5; }
+#alertas-list > .alert-card:nth-child(even of .alert-card) { background: #eef2fc; }
+/* (27-oct-2026) Datos de clientes sacados de los chats de WhatsApp */
+.sug-chip { font-size: 11px; padding: 3px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+.sug-chip.alta { background: #ede9fe; color: #5b21b6; }
+.sug-chip.completar { background: #e0f2fe; color: #075985; }
+.sug-datos { font-size: 13px; line-height: 1.6; margin-top: 4px; }
+.sug-datos .falta { color: #b45309; font-weight: 600; }
+.sug-evidencia { font-size: 12px; color: var(--muted); font-style: italic; margin: 10px 0 2px; }
+.sug-explica { font-size: 13px; background: #f8fafc; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; line-height: 1.5; }
+.wa-sabemos { background: #f0fdf4; border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.6; }
+.wa-sabemos .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; margin-top: 6px; }
+.wa-sabemos .lbl:first-child { margin-top: 0; }
+.wa-tag { display: inline-block; background: white; border: 1px solid #bbf7d0; border-radius: 12px; padding: 1px 8px; margin: 2px 4px 2px 0; font-size: 12px; }
+.wa-tag.no { border-color: #fecaca; background: #fef2f2; }
+.wa-res { font-size: 12px; color: #334155; margin-top: 4px; }
+.wa-res b { color: var(--muted); font-weight: 600; }
+.chats-help { font-size: 13px; line-height: 1.55; color: #334155; }
+.chats-help li { margin-left: 18px; }
+.chats-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.chats-row select, .chats-row input[type=file] { font-size: 13px; }
+.chats-log { margin-top: 10px; font-size: 13px; line-height: 1.5; }
+.chats-log div { padding: 4px 0; border-bottom: 1px dashed var(--border); }
+.inf-h { font-weight: 700; margin: 12px 0 4px; font-size: 14px; }
+.inf-body { font-size: 13px; line-height: 1.55; }
+.inf-body ul { margin: 0 0 0 18px; padding: 0; }
+.ana-item { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.ana-item:hover { background: #f8fafc; }
+.ana-top { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.ana-chip { font-size: 11px; padding: 1px 7px; border-radius: 9px; background: #f1f5f9; color: #334155; }
+.ana-chip.neg { background: #fef2f2; color: #991b1b; }
+.ana-chip.pos { background: #f0fdf4; color: #166534; }
+.ana-res { font-size: 13px; margin-top: 3px; }
+.ana-det { display: none; margin-top: 8px; }
+.ana-item.abierto .ana-det { display: block; }
 .alert-actions { display: flex; align-items: center; gap: 2px; }
 .alert-banner {
   background: linear-gradient(90deg, #059669, #10b981);
@@ -1390,6 +1426,10 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
         <button class="admin-vtab-btn" data-view="cumple" onclick="setAdminView('cumple')">🎂 Cumpleaños</button>
         <button class="admin-vtab-btn" data-view="metricas" onclick="setAdminView('metricas')">⏱ Métricas</button>
         <button class="admin-vtab-btn" data-view="bot" onclick="setAdminView('bot')">🤖 Bot WhatsApp</button>
+        <button class="admin-vtab-btn" data-view="chats" onclick="setAdminView('chats')">💬 Chats</button>
+      </div>
+      <div id="admin-view-chats" class="hidden">
+        <div id="chats-view"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
       </div>
       <div id="admin-view-bot" class="hidden">
         <div id="bot-config"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
@@ -1513,6 +1553,32 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 <div id="cliente-modal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.5); padding:20px; overflow-y:auto;">
   <div style="background:white; border-radius:16px; max-width:720px; margin:0 auto; overflow:hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
     <div id="cliente-detail-content"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+  </div>
+</div>
+
+<div id="sug-modal" style="display:none; position:fixed; inset:0; z-index:1100; background:rgba(0,0,0,0.5); padding:20px; overflow-y:auto;">
+  <div style="background:white; border-radius:16px; max-width:420px; margin:0 auto; overflow:hidden;">
+    <div style="background:var(--accent); color:white; padding:16px 18px; display:flex; align-items:center; justify-content:space-between;">
+      <span style="font-size:16px; font-weight:700;" id="sug-titulo">Datos del cliente</span>
+      <button class="hdr-ico" onclick="cerrarSugModal()" title="Cerrar sin guardar" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div style="padding:18px 20px 20px;">
+      <div id="sug-explica" class="sug-explica"></div>
+      <div class="form-grid">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="field"><label>Nombre</label><input type="text" id="sug-nombre" autocomplete="off"></div>
+          <div class="field"><label>Apellido</label><input type="text" id="sug-apellido" autocomplete="off"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="field"><label>DNI</label><input type="text" id="sug-dni" inputmode="numeric" autocomplete="off" placeholder="Sin puntos"></div>
+          <div class="field"><label>Cumpleaños</label><input type="date" id="sug-fnac"></div>
+        </div>
+        <div class="field"><label>Mail</label><input type="email" id="sug-email" autocomplete="off" data-no-upper></div>
+        <div class="field"><label>Celular (el de WhatsApp)</label><input type="text" id="sug-cel" inputmode="numeric" autocomplete="off"></div>
+      </div>
+      <div id="sug-evidencia" class="sug-evidencia"></div>
+      <button class="btn-primary" id="sug-guardar" onclick="guardarSugerencia()">Confirmar y cargar</button>
+    </div>
   </div>
 </div>
 
@@ -2657,6 +2723,7 @@ async function loadPedidos() {
     pedidosCargados = true;
     loadPushDragon().then(() => { if (typeof renderPedidos === 'function') renderPedidos(); });
     loadWaApiLocales().then(() => loadWaMensajes()).then(() => { if (typeof renderPedidos === 'function') { renderPedidos(); renderAlertas(); updateAlertBadge(); } });
+    loadSugerenciasCliente().then(() => { renderAlertas(); updateAlertBadge(); });
     updateAlertBadge();
     renderPedidos();
     renderAlertas();
@@ -2695,7 +2762,8 @@ function updateAlertBadge() {
   const listos = pedidosCache.filter(p => p.estado === 'Listo para avisar').length;
   const vencidos = pedidosVencidos60().length;
   const mensajes = pedidosConMensajeSinResponder().length;   // (27-oct) WhatsApp sin responder / sugerencias del bot
-  const total = listos + vencidos + mensajes;
+  const datosCli = sugerenciasCache.length;                   // (27-oct) datos de clientes sacados de los chats
+  const total = listos + vencidos + mensajes + datosCli;
   const badge = document.getElementById('alertas-badge');
   const tabAl = document.querySelector('.tab-btn[data-tab="alertas"]');  // (26-oct) la pestaña entera se pone verde
   if (total > 0) {
@@ -2705,6 +2773,7 @@ function updateAlertBadge() {
     if (listos > 0) partes.push(listos === 1 ? '1 listo para avisar' : `${listos} listos para avisar`);
     if (vencidos > 0) partes.push(vencidos === 1 ? '1 esperando confirmar respuesta' : `${vencidos} esperando confirmar respuesta`);
     if (mensajes > 0) partes.push(mensajes === 1 ? '1 WhatsApp para responder' : `${mensajes} WhatsApp para responder`);
+    if (datosCli > 0) partes.push(datosCli === 1 ? '1 cliente para confirmar datos' : `${datosCli} clientes para confirmar datos`);
     if (tabAl) { tabAl.classList.add('has-alert'); tabAl.title = partes.join(' · '); }
   } else {
     badge.classList.add('hidden');
@@ -3444,7 +3513,7 @@ async function renderHoy() {
 
   // Cargar logs en background si no hay cache, después re-renderizar para mostrar el ranking
   if (!window._pedidosLogCache) {
-    _refreshPedidosLogCache().then(() => { if (currentTab === 'hoy') renderHoy(); });
+    _refreshPedidosLogCache().then(() => { if ((document.querySelector('.tab-panel.active') || {}).id === 'panel-hoy') renderHoy(); });
   }
 }
 
@@ -3932,7 +4001,7 @@ function renderAlertas() {
   const vencidos = pedidosVencidos60();
   const mensajes = pedidosConMensajeSinResponder();
 
-  if (!listos.length && !vencidos.length && !mensajes.length) {
+  if (!listos.length && !vencidos.length && !mensajes.length && !sugerenciasCache.length) {
     el.innerHTML = `<div class="empty"><div class="icon">✅</div><p>¡Todo en orden! No hay artículos para avisar ni pedidos esperando confirmar respuesta.</p></div>`;
     return;
   }
@@ -4022,7 +4091,277 @@ function renderAlertas() {
       </div>`;
     }).join('');
   }
+
+  // (27-oct-2026) Sección 4: datos que el cliente dio por WhatsApp (DNI, mail, cumpleaños) para confirmar y cargar
+  if (sugerenciasCache.length) {
+    html += `<div class="alert-sec-title" style="color:#5b21b6;${html ? 'margin-top:18px;' : ''}">🪪 ${sugerenciasCache.length} ${sugerenciasCache.length === 1 ? 'cliente con datos para confirmar' : 'clientes con datos para confirmar'}</div>`;
+    html += sugerenciasCache.map(renderSugerenciaCard).join('');
+  }
   el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+//  (27-oct-2026) Datos de clientes sacados de los chats (wa-analizar → clientes_sugerencias)
+// ═══════════════════════════════════════════════════════
+let sugerenciasCache = [];
+let sugAbierta = null;
+async function loadSugerenciasCliente() {
+  try {
+    sugerenciasCache = await supaGet('clientes_sugerencias', { select: '*', estado: 'eq.pendiente', order: 'creado_at.desc', limit: '100' });
+  } catch (e) { sugerenciasCache = []; }
+}
+function _sugCampo(v, etiqueta) { return v ? escHtml(v) : `<span class="falta">falta ${etiqueta}</span>`; }
+function renderSugerenciaCard(s) {
+  const d = s.datos || {};
+  const nombre = [d.nombre, d.apellido].filter(Boolean).join(' ') || 'Sin nombre';
+  const alta = s.accion === 'alta';
+  const fnac = d.fecha_nacimiento ? new Date(d.fecha_nacimiento + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+  const cel = d.celular || s.celular || '';
+  return `<div class="alert-card" style="border-left:4px solid #8b5cf6;">
+    <div class="alert-card-header">
+      <div>
+        <div class="alert-desc" style="font-weight:700">${escHtml(nombre)}</div>
+        <div style="font-size:11px;opacity:.75">De un chat de WhatsApp · ${escHtml(s.local_id || '')} · ${_waHora(s.actualizado_at || s.creado_at)}</div>
+      </div>
+      <span class="sug-chip ${alta ? 'alta' : 'completar'}">${alta ? 'Cliente nuevo' : 'Completar ficha'}</span>
+    </div>
+    <div class="alert-body">
+      <div class="alert-client-info">
+        <div class="sug-datos">
+          DNI ${_sugCampo(d.dni, 'DNI')} · ${d.email ? '✉ ' + escHtml(d.email) : '<span style="opacity:.6">sin mail</span>'}${fnac ? ' · 🎂 ' + fnac : ''}${cel ? ' · 📱 ' + escHtml(cel) : ''}
+        </div>
+        ${s.evidencia ? `<div class="sug-evidencia">“${escHtml(s.evidencia)}”</div>` : ''}
+      </div>
+      <div class="alert-actions">
+        ${_act('primary ok', `abrirSugerencia(${s.id})`, alta ? 'Revisar y dar de alta en Clientes y Dragonfish' : 'Revisar y completar la ficha del cliente', ICO.check)}
+        ${_act('bad', `descartarSugerencia(${s.id})`, 'Descartar: los datos no son del cliente o están mal', ICO.cruz)}
+      </div>
+    </div>
+  </div>`;
+}
+function abrirSugerencia(id) {
+  const s = sugerenciasCache.find(x => x.id === id);
+  if (!s) return;
+  sugAbierta = s;
+  const d = s.datos || {}, a = s.actuales || null;
+  document.getElementById('sug-titulo').textContent = s.accion === 'alta' ? '🪪 Cliente nuevo' : '🪪 Completar ficha';
+  document.getElementById('sug-explica').innerHTML = s.accion === 'alta'
+    ? 'El cliente pasó estos datos por WhatsApp. Revisalos y corregí lo que haga falta: al confirmar se carga en <b>Dragonfish</b> (lo sube la PC de Oficina cada 15 min) y aparece en Clientes al día siguiente.'
+    : `Ya es cliente${a ? ` (<b>${escHtml([a.nombre, a.apellido].filter(Boolean).join(' '))}</b>, DNI ${escHtml(a.dni || '')}${a.email ? ', ✉ ' + escHtml(a.email) : ''})` : ''}. Al confirmar se completan los datos que le faltan, en Clientes y en Dragonfish. Lo que ya tenía no se pisa.`;
+  document.getElementById('sug-nombre').value = d.nombre || '';
+  document.getElementById('sug-apellido').value = d.apellido || '';
+  document.getElementById('sug-dni').value = d.dni || '';
+  document.getElementById('sug-fnac').value = d.fecha_nacimiento || '';
+  document.getElementById('sug-email').value = d.email || '';
+  document.getElementById('sug-cel').value = d.celular || s.celular || '';
+  document.getElementById('sug-evidencia').textContent = s.evidencia ? `Del chat: “${s.evidencia}”` : '';
+  document.getElementById('sug-guardar').disabled = false;
+  document.getElementById('sug-modal').style.display = 'block';
+}
+function cerrarSugModal() { document.getElementById('sug-modal').style.display = 'none'; sugAbierta = null; }
+async function guardarSugerencia() {
+  if (!sugAbierta) return;
+  const v = id => document.getElementById(id).value.trim();
+  const datos = { nombre: v('sug-nombre'), apellido: v('sug-apellido'), dni: v('sug-dni').replace(/\D/g, ''), fecha_nacimiento: v('sug-fnac'), email: v('sug-email').toLowerCase(), celular: v('sug-cel').replace(/\D/g, '') };
+  if (datos.dni.length < 7 || datos.dni.length > 8) { toast('⚠ El DNI tiene que tener 7 u 8 números'); return; }
+  const btn = document.getElementById('sug-guardar');
+  btn.disabled = true;
+  try {
+    const r = await _rpcBot('crm_sugerencia_resolver', { p_id: sugAbierta.id, p_aceptar: true, p_datos: datos });
+    cerrarSugModal();
+    toast(r && r.accion === 'alta' ? '✔ Cliente nuevo: se carga en Dragonfish en los próximos 15 min' : (r && r.nuevo ? '✔ Ficha completada' : '✔ Listo: la ficha ya tenía esos datos'));
+    if (datos.dni) pushDragonMap[datos.dni] = 'pendiente';
+    await loadSugerenciasCliente();
+    renderAlertas(); updateAlertBadge();
+  } catch (e) { btn.disabled = false; toast('❌ ' + e.message); }
+}
+async function descartarSugerencia(id) {
+  if (!confirm('¿Descartar estos datos? No se cargan en ningún lado.')) return;
+  try {
+    await _rpcBot('crm_sugerencia_resolver', { p_id: id, p_aceptar: false });
+    await loadSugerenciasCliente();
+    renderAlertas(); updateAlertBadge();
+    toast('Datos descartados');
+  } catch (e) { toast('❌ ' + e.message); }
+}
+
+// Ficha del cliente: lo que se sabe por los chats analizados
+function renderWaSabemos(lista) {
+  if (!lista || !lista.length) return '';
+  const uniq = arr => [...new Map(arr.filter(Boolean).map(x => [String(x).toLowerCase().trim(), x])).values()];
+  const prefs = uniq(lista.flatMap(a => (a.datos && a.datos.preferencias) || [])).slice(0, 12);
+  const talle = (lista.find(a => a.datos && a.datos.talle) || {}).datos;
+  const fechas = uniq(lista.flatMap(a => ((a.datos && a.datos.fechas) || []).map(f => (f.fecha ? new Date(f.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' : '') + (f.motivo || '')))).slice(0, 6);
+  const prods = [];
+  lista.forEach(a => ((a.datos && a.datos.productos) || []).forEach(p => { if (p.descripcion && !prods.some(x => x.descripcion.toLowerCase() === p.descripcion.toLowerCase())) prods.push(p); }));
+  const fmt = iso => iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
+  return `<div class="cliente-section-title">💬 Lo que sabemos por WhatsApp</div>
+    <div class="wa-sabemos">
+      ${prefs.length ? `<div class="lbl">Le gusta</div><div>${prefs.map(x => `<span class="wa-tag">${escHtml(x)}</span>`).join('')}</div>` : ''}
+      ${talle ? `<div class="lbl">Talle</div><div>${escHtml(talle.talle)}</div>` : ''}
+      ${fechas.length ? `<div class="lbl">Fechas que mencionó</div><div>${fechas.map(x => `<span class="wa-tag">🎂 ${escHtml(x)}</span>`).join('')}</div>` : ''}
+      ${prods.length ? `<div class="lbl">Productos que pidió</div><div>${prods.slice(0, 8).map(p => `<span class="wa-tag${p.hay_stock === 'no' ? ' no' : ''}" title="${p.hay_stock === 'no' ? 'No había stock' : ''}">${escHtml(p.descripcion)}${p.hay_stock === 'no' ? ' · sin stock' : ''}</span>`).join('')}</div>` : ''}
+      <div class="lbl">Últimas conversaciones</div>
+      ${lista.slice(0, 3).map(a => `<div class="wa-res"><b>${fmt(a.hasta || a.creado_at)} · ${escHtml(a.local_id || '')}${a.fuente === 'export' ? ' · chat exportado' : ''}:</b> ${escHtml(a.resumen || '')}</div>`).join('')}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  (27-oct-2026) Admin › Chats: subir chats exportados, informe mensual, conversaciones analizadas
+// ═══════════════════════════════════════════════════════
+async function _waAnalizarFetch(body) {
+  await _ensureFreshToken();
+  const r = await fetch(`${SUPA_URL}/functions/v1/wa-analizar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+function cargarJSZip() {
+  if (window.JSZip) return Promise.resolve(window.JSZip);
+  return new Promise((ok, mal) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    sc.onload = () => ok(window.JSZip);
+    sc.onerror = () => mal(new Error('No se pudo cargar el lector de .zip'));
+    document.head.appendChild(sc);
+  });
+}
+const _ANA_TXT = {
+  consulta_producto: 'consulta de producto', aviso_pedido: 'aviso de pedido', reserva_o_encargo: 'reserva / encargo', cambio_o_devolucion: 'cambio o devolución',
+  reclamo: 'reclamo', horarios_o_ubicacion: 'horarios / ubicación', precio_o_pago: 'precio / pago', envio: 'envío', otro: 'otro',
+  compra_o_retira: 'compra o retira', reserva: 'reservó', lo_pensara: 'lo va a pensar', no_le_interesa: 'no le interesa',
+  sin_respuesta_del_cliente: 'el cliente no respondió', sin_respuesta_del_local: 'el local no respondió', derivado_a_persona: 'derivado a una persona', resuelto: 'resuelto',
+};
+function _infHtml(texto) {
+  const out = []; let enLista = false;
+  for (const l of String(texto || '').split('\n')) {
+    const t = l.trim();
+    if (/^-\s+/.test(t)) { if (!enLista) { out.push('<ul>'); enLista = true; } out.push(`<li>${escHtml(t.replace(/^-\s+/, '')).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')}</li>`); continue; }
+    if (enLista) { out.push('</ul>'); enLista = false; }
+    if (/^#+\s*/.test(t)) out.push(`<div class="inf-h">${escHtml(t.replace(/^#+\s*/, ''))}</div>`);
+    else if (t) out.push(`<div>${escHtml(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')}</div>`);
+  }
+  if (enLista) out.push('</ul>');
+  return out.join('');
+}
+async function loadChatsAdmin() {
+  const el = document.getElementById('chats-view');
+  if (!el) return;
+  try {
+    const [informes, ana] = await Promise.all([
+      supaGet('wa_informes', { select: '*', order: 'creado_at.desc', limit: '1' }),
+      supaGet('wa_analisis', { select: 'id,creado_at,hasta,local_id,fuente,celular,contacto,archivo,resumen,datos,atencion,costo_usd,estado,error,n_mensajes', order: 'creado_at.desc', limit: '60' }),
+    ]);
+    const inf = informes[0];
+    const mes = new Date(); mes.setDate(1); mes.setHours(0, 0, 0, 0);
+    const costoMes = ana.filter(a => new Date(a.creado_at) >= mes).reduce((t, a) => t + Number(a.costo_usd || 0), 0);
+    const fmt = iso => iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
+    const fmtD = d => d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';  // fechas sin hora (no correr un día por UTC)
+    const locOpts = ['unicenter', 'alcorta', 'oficina'].map(l => `<option value="${l}"${(adminLocalFilter || '').toLowerCase() === l ? ' selected' : ''}>${l[0].toUpperCase() + l.slice(1)}</option>`).join('');
+    el.innerHTML = `
+      <div class="card"><div class="card-header"><span class="card-title">📤 Subir chats exportados del celular</span></div>
+        <div style="padding:14px 16px">
+          <div class="chats-help">Sirve para analizar las charlas que ya están en el WhatsApp del local. Se exporta de a un chat:
+            <ul><li><b>Android:</b> abrir el chat › ⋮ › Más › Exportar chat › <b>Sin archivos</b> (sale un .txt).</li>
+            <li><b>iPhone:</b> abrir el chat › tocar el nombre del contacto › Exportar chat › <b>Sin archivos</b> (sale un .zip; se sube tal cual).</li></ul>
+            Mandátelos por mail o Drive a esta PC y subilos acá, varios a la vez. Cada chat cuesta menos de 1 centavo de dólar.</div>
+          <div class="chats-row">
+            <select id="chats-local">${locOpts}</select>
+            <input type="file" id="chats-archivos" accept=".txt,.zip" multiple>
+            <button class="export-btn export-btn-sm" onclick="subirChatsExportados()">Analizar</button>
+          </div>
+          <div class="chats-log" id="chats-subida-log"></div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-title">📋 Informe mensual ${inf ? `· ${fmtD(inf.desde)} al ${fmtD(inf.hasta)}` : ''}</span>
+          <button class="export-btn export-btn-sm" id="btn-informe" onclick="generarInformeAhora()" title="Arma el informe del mes en curso, del 1 a hoy (≈ 2 centavos de dólar)">Generar ahora</button></div>
+        <div style="padding:6px 16px 14px" class="inf-body">${inf ? _infHtml(inf.texto) + `<div style="font-size:11px;color:var(--muted);margin-top:10px">${inf.metricas && inf.metricas.conversaciones != null ? inf.metricas.conversaciones + ' conversaciones · ' : ''}se arma solo el día 1 de cada mes, con el mes anterior</div>` : '<div style="color:var(--muted);padding:8px 0">Todavía no hay informes. Se arma solo el día 1 de cada mes con el mes anterior, o tocá "Generar ahora" para ver el mes en curso.</div>'}</div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-title">🗂 Conversaciones analizadas (${ana.length})</span><span style="font-size:11px;color:var(--muted)">IA este mes: US$ ${costoMes.toFixed(3)}</span></div>
+        ${ana.length ? ana.map(a => {
+          const d = a.datos || {}, nota = d.calidad && d.calidad.nota;
+          if (a.estado !== 'ok') return `<div class="ana-item"><div class="ana-top">${fmt(a.creado_at)} · ${escHtml(a.local_id || '')} · <span class="ana-chip neg">${a.estado === 'error' ? 'error' : 'vacía'}</span></div><div class="ana-res">${escHtml(a.error || 'Sin mensajes del cliente')}</div></div>`;
+          const quien = a.contacto || (a.celular ? '+' + a.celular : '');
+          const lista = (t, arr) => arr && arr.length ? `<div class="lbl" style="margin-top:6px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase">${t}</div><div>${arr.map(x => `<span class="wa-tag">${escHtml(x)}</span>`).join('')}</div>` : '';
+          return `<div class="ana-item" onclick="this.classList.toggle('abierto')">
+            <div class="ana-top">${fmt(a.hasta || a.creado_at)} · ${escHtml(a.local_id || '')} · ${escHtml(quien)}
+              <span class="ana-chip">${a.fuente === 'export' ? 'exportado' : 'API'}</span>
+              ${d.intencion ? `<span class="ana-chip">${escHtml(_ANA_TXT[d.intencion] || d.intencion)}</span>` : ''}
+              ${d.resultado ? `<span class="ana-chip">${escHtml(_ANA_TXT[d.resultado] || d.resultado)}</span>` : ''}
+              ${d.sentimiento && d.sentimiento !== 'neutro' ? `<span class="ana-chip ${d.sentimiento === 'negativo' ? 'neg' : 'pos'}">${d.sentimiento}</span>` : ''}
+              ${nota ? `<span class="ana-chip" title="Nota de la atención (1 a 5)">${'★'.repeat(nota)}${'☆'.repeat(5 - nota)}</span>` : ''}
+            </div>
+            <div class="ana-res">${escHtml(a.resumen || '')}</div>
+            <div class="ana-det">
+              ${lista('Le gusta', d.preferencias)}
+              ${lista('Productos', (d.productos || []).map(p => p.descripcion + (p.hay_stock === 'no' ? ' · sin stock' : '')))}
+              ${lista('Fechas', (d.fechas || []).map(f => (/^\d{4}-\d{2}-\d{2}$/.test(f.fecha || '') ? fmtD(f.fecha).slice(0, 5) + ' ' : (f.fecha ? f.fecha + ' ' : '')) + f.motivo))}
+              ${lista('Preguntas sin responder', d.preguntas_sin_respuesta)}
+              ${d.queja ? `<div class="wa-res"><b>Queja:</b> ${escHtml(d.queja)}</div>` : ''}
+              ${d.motivo ? `<div class="wa-res"><b>Motivo:</b> ${escHtml(d.motivo)}</div>` : ''}
+              ${d.calidad && d.calidad.comentario ? `<div class="wa-res"><b>Atención:</b> ${escHtml(d.calidad.comentario)}</div>` : ''}
+              <div class="wa-res" style="opacity:.6">${a.n_mensajes} mensajes · US$ ${Number(a.costo_usd || 0).toFixed(4)}${a.archivo ? ' · ' + escHtml(a.archivo) : ''}</div>
+            </div>
+          </div>`;
+        }).join('') : '<div style="padding:14px 16px;color:var(--muted)">Todavía no hay conversaciones analizadas. Las de los números del local se analizan solas cuando la charla queda quieta 6 horas.</div>'}
+      </div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="empty"><p>No se pudo cargar: ${escHtml(e.message)}</p></div>`;
+  }
+}
+async function subirChatsExportados() {
+  const local = document.getElementById('chats-local').value;
+  const files = [...(document.getElementById('chats-archivos').files || [])];
+  if (!files.length) { toast('Elegí uno o más archivos (.txt o .zip)'); return; }
+  const log = document.getElementById('chats-subida-log');
+  log.innerHTML = '';
+  let ok = 0;
+  for (const f of files) {
+    const linea = document.createElement('div');
+    linea.textContent = '⏳ ' + f.name;
+    log.appendChild(linea);
+    try {
+      let texto;
+      if (/\.zip$/i.test(f.name)) {
+        const JSZip = await cargarJSZip();
+        const zip = await JSZip.loadAsync(f);
+        const entry = Object.values(zip.files).find(z => !z.dir && /\.txt$/i.test(z.name));
+        if (!entry) throw new Error('el .zip no trae el chat (.txt)');
+        texto = await entry.async('string');
+      } else {
+        texto = await f.text();
+      }
+      if (texto.length > 300000) texto = texto.slice(-300000);  // los últimos ~300 KB alcanzan
+      const r = await _waAnalizarFetch({ modo: 'export', local_id: local, archivo: f.name, texto });
+      const sug = r.sugerencia && r.sugerencia.accion ? ` · 🪪 ${r.sugerencia.accion === 'alta' ? 'cliente nuevo para confirmar en Alertas' : 'datos para completar en Alertas'}` : '';
+      linea.innerHTML = `✔ <b>${escHtml(r.contacto || f.name)}</b>: ${escHtml(r.resumen || '')}${sug}`;
+      ok++;
+    } catch (e) {
+      linea.innerHTML = `❌ ${escHtml(f.name)}: ${escHtml(e.message)}`;
+    }
+  }
+  toast(`${ok} de ${files.length} chats analizados`);
+  await loadSugerenciasCliente(); renderAlertas(); updateAlertBadge();
+  const keep = log.innerHTML;
+  await loadChatsAdmin();
+  const nuevo = document.getElementById('chats-subida-log');
+  if (nuevo) nuevo.innerHTML = keep;
+}
+async function generarInformeAhora() {
+  const b = document.getElementById('btn-informe');
+  if (b) { b.disabled = true; b.textContent = 'Armando…'; }
+  try {
+    const r = await _waAnalizarFetch({ modo: 'informe', mes: 'actual' });
+    toast(`Informe listo (${r.conversaciones} conversaciones)`);
+    await loadChatsAdmin();
+  } catch (e) {
+    toast('❌ ' + e.message);
+    if (b) { b.disabled = false; b.textContent = 'Generar ahora'; }
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -4045,6 +4384,8 @@ function setAdminView(v) {
   document.getElementById('admin-view-cumple').classList.toggle('hidden', v !== 'cumple');
   document.getElementById('admin-view-metricas').classList.toggle('hidden', v !== 'metricas');
   document.getElementById('admin-view-bot').classList.toggle('hidden', v !== 'bot');
+  document.getElementById('admin-view-chats').classList.toggle('hidden', v !== 'chats');
+  if (v === 'chats') loadChatsAdmin();
   if (v === 'metricas') loadMetricas();
   if (v === 'bot') loadBotConfig();
   if (v === 'clientes' && clientesCache.length === 0) {
@@ -4819,7 +5160,17 @@ async function openClienteDetail(globalid) {
       });
     }
 
-    clienteDetailCache = { c, compras, pedidosCrm };
+    // (27-oct-2026) Lo que se sabe por los chats de WhatsApp analizados (RLS: solo los del local, o todos si es admin)
+    let waAnalisis = [];
+    try {
+      const ors = [`cliente_globalid.eq."${c.globalid}"`];
+      if (c.dni) ors.push(`cliente_dni.eq."${c.dni}"`);
+      const cel10 = String(c.celular || '').replace(/\D/g, '').slice(-10);
+      if (cel10.length === 10) ors.push(`celular.like.*${cel10}`);
+      waAnalisis = await supaGet('wa_analisis', { select: 'id,creado_at,hasta,local_id,fuente,resumen,datos', estado: 'eq.ok', or: '(' + ors.join(',') + ')', order: 'creado_at.desc', limit: '20' });
+    } catch (_) { waAnalisis = []; }
+
+    clienteDetailCache = { c, compras, pedidosCrm, waAnalisis };
     renderClienteDetail();
   } catch(e) {
     content.innerHTML = `<div class="empty" style="padding:60px"><div class="icon">❌</div><p>Error: ${escHtml(e.message)}</p></div>`;
@@ -4875,7 +5226,7 @@ function clienteMailUrl(email, nombre_completo) {
 }
 
 function renderClienteDetail() {
-  const { c, compras, pedidosCrm } = clienteDetailCache;
+  const { c, compras, pedidosCrm, waAnalisis } = clienteDetailCache;
 
   const timeline = [];
   compras.forEach(co => timeline.push({
@@ -4932,6 +5283,7 @@ function renderClienteDetail() {
       ${c.primera_compra_fecha ? `<div class="cliente-info-row"><span class="label">🛒 1ra compra</span><span>${formatDate(c.primera_compra_fecha).split(' ')[0]}</span></div>` : ''}
       ${c.ultima_compra_fecha ? `<div class="cliente-info-row"><span class="label">🛒 Última</span><span>${formatDate(c.ultima_compra_fecha).split(' ')[0]}</span></div>` : ''}
       ${c.observaciones ? `<div class="cliente-info-row"><span class="label">📝 Obs.</span><span>${escHtml(c.observaciones)}</span></div>` : ''}
+      ${renderWaSabemos(waAnalisis)}
 
       <div class="cliente-section-title">Historial (${timeline.length} eventos — ${compras.length} compras + ${pedidosCrm.length} pedidos CRM)</div>
       ${timeline.length === 0 ? '<div class="timeline-empty">Sin actividad registrada</div>' :
@@ -5448,7 +5800,7 @@ function renderAdmin() {
   if (adminView === 'metricas' && metricasCache) renderMetricas();
   // Cargar cache de logs en background y re-renderear el ranking cuando lleguen
   if (!window._pedidosLogCache) {
-    _refreshPedidosLogCache().then(() => { if (currentTab === 'admin') renderAdmin(); });
+    _refreshPedidosLogCache().then(() => { if ((document.querySelector('.tab-panel.active') || {}).id === 'panel-admin') renderAdmin(); });  // (27-oct) antes usaba una variable inexistente
   }
   const tabs = document.getElementById('admin-local-tabs');
   const localIds = ['todos', ...Object.keys(LOCALES)];
@@ -6329,6 +6681,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=20"></script>
+<script src="manual.js?v=21"></script>
 </body>
 </html>
