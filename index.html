@@ -3197,7 +3197,7 @@ async function detectarClienteExistente() {
 
   try {
     const matches = await supaGet('clientes', {
-      select: 'globalid,nombre_completo,celular,dni,cuit,email,fecha_nacimiento,total_compras,cantidad_compras,ticket_promedio,sucursal_favorita,ultima_compra_fecha,tags',
+      select: 'globalid,nombre_completo,celular,telefono,dni,cuit,email,fecha_nacimiento,total_compras,cantidad_compras,ticket_promedio,sucursal_favorita,ultima_compra_fecha,tags',
       or: '(' + filters.join(',') + ')',
       order: 'total_compras.desc.nullslast',
       limit: '1',
@@ -3210,9 +3210,60 @@ async function detectarClienteExistente() {
     } else {
       hideClienteDetectado();
     }
+    // (28-oct-2026) La ficha casi nunca trae celular: se completa con el del último pedido de ese cliente
+    await completarContactoCliente((matches[0] && matches[0].dni) || dni, cel, !!matches.length, thisToken);
   } catch(e) {
     console.warn('detectarClienteExistente error:', e);
   }
+}
+
+// (28-oct-2026, pedido de JP: "cuando cargo un pedido nuevo y el cliente ya existe, no me trae su número")
+// La ficha `clientes` viene del Dragon y casi nunca tiene celular; el que cargó la vendedora queda en `pedidos`, que
+// cada local solo ve los suyos. crm_cliente_contacto devuelve solo el contacto del último pedido de ese DNI o celular
+// (de cualquier local). Solo completa campos vacíos: nunca pisa lo que la vendedora escribió.
+function _telComoCelular(t) {
+  let d = String(t || '').replace(/\D/g, '');
+  if (d.startsWith('54')) d = d.slice(2);
+  if (d.startsWith('9') && d.length === 11) d = d.slice(1);
+  if (d.startsWith('0')) d = d.slice(1);
+  const m = d.match(/^(\d{2,4})15(\d{6,8})$/);
+  if (m && (m[1] + m[2]).length === 10) d = m[1] + m[2];
+  return d.length === 10 ? d : '';   // los fijos de 8 dígitos no sirven para WhatsApp
+}
+async function completarContactoCliente(dni, cel, hayFicha, token) {
+  const val = (id) => ((document.getElementById(id) || {}).value || '').trim();
+  const setIfEmpty = (id, v) => { const el = document.getElementById(id); if (el && v && !el.value.trim()) { el.value = v; return true; } return false; };
+  const d = String(dni || '').replace(/\D/g, ''), c = String(cel || '').replace(/\D/g, '');
+  let porDni = d.length >= 7 && !val('f-celular');              // falta el celular: buscarlo por DNI
+  const porCel = !porDni && !val('f-dni') && c.length >= 10;      // escribió el celular: traer DNI y nombre
+  if (!porDni && !porCel) return;
+  // Primero la propia ficha: a veces el celular está cargado como "teléfono"
+  if (porDni && hayFicha && clienteDetectado && setIfEmpty('f-celular', _telComoCelular(clienteDetectado.telefono))) return;
+  let r = null;
+  try {
+    const rows = await _rpcBot('crm_cliente_contacto', porDni ? { p_dni: d } : { p_cel: c });
+    r = Array.isArray(rows) ? rows[0] : rows;
+  } catch (e) { console.warn('crm_cliente_contacto:', e); return; }
+  if (!r || detectClienteToken !== token) return;
+  const completados = [];
+  if (porDni && setIfEmpty('f-celular', r.celular)) completados.push('celular');
+  if (!hayFicha) {
+    // Cliente que todavía no está en la ficha (solo pedidos anteriores): también nombre, DNI, mail y cumpleaños
+    const nom = String(r.nombre_cliente || '').trim();
+    let n = '', a = '';
+    if (nom.includes(',')) { const pp = nom.split(',').map(x => x.trim()); a = pp[0] || ''; n = pp.slice(1).join(' '); }
+    else { const tk = nom.split(/\s+/); n = tk[0] || ''; a = tk.slice(1).join(' '); }
+    if (setIfEmpty('f-nombre', n)) completados.push('nombre');
+    setIfEmpty('f-apellido', a);
+    if (porCel && setIfEmpty('f-dni', String(r.dni || '').replace(/\D/g, '').length >= 7 ? r.dni : '')) completados.push('DNI');
+    if (r.fecha_nacimiento) setIfEmpty('f-fnac', r.fecha_nacimiento);
+  }
+  if (setIfEmpty('f-email', r.email)) completados.push('mail');
+  if (!completados.length) return;
+  const cuando = r.creado_at ? new Date(r.creado_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) : '';
+  toast(`📱 ${completados.join(', ')} del pedido anterior${cuando ? ' (' + cuando + ')' : ''}`);
+  // Si con el celular apareció el DNI, buscar la ficha del cliente para mostrar su resumen
+  if (porCel && completados.includes('DNI')) detectarClienteExistente();
 }
 
 function renderClienteDetectado(c) {
@@ -3273,6 +3324,7 @@ function autocompletarCliente(c) {
   setVal('f-nombre', primerNombre);
   setVal('f-apellido', apellido);
   if (c.celular) setVal('f-celular', c.celular);
+  else { const tc = _telComoCelular(c.telefono); const fc = document.getElementById('f-celular'); if (tc && fc && !fc.value.trim()) fc.value = tc; }
   if (c.email)   setVal('f-email', c.email);
   if (c.fecha_nacimiento) setVal('f-fnac', c.fecha_nacimiento);
   if (c.dni) setVal('f-dni', c.dni);
