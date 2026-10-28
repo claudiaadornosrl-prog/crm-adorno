@@ -3390,6 +3390,21 @@ setTimeout(aplicarKioscoLocal, 0);
 // ═══════════════════════════════════════════════════════
 //  Submit pedido  (multi-SKU: one pedido per line)
 // ═══════════════════════════════════════════════════════
+// (28-oct-2026, pedido de JP) Nombre o apellido "de relleno": el pedido 1802 entró al Dragon como "Jjjj, Mariela".
+// Mismo criterio que crm_nombre_de_relleno() en Supabase (que además saca esas altas de la cola del Dragon):
+// solo símbolos o números, una inicial sola, una letra repetida ("JJJJ", "m m"), tres letras iguales seguidas en una
+// palabra ("Ferrrari": error de tipeo) o palabras de "no sé" (xxx, asd, sin apellido, prueba, nn...).
+function nombreDeRelleno(t) {
+  const txt = String(t || '').trim().toLowerCase();
+  if (!txt) return false;
+  const l = txt.replace(/[^a-záéíóúüñ]/g, ''), w = txt.replace(/[^a-záéíóúüñ ]/g, '');
+  if (!l || l.length === 1) return true;
+  if (/^(.)\1+$/.test(l)) return true;
+  if (/([a-záéíóúüñ])\1\1/.test(w)) return true;
+  return ['sinapellido','sinnombre','sa','sn','na','nn','xxx','asd','asdf','asdasd','qwe','qwerty','test','prueba',
+          'notiene','nosabe','nose','ns','apellido','nombre','cliente','clienta','desconocido','ninguno'].includes(l);
+}
+
 async function submitPedido() {
   const vendedora         = document.getElementById('f-vendedora').value.trim();
   const primerNombreInput = document.getElementById('f-nombre').value.trim();
@@ -3401,6 +3416,9 @@ async function submitPedido() {
   if (!vendedora)         { toast('⚠️ Falta el nombre de la vendedora'); return; }
   if (!primerNombreInput) { toast('⚠️ Falta el nombre del cliente'); return; }
   if (!apellidoInput)     { toast('⚠️ Falta el apellido del cliente'); return; }
+  // (28-oct-2026, JP) Nada de nombres de relleno ("JJJJ", "xxx", "-"): van a la ficha y al Dragon
+  if (nombreDeRelleno(primerNombreInput)) { toast('⚠️ El nombre parece de relleno: escribí el nombre real del cliente'); document.getElementById('f-nombre').focus(); return; }
+  if (nombreDeRelleno(apellidoInput))     { toast('⚠️ El apellido parece de relleno o mal escrito: escribí el apellido real (preguntáselo al cliente)'); document.getElementById('f-apellido').focus(); return; }
   if (!dni)     { toast('⚠️ Falta el DNI del cliente'); return; }
   if (!celular) { toast('⚠️ Falta el celular'); return; }
   const nombre = primerNombreInput + ' ' + apellidoInput;
@@ -4423,6 +4441,7 @@ async function guardarSugerencia() {
   const v = id => document.getElementById(id).value.trim();
   const datos = { nombre: v('sug-nombre'), apellido: v('sug-apellido'), dni: v('sug-dni').replace(/\D/g, ''), fecha_nacimiento: v('sug-fnac'), email: v('sug-email').toLowerCase(), celular: v('sug-cel').replace(/\D/g, '') };
   if (datos.dni.length < 7 || datos.dni.length > 8) { toast('⚠ El DNI tiene que tener 7 u 8 números'); return; }
+  if (nombreDeRelleno(datos.nombre) || nombreDeRelleno(datos.apellido)) { toast('⚠ El nombre o el apellido parece de relleno: escribí el real'); return; }
   const btn = document.getElementById('sug-guardar');
   btn.disabled = true;
   try {
