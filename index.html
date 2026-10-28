@@ -784,6 +784,17 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 
 /* ═══ Admin View Tabs (Resumen / Clientes) ═══ */
 .admin-view-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+/* (28-oct-2026) Admin › Números de WhatsApp */
+.num-intro { font-size: 13px; color: var(--text-muted, #6b7280); margin: 0 2px 12px; line-height: 1.45; }
+.num-card { background: white; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(30,41,90,.12); }
+.num-card .num-tit { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-weight: 700; font-size: 15px; }
+.num-card .num-tel { font-weight: 400; font-size: 13px; color: var(--text-muted, #6b7280); }
+.num-card .num-fila { font-size: 13px; margin-top: 6px; line-height: 1.4; }
+.num-card .num-ok { color: #15803d; }
+.num-card .num-aviso { background: #fff7e6; border: 1px solid #f5d9a8; border-radius: 10px; padding: 9px 11px; margin-top: 10px; font-size: 13px; line-height: 1.4; }
+.num-card .num-btn { margin-top: 10px; width: 100%; }
+.num-explica { font-size: 14px; margin-bottom: 12px; line-height: 1.45; }
+.num-nota { font-size: 12px; color: var(--text-muted, #6b7280); margin: 8px 0 14px; line-height: 1.4; }
 .admin-vtab-btn { padding: 7px 16px; border-radius: 18px; border: 1.5px solid var(--border); background: white; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
 .admin-vtab-btn.active { border-color: var(--accent); background: var(--accent); color: white; }
 
@@ -1526,9 +1537,13 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
         <button class="admin-vtab-btn" data-view="metricas" onclick="setAdminView('metricas')">⏱ Métricas</button>
         <button class="admin-vtab-btn" data-view="bot" onclick="setAdminView('bot')">🤖 Bot WhatsApp</button>
         <button class="admin-vtab-btn" data-view="chats" onclick="setAdminView('chats')">💬 Chats</button>
+        <button class="admin-vtab-btn" data-view="numeros" onclick="setAdminView('numeros')">📱 Números</button>
       </div>
       <div id="admin-view-chats" class="hidden">
         <div id="chats-view"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+      </div>
+      <div id="admin-view-numeros" class="hidden">
+        <div id="numeros-view"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
       </div>
       <div id="admin-view-bot" class="hidden">
         <div id="bot-config"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
@@ -1677,6 +1692,21 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
       </div>
       <div id="sug-evidencia" class="sug-evidencia"></div>
       <button class="btn-primary" id="sug-guardar" onclick="guardarSugerencia()">Confirmar y cargar</button>
+    </div>
+  </div>
+</div>
+<!-- (28-oct-2026) Admin › Números: registrar el número con el PIN para aplicar el nombre que aprobó Meta -->
+<div id="num-modal" style="display:none; position:fixed; inset:0; z-index:1100; background:rgba(0,0,0,0.5); padding:20px; overflow-y:auto;">
+  <div style="background:white; border-radius:16px; max-width:420px; margin:40px auto 0; overflow:hidden;">
+    <div style="background:var(--accent); color:white; padding:16px 18px; display:flex; align-items:center; justify-content:space-between;">
+      <span style="font-size:16px; font-weight:700;">Aplicar el nombre nuevo</span>
+      <button class="hdr-ico" onclick="cerrarNumModal()" title="Cerrar" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div style="padding:18px 20px 20px;">
+      <div id="num-explica" class="num-explica"></div>
+      <div class="field"><label>PIN de 6 números</label><input type="password" id="num-pin" inputmode="numeric" maxlength="6" autocomplete="off" data-no-upper placeholder="••••••" onkeydown="if(event.key==='Enter')registrarNumero()"></div>
+      <div class="num-nota">Es el PIN de la verificación en dos pasos del número. Si nunca se puso uno (o nadie lo sabe), el que escribas queda como PIN nuevo: anotalo en un lugar seguro, Meta lo pide cada vez que se cambia el nombre.</div>
+      <button class="btn-primary" id="num-registrar" onclick="registrarNumero()">Registrar y aplicar el nombre</button>
     </div>
   </div>
 </div>
@@ -4394,6 +4424,93 @@ function _infHtml(texto) {
   if (enLista) out.push('</ul>');
   return out.join('');
 }
+// ── Admin › 📱 Números (28-oct-2026) ──
+// Cómo ve el cliente cada número de WhatsApp del sistema (wa_cuentas) según Meta. Cuando Meta aprueba un nombre nuevo
+// ("Claudia Adorno Unicenter"), recién se aplica al registrar otra vez el número con el PIN de dos pasos (hay 14 días).
+// El PIN lo escribe el admin acá y va directo a la función wa-numeros → Meta; no se guarda en ningún lado.
+const _NUM_LOCAL = { unicenter: 'Unicenter', alcorta: 'Alcorta', oficina: 'Oficina' };
+const _NUM_EST = { APPROVED: 'aprobado', PENDING_REVIEW: 'en revisión de Meta', DECLINED: 'rechazado por Meta', EXPIRED: 'vencido', AVAILABLE_WITHOUT_REVIEW: 'disponible' };
+let numerosCache = [];
+let numAbierto = null;
+async function _waNumerosFetch(body) {
+  await _ensureFreshToken();
+  const r = await fetch(`${SUPA_URL}/functions/v1/wa-numeros`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+async function loadNumerosAdmin() {
+  const el = document.getElementById('numeros-view');
+  if (!el) return;
+  el.innerHTML = '<div class="loading"><span class="spinner"></span> Consultando a Meta...</div>';
+  try {
+    const { numeros } = await _waNumerosFetch({ accion: 'estado' });
+    numerosCache = numeros || [];
+    el.innerHTML = `<div class="num-intro">Así ve el cliente cada número de WhatsApp del sistema. Cuando Meta aprueba un nombre nuevo, se aplica registrando el número con su PIN (hay 14 días desde la aprobación).</div>`
+      + (numerosCache.length ? numerosCache.map(renderNumeroCard).join('') : '<div class="empty-state">No hay números cargados.</div>');
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state">No se pudo consultar a Meta: ${escHtml(e.message)}</div>`;
+  }
+}
+function renderNumeroCard(n) {
+  const local = _NUM_LOCAL[n.local_id] || n.local_id;
+  const filas = [];
+  if (n.error) filas.push(`<div class="num-fila">⚠ ${escHtml(n.error)}</div>`);
+  filas.push(`<div class="num-fila">Nombre que ve el cliente: <b>${escHtml(n.nombre || '—')}</b></div>`);
+  if (n.nombre_nuevo && n.nombre_nuevo !== n.nombre) {
+    filas.push(`<div class="num-fila">Nombre nuevo: <b>${escHtml(n.nombre_nuevo)}</b> · ${escHtml(_NUM_EST[n.nombre_nuevo_estado] || n.nombre_nuevo_estado || '')}</div>`);
+  } else if (n.nombre) {
+    filas.push(`<div class="num-fila num-ok">✔ Nombre al día</div>`);
+  }
+  filas.push(`<div class="num-fila">Estado: ${n.estado === 'CONNECTED' ? 'conectado' : escHtml((n.estado || '—').toLowerCase())}${n.activa ? '' : ' · avisos del CRM apagados'}</div>`);
+  let accion = '';
+  if (n.falta_registrar) {
+    accion = `<div class="num-aviso">Meta ya aprobó <b>${escHtml(n.nombre_nuevo)}</b>, pero el cliente sigue viendo <b>${escHtml(n.nombre)}</b> hasta registrar el número con su PIN.</div>
+      <button class="btn-primary num-btn" onclick="abrirNumModal('${escHtml(n.local_id)}')">Aplicar el nombre nuevo</button>`;
+  }
+  return `<div class="num-card"><div class="num-tit"><span>${escHtml(local)}</span><span class="num-tel">${escHtml(n.numero || '')}</span></div>${filas.join('')}${accion}</div>`;
+}
+function abrirNumModal(localId) {
+  const n = numerosCache.find(x => x.local_id === localId);
+  if (!n) return;
+  numAbierto = n;
+  document.getElementById('num-explica').innerHTML = `Número de <b>${escHtml(_NUM_LOCAL[n.local_id] || n.local_id)}</b> (${escHtml(n.numero || '')}): pasa de <b>${escHtml(n.nombre)}</b> a <b>${escHtml(n.nombre_nuevo)}</b>.`;
+  const pin = document.getElementById('num-pin');
+  pin.value = '';
+  document.getElementById('num-registrar').disabled = false;
+  document.getElementById('num-modal').style.display = 'block';
+  setTimeout(() => pin.focus(), 50);
+}
+function cerrarNumModal() {
+  document.getElementById('num-modal').style.display = 'none';
+  document.getElementById('num-pin').value = '';
+  numAbierto = null;
+}
+async function registrarNumero() {
+  if (!numAbierto) return;
+  const inp = document.getElementById('num-pin');
+  const pin = (inp.value || '').trim();
+  if (!/^\d{6}$/.test(pin)) { toast('El PIN tiene que ser de 6 números'); inp.focus(); return; }
+  const btn = document.getElementById('num-registrar');
+  btn.disabled = true; btn.textContent = 'Registrando...';
+  try {
+    const j = await _waNumerosFetch({ accion: 'registrar', local_id: numAbierto.local_id, pin });
+    const nombre = numAbierto.nombre_nuevo;
+    cerrarNumModal();
+    toast(`Listo: el número queda como "${nombre}"${j.pin_reemplazado ? ' (y con el PIN nuevo)' : ''}. Puede tardar unos minutos en verse.`);
+    loadNumerosAdmin();
+  } catch (e) {
+    toast('No se pudo registrar: ' + e.message);
+  } finally {
+    inp.value = '';
+    btn.disabled = false; btn.textContent = 'Registrar y aplicar el nombre';
+  }
+}
+
 async function loadChatsAdmin() {
   const el = document.getElementById('chats-view');
   if (!el) return;
@@ -4531,7 +4648,9 @@ function setAdminView(v) {
   document.getElementById('admin-view-metricas').classList.toggle('hidden', v !== 'metricas');
   document.getElementById('admin-view-bot').classList.toggle('hidden', v !== 'bot');
   document.getElementById('admin-view-chats').classList.toggle('hidden', v !== 'chats');
+  document.getElementById('admin-view-numeros').classList.toggle('hidden', v !== 'numeros');
   if (v === 'chats') loadChatsAdmin();
+  if (v === 'numeros') loadNumerosAdmin();
   if (v === 'metricas') loadMetricas();
   if (v === 'bot') loadBotConfig();
   if (v === 'clientes' && clientesCache.length === 0) {
