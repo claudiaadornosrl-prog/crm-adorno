@@ -3741,11 +3741,8 @@ async function renderHoy() {
   // 7. Cumpleaños próximos 7 días — buscar en clientes
   let cumples = [];
   try {
-    const clientes = await supaGet('clientes', {
-      select: 'globalid,nombre_completo,celular,fecha_nacimiento,sucursal_favorita',
-      'fecha_nacimiento': 'not.is.null',
-      limit: '500',
-    });
+    // (30-oct-2026) Con los cumpleaños de la web son ~5.000: la base filtra los de los próximos 7 días
+    const clientes = await _rpcBot('crm_cumples_proximos', { p_dias: 7 }) || [];
     cumples = clientes
       .map(c => ({ ...c, dias: diasHastaCumple(c.fecha_nacimiento) }))
       .filter(c => c.dias !== null && c.dias <= 7)
@@ -4781,11 +4778,8 @@ async function loadCumpleanos() {
   list.innerHTML = '<div class="loading"><span class="spinner"></span> Cargando...</div>';
 
   try {
-    const clientes = await supaGet('clientes', {
-      select: 'globalid,nombre_completo,celular,email,fecha_nacimiento,sucursal_favorita,total_compras,cantidad_compras',
-      'fecha_nacimiento': 'not.is.null',
-      limit: '1000',
-    });
+    // (30-oct-2026) Con los cumpleaños de la web son ~5.000: la base filtra los de los próximos 60 días
+    const clientes = await _rpcBot('crm_cumples_proximos', { p_dias: 60 }) || [];
     renderCumpleanos(clientes);
   } catch(e) {
     list.innerHTML = `<div class="cumple-empty"><div class="icon">❌</div>Error: ${escHtml(e.message)}</div>`;
