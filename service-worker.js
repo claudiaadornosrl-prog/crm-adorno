@@ -3,7 +3,7 @@
 //  Estrategia: network-first para HTML/datos, cache-first para assets
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'crm-adorno-v82-cumples-web';
+const CACHE_VERSION = 'crm-adorno-v83-compras-web';
 const CACHE_ASSETS = [
   './',
   './index.html',

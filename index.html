@@ -409,6 +409,7 @@ html.dark {
 html.dark .pedido-notas { background: #423013; color: #fcd34d; border-left-color: #f59e0b; }
 html.dark .timeline-item { background: #1e2434; }
 html.dark .timeline-item.pedido { background: #2a2715; }
+html.dark .timeline-item.web { background: #132a3a; }
 html.dark .cliente-stats-row { background: #15203a; }
 html.dark input[type="text"], html.dark input[type="search"], html.dark input[type="email"], html.dark input[type="tel"], html.dark input[type="number"], html.dark input[type="date"], html.dark textarea, html.dark select { background: #15203a; color: var(--text); border-color: var(--border); }
 html.dark .demanda-row.header { background: #15203a; }
@@ -804,6 +805,12 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .timeline-item.compra.expanded::after { transform: rotate(180deg); }
 .timeline-detail { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); display: none; }
 .timeline-item.compra.expanded .timeline-detail { display: block; }
+/* (30-oct-2026) Pedidos de la tienda online en el historial */
+.timeline-item.web { cursor: pointer; border-left-color: #0ea5e9; background: #f0f9ff; }
+.timeline-item.web::after { content: "▾"; position: absolute; right: 10px; bottom: 10px; color: #0ea5e9; font-size: 12px; opacity: 0.7; transition: transform .15s; }
+.timeline-item.web.expanded::after { transform: rotate(180deg); }
+.timeline-item.web.expanded .timeline-detail { display: block; }
+.timeline-item.web.cancelado { opacity: 0.6; }
 .timeline-detail-loading { font-size: 12px; color: var(--muted); padding: 6px 0; }
 .detail-line { display: grid; grid-template-columns: 80px 1fr auto 90px; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f0f0f5; font-size: 12px; align-items: center; }
 .detail-line:last-child { border-bottom: none; }
@@ -5042,11 +5049,27 @@ async function exportClienteHistorial() {
     'Factura monto':    p.factura_monto || '',
   }));
 
+  // Hoja 5: pedidos de la tienda online (30-oct-2026)
+  const webRows = (clienteDetailCache.comprasWeb || []).map(w => ({
+    'Fecha':            formatDateForXLSX(w.fecha),
+    'Pedido web':       w.nro,
+    'Estado':           w.estado || '',
+    'Empresa':          w.empresa || '',
+    'Pago':             w.pago_metodo || '',
+    'Envío':            w.envio_sucursal || w.envio_metodo || '',
+    'Productos':        (w.items || []).map(it => `${it.codigo || ''} x${Number(it.cant || 0)}`).join(', '),
+    'Descuento':        w.descuento || '',
+    'Cupón':            w.cupon || '',
+    'Costo envío':      w.costo_envio || '',
+    'Total':            w.total || 0,
+  }));
+
   const sheets = [
     { name: 'Datos cliente', rows: datos },
     { name: 'Compras',       rows: comprasRows.length ? comprasRows : [{ '(sin compras)': '' }] },
     { name: 'Detalle items', rows: detalleRows.length ? detalleRows : [{ '(sin detalle)': '' }] },
     { name: 'Pedidos CRM',   rows: pedidosRows.length ? pedidosRows : [{ '(sin pedidos)': '' }] },
+    { name: 'Compras web',   rows: webRows.length ? webRows : [{ '(sin compras web)': '' }] },
   ];
 
   const safeName = (c.nombre_completo || c.globalid).replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 40);
@@ -5531,7 +5554,11 @@ async function openClienteDetail(globalid) {
       waAnalisis = await supaGet('wa_analisis', { select: 'id,creado_at,hasta,local_id,fuente,resumen,datos', estado: 'eq.ok', or: '(' + ors.join(',') + ')', order: 'creado_at.desc', limit: '20' });
     } catch (_) { waAnalisis = []; }
 
-    clienteDetailCache = { c, compras, pedidosCrm, waAnalisis };
+    // (30-oct-2026) Pedidos de la tienda online: solo el resumen (sin domicilio ni datos de facturación)
+    let comprasWeb = [];
+    try { comprasWeb = await _rpcBot('crm_cliente_compras_web', { p_globalid: c.globalid }) || []; } catch (_) { comprasWeb = []; }
+
+    clienteDetailCache = { c, compras, pedidosCrm, waAnalisis, comprasWeb };
     renderClienteDetail();
   } catch(e) {
     content.innerHTML = `<div class="empty" style="padding:60px"><div class="icon">❌</div><p>Error: ${escHtml(e.message)}</p></div>`;
@@ -5588,6 +5615,8 @@ function clienteMailUrl(email, nombre_completo) {
 
 function renderClienteDetail() {
   const { c, compras, pedidosCrm, waAnalisis } = clienteDetailCache;
+  const comprasWeb = clienteDetailCache.comprasWeb || [];
+  const webOk = comprasWeb.filter(w => w.estado !== 'Cancelado');
 
   const timeline = [];
   compras.forEach(co => timeline.push({
@@ -5604,6 +5633,16 @@ function renderClienteDetail() {
     title: `Pedido [${escHtml(p.estado || '')}]${p.compra_id ? ' ✓ VENDIDO' : ''} · ${escHtml(p.descripcion_sku || p.sku || 'sin SKU')}`,
     desc: `${p.local_id || ''} · ${escHtml(p.motivo || '')} · vendedora ${escHtml(p.vendedora || '—')}${p.notas ? ' · ' + escHtml(p.notas) : ''}`,
     monto: p.compra_id ? p.factura_monto : null,
+  }));
+  comprasWeb.forEach(w => timeline.push({
+    fecha: w.fecha,
+    tipo: 'web',
+    webNro: w.nro,
+    cancelado: w.estado === 'Cancelado',
+    title: `Pedido web #${w.nro}${w.estado && w.estado !== 'Terminado' ? ' [' + escHtml(w.estado) + ']' : ''}`,
+    desc: [w.empresa, w.pago_metodo, w.envio_sucursal || w.envio_metodo, `${(w.items || []).length} ítem${(w.items || []).length === 1 ? '' : 's'}`, w.cupon ? 'cupón ' + w.cupon : '']
+      .filter(Boolean).map(escHtml).join(' · '),
+    monto: w.total,
   }));
   timeline.sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
 
@@ -5643,21 +5682,23 @@ function renderClienteDetail() {
       ${c.fecha_alta ? `<div class="cliente-info-row"><span class="label">📅 Alta</span><span>${formatDate(c.fecha_alta).split(' ')[0]}</span></div>` : ''}
       ${c.primera_compra_fecha ? `<div class="cliente-info-row"><span class="label">🛒 1ra compra</span><span>${formatDate(c.primera_compra_fecha).split(' ')[0]}</span></div>` : ''}
       ${c.ultima_compra_fecha ? `<div class="cliente-info-row"><span class="label">🛒 Última</span><span>${formatDate(c.ultima_compra_fecha).split(' ')[0]}</span></div>` : ''}
+      ${webOk.length ? `<div class="cliente-info-row"><span class="label">🌐 Tienda web</span><span>${webOk.length} compra${webOk.length === 1 ? '' : 's'} · ${fmtCurrency(webOk.reduce((s, w) => s + Number(w.total || 0), 0))} · última ${formatDate(webOk[0].fecha).split(' ')[0]}</span></div>` : ''}
       ${c.observaciones ? `<div class="cliente-info-row"><span class="label">📝 Obs.</span><span>${escHtml(c.observaciones)}</span></div>` : ''}
       ${renderWaSabemos(waAnalisis)}
 
-      <div class="cliente-section-title">Historial (${timeline.length} eventos — ${compras.length} compras + ${pedidosCrm.length} pedidos CRM)</div>
+      <div class="cliente-section-title">Historial (${timeline.length} eventos — ${compras.length} compras + ${pedidosCrm.length} pedidos CRM${comprasWeb.length ? ' + ' + comprasWeb.length + ' web' : ''})</div>
       ${timeline.length === 0 ? '<div class="timeline-empty">Sin actividad registrada</div>' :
         timeline.map(t => {
           const isCompra = t.tipo === 'compra';
-          const compraIdAttr = isCompra ? `data-compra-id="${escHtml(t.compraId || '')}"` : '';
-          const onclick = isCompra ? `onclick="toggleCompraDetail('${escHtml(t.compraId || '')}', event)"` : '';
-          return `<div class="timeline-item ${t.tipo}" ${compraIdAttr} ${onclick}>
-            ${t.monto !== null ? `<span class="timeline-amount">${fmtCurrency(t.monto)}</span>` : ''}
+          const isWeb = t.tipo === 'web';
+          const compraIdAttr = isCompra ? `data-compra-id="${escHtml(t.compraId || '')}"` : (isWeb ? `data-web-nro="${Number(t.webNro)}"` : '');
+          const onclick = isCompra ? `onclick="toggleCompraDetail('${escHtml(t.compraId || '')}', event)"` : (isWeb ? `onclick="toggleWebDetail(${Number(t.webNro)}, event)"` : '');
+          return `<div class="timeline-item ${t.tipo}${t.cancelado ? ' cancelado' : ''}" ${compraIdAttr} ${onclick}>
+            ${t.monto !== null && t.monto !== undefined ? `<span class="timeline-amount">${fmtCurrency(t.monto)}</span>` : ''}
             <div class="timeline-fecha">${formatDate(t.fecha).split(' ')[0]}</div>
-            <div class="timeline-title">${isCompra ? '🛒' : '📋'} ${t.title}</div>
+            <div class="timeline-title">${isCompra ? '🛒' : (isWeb ? '🌐' : '📋')} ${t.title}</div>
             <div class="timeline-desc">${t.desc}</div>
-            ${isCompra ? '<div class="timeline-detail"></div>' : ''}
+            ${isCompra || isWeb ? '<div class="timeline-detail"></div>' : ''}
           </div>`;
         }).join('')}
     </div>
@@ -5707,6 +5748,28 @@ async function toggleCompraDetail(compraId, ev) {
     <span class="detail-cant"><strong>${Number(it.cantidad || 0)}</strong> u</span>
     <span class="detail-monto">${fmtCurrency(it.monto_total)}</span>
   </div>`).join('');
+}
+
+// (30-oct-2026) Detalle de un pedido de la tienda online: los renglones ya vienen con la ficha (no hay que ir a buscarlos)
+function toggleWebDetail(nro, ev) {
+  if (ev) ev.stopPropagation();
+  const item = document.querySelector(`.timeline-item[data-web-nro="${nro}"]`);
+  if (!item) return;
+  const detailDiv = item.querySelector('.timeline-detail');
+  if (!item.classList.toggle('expanded') || !detailDiv) return;
+  const w = ((clienteDetailCache && clienteDetailCache.comprasWeb) || []).find(x => Number(x.nro) === Number(nro));
+  const items = (w && w.items) || [];
+  const extra = [];
+  if (w && w.descuento) extra.push(`Descuento ${fmtCurrency(w.descuento)}${w.cupon ? ' (' + w.cupon + ')' : ''}`);
+  if (w && w.costo_envio) extra.push(`Envío ${fmtCurrency(w.costo_envio)}`);
+  if (w && /^s[ií]/i.test(w.es_regalo || '')) extra.push('🎁 ' + w.es_regalo);
+  detailDiv.innerHTML = (items.length ? items.map(it => `<div class="detail-line">
+    <span class="detail-sku">${escHtml(it.codigo || '—')}</span>
+    <span class="detail-desc" title="${escHtml(it.desc || '')}">${escHtml(it.desc || '—')}</span>
+    <span class="detail-cant"><strong>${Number(it.cant || 0)}</strong> u</span>
+    <span class="detail-monto">${fmtCurrency(it.total)}</span>
+  </div>`).join('') : '<div class="timeline-detail-loading">Sin detalle de productos</div>')
+    + (extra.length ? `<div class="timeline-detail-loading">${extra.map(escHtml).join(' · ')}</div>` : '');
 }
 
 // ═══════════════════════════════════════════════════════
