@@ -639,6 +639,19 @@ a { color: inherit; text-decoration: none; }
   .act:hover, .act:hover svg { transform: none; }
   .alert-card .act.primary, .ped-alertas-ico { animation: none; }
 }
+/* (4-nov-2026, JP: "que cuando los toques tengan movimiento") al tocar un botón: rebota (se achica y vuelve más grande)
+   y sale una onda desde donde se tocó. Lo dispara _tapBoton (pointerdown) agregando .tap y un <span class="tap-onda"> */
+.act, .tab-btn, .wab-chipf, .filter-chip, .toggle-opt, .wab-item { position: relative; overflow: hidden; }
+.act.tap, .alert-card .act.primary.tap { animation: act-tap .42s cubic-bezier(.34,1.56,.64,1); }
+.tab-btn.tap .tab-icon, .wab-chipf.tap, .filter-chip.tap, .toggle-opt.tap { animation: act-tap .42s cubic-bezier(.34,1.56,.64,1); }
+@keyframes act-tap { 0% { transform: scale(1); } 25% { transform: scale(.78) rotate(-6deg); } 60% { transform: scale(1.2) rotate(4deg); } 100% { transform: scale(1) rotate(0); } }
+.tap-onda { position: absolute; border-radius: 50%; background: currentColor; opacity: .28; transform: scale(0); pointer-events: none; animation: tap-onda .55s ease-out forwards; }
+@keyframes tap-onda { to { transform: scale(1); opacity: 0; } }
+/* en el celular no hay mouse: que el "hover" no quede pegado en el último botón tocado */
+@media (hover: none) {
+  .act:hover { transform: none; box-shadow: none; }
+  .act:hover svg { transform: none; }
+}
 /* (27-oct-2026) Datos de clientes sacados de los chats de WhatsApp */
 .sug-chip { font-size: 11px; padding: 3px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
 .sug-chip.alta { background: #ede9fe; color: #5b21b6; }
@@ -4592,6 +4605,22 @@ function _act(cls, onclick, title, svg) {
 function _actLink(cls, href, onclick, title, svg) {
   return `<a class="act ${cls}" href="${href}" target="_blank" onclick="${onclick}" title="${escHtml(title)}" aria-label="${escHtml(title)}">${svg}</a>`;
 }
+// (4-nov-2026, JP: "que cuando los toques tengan movimiento") al tocar un botón rebota y sale una onda desde el dedo
+// o el mouse (CSS .tap / .tap-onda). Un solo escuchador para todo el CRM, así sirve también para los botones que se
+// dibujan después.
+function _tapBoton(e) {
+  const b = e.target.closest && e.target.closest('.act, .tab-btn, .wab-chipf, .filter-chip, .toggle-opt, .wab-item');
+  if (!b || b.disabled) return;
+  b.classList.remove('tap'); void b.offsetWidth; b.classList.add('tap');
+  setTimeout(() => b.classList.remove('tap'), 450);
+  const r = b.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2.2;
+  const o = document.createElement('span');
+  o.className = 'tap-onda';
+  o.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
+  b.appendChild(o);
+  o.addEventListener('animationend', () => o.remove());
+}
+document.addEventListener('pointerdown', _tapBoton, { passive: true });
 
 function pedidoActions(p) {
   const id = p.id;
@@ -7612,6 +7641,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=28"></script>
+<script src="manual.js?v=29"></script>
 </body>
 </html>

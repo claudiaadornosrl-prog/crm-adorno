@@ -29,7 +29,7 @@ function _manualSecciones() {
         'Al entrar, el CRM abre directo en Nuevo pedido, que es lo que más se usa.',
         'Cuando hay algo para hacer, la pestaña Pedidos se pone toda en verde con el número de alertas. Si está gris, no hay nada. Ese mismo número aparece en rojo sobre el ícono de la ventana en la barra de tareas (y en el ícono de la app en el celular), aunque la tengas minimizada.',
         'Desde el 4-nov-2026 Alertas ya no es una pestaña aparte: está arriba de todo dentro de Pedidos. La pestaña Hoy tampoco existe (26-oct-2026).',
-        'Los botones se mueven al pasar el mouse (se agrandan un poco) y se hunden al tocarlos. En las alertas, el botón principal late suave para que se vea qué conviene hacer.',
+        'Los botones tienen movimiento: al tocarlos rebotan y sale una onda desde donde tocaste, así te das cuenta de que tomó el toque. Con el mouse, además, se agrandan un poco al pasar por encima. En las alertas, el botón principal late suave para que se vea qué conviene hacer.',
       ],
     },
     {
