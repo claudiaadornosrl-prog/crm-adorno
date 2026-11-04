@@ -1271,6 +1271,10 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .wab-pie .wa-reply { margin-top: 0; }
 .wab-pie .wa-reply textarea { min-height: 42px; }
 .wab-pie .wa-sug { margin: 0 0 8px; }
+/* (4-nov-2026) Nuevo pedido desde la charla: botón al lado del cuadro y la tarjeta de Nuevo pedido en una ventana */
+.wab-pie .act.wab-btn-pedido { color: #128c7e; }
+.wab-ped-cuerpo > .card { border-radius: 0 0 16px 16px; margin: 0; }
+.wab-ped-cuerpo > .card > .card-header { display: none; }
 .wab-vacio { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 13px; padding: 24px; background: #f7f5f2; }
 .wab-lista-vacia { padding: 24px 16px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.5; }
 @media (max-width: 760px) {
@@ -1828,6 +1832,17 @@ html.dark .wab-vacio { background: #111b21; }
   </div>
 </div>
 
+<!-- (4-nov-2026, JP) Nuevo pedido desde una charla de WhatsApp: mientras está abierta, el formulario de Nuevo pedido
+     (la misma tarjeta, con su búsqueda de cliente y de artículos) se muda acá, con los datos de la charla cargados -->
+<div id="wab-ped-modal" style="display:none; position:fixed; inset:0; z-index:1100; background:rgba(0,0,0,0.5); padding:20px 12px; overflow-y:auto;">
+  <div style="max-width:540px; margin:0 auto;">
+    <div style="background:#128c7e; color:white; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; border-radius:16px 16px 0 0;">
+      <span style="font-size:15px; font-weight:700;" id="wab-ped-titulo">Nuevo pedido desde WhatsApp</span>
+      <button class="hdr-ico" onclick="waBandejaPedidoCerrar()" title="Cerrar sin guardar (los datos quedan cargados en Nuevo pedido)" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div id="wab-ped-cuerpo" class="wab-ped-cuerpo"></div>
+  </div>
+</div>
 <div id="sug-modal" style="display:none; position:fixed; inset:0; z-index:1100; background:rgba(0,0,0,0.5); padding:20px; overflow-y:auto;">
   <div style="background:white; border-radius:16px; max-width:420px; margin:0 auto; overflow:hidden;">
     <div style="background:var(--accent); color:white; padding:16px 18px; display:flex; align-items:center; justify-content:space-between;">
@@ -2404,7 +2419,14 @@ function enterApp() {
   showScreen('app-screen');
   switchTab(session.isAdmin ? 'admin' : 'nuevo');   // (26-oct, JP) lo primero es Nuevo pedido
   // Los push del CRM abren ?tab=alertas (o la pestaña que indiquen)
-  try { let _t = new URLSearchParams(window.location.search).get('tab'); if (_t === 'alertas') _t = 'pedidos'; if (_t && document.querySelector(`.tab-btn[data-tab="${_t}"]`)) switchTab(_t); } catch(_) {}
+  try {
+    const _q = new URLSearchParams(window.location.search);
+    let _t = _q.get('tab'); if (_t === 'alertas') _t = 'pedidos';
+    // (4-nov-2026) la notificación del bot trae la charla: ?tab=whatsapp&chat=unicenter|549…
+    const _c = (_q.get('chat') || '').split('|');
+    if (_t === 'whatsapp' && _c.length === 2 && _c[1].replace(/\D/g, '').length >= 10) wabAbrirAlEntrar = { local_id: _c[0].toLowerCase(), celular: _c[1].replace(/\D/g, '') };
+    if (_t && document.querySelector(`.tab-btn[data-tab="${_t}"]`)) switchTab(_t);
+  } catch(_) {}
   loadData();
 }
 
@@ -3074,6 +3096,7 @@ const wabBorr = {};           // charla → texto a medio escribir
 const wabEdit = {};           // charla → id de la sugerencia del bot que se está corrigiendo en el cuadro
 const WAB_TIPO_TXT = { image: '📷 Foto', audio: '🎤 Audio', video: '🎥 Video', document: '📄 Archivo', sticker: 'Sticker', location: '📍 Ubicación', contacts: '👤 Contacto', reaction: 'Reacción' };
 const WAB_ICO_VOLVER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>';
+const WAB_ICO_PEDIDO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6"/><path d="M12 9.5v7M8.5 13h7"/></svg>';
 const _wabKey = (l, c) => (l || '').toLowerCase() + '|' + String(c || '').replace(/\D/g, '').slice(-10);
 const _wabPanelActivo = () => !!document.getElementById('panel-whatsapp')?.classList.contains('active');
 function _wabConvSel() { return wabSel ? wabConvs.find(c => _wabKey(c.local_id, c.celular) === _wabKey(wabSel.local_id, wabSel.celular)) || null : null; }
@@ -3118,6 +3141,7 @@ async function waBandejaCargar() {
     return;
   }
   waBandejaBadge();
+  waBandejaAvisar();
   if (_wabPanelActivo()) { waBandejaRenderLista(); waBandejaRenderHead(); }   // el estado del bot puede cambiar sin mensajes nuevos
 }
 function waBandejaBadge() {
@@ -3125,11 +3149,67 @@ function waBandejaBadge() {
   const b = document.getElementById('wab-badge');
   if (b) { b.textContent = n; b.classList.toggle('hidden', !n); }
   const t = document.getElementById('tab-whatsapp');
-  if (t) t.title = n ? `WhatsApp · ${n === 1 ? '1 charla para atender' : n + ' charlas para atender'}` : 'WhatsApp';
+  // (4-nov-2026, JP: "¿cómo sabe la vendedora que tiene un chat que atender?") la pestaña se pone verde como Pedidos
+  // y las charlas para atender suman en el número rojo del ícono de la ventana (updateAlertBadge)
+  if (t) { t.title = n ? `WhatsApp · ${n === 1 ? '1 charla para atender' : n + ' charlas para atender'}` : 'WhatsApp'; t.classList.toggle('has-alert', n > 0); }
+  if (typeof updateAlertBadge === 'function') updateAlertBadge();
+}
+// (4-nov-2026) Aviso en la PC: cuando una charla pasa a "para atender" (el bot la derivó, dejó una sugerencia o la
+// clienta escribió y nadie le contestó) suena un aviso, sale un cartel en el CRM y, si se activaron los avisos de
+// Windows en esta PC, una notificación (aunque la ventana esté minimizada). Cada mensaje avisa una sola vez (se guarda
+// en esta PC), así recargar la página no vuelve a sonar.
+let wabAvisados = (() => { try { return new Set(JSON.parse(localStorage.getItem('ca_wab_avisados') || '[]')); } catch(_) { return new Set(); } })();
+let wabAbrirAlEntrar = null;   // { local_id, celular } que llega en el link de la notificación (?tab=whatsapp&chat=…)
+function _wabSonido() {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    [[880, 0], [1320, 0.18]].forEach(([f, t]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, ac.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.3, ac.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + t + 0.4);
+      o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + t); o.stop(ac.currentTime + t + 0.45);
+    });
+    setTimeout(() => ac.close(), 1500);
+  } catch(_) {}
+}
+function waBandejaAvisar() {
+  const marca = (c) => _wabKey(c.local_id, c.celular) + '@' + c.ult_in_at;
+  const viendo = (c) => document.visibilityState === 'visible' && _wabPanelActivo() && wabSel && _wabKey(wabSel.local_id, wabSel.celular) === _wabKey(c.local_id, c.celular);
+  const nuevos = wabConvs.filter(c => c.atender && c.ult_in_at && !wabAvisados.has(marca(c)));
+  if (!nuevos.length) return;
+  nuevos.forEach(c => wabAvisados.add(marca(c)));
+  try { localStorage.setItem('ca_wab_avisados', JSON.stringify([...wabAvisados].slice(-300))); } catch(_) {}
+  const avisar = nuevos.filter(c => !viendo(c));
+  if (!avisar.length) return;
+  const uno = avisar.length === 1 ? avisar[0] : null;
+  const titulo = uno ? `💬 ${_wabNombre(uno)} ${uno.bot_estado === 'derivado' ? 'necesita una persona' : 'escribió por WhatsApp'}` : `💬 ${avisar.length} charlas de WhatsApp para atender`;
+  const cuerpo = uno ? String((uno.bot_estado === 'derivado' && uno.derivado_motivo) || (uno.ult_direccion === 'in' && uno.ult_texto) || 'Tocá para abrir la charla').slice(0, 140) : 'Tocá para verlas en la pestaña WhatsApp';
+  // el admin (oficina) no tiene sonido ni cartel: solo la notificación, si la activó
+  if (!session.isAdmin) { _wabSonido(); toast(titulo); }
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const n = new Notification(titulo, { body: cuerpo, tag: 'crm-wab-' + (uno ? _wabKey(uno.local_id, uno.celular) : 'varias'), icon: 'icon-192-v2.png' });
+      n.onclick = () => { try { window.focus(); switchTab('whatsapp'); if (uno) waBandejaAbrirChat(uno.local_id, uno.celular); n.close(); } catch(_) {} };
+    }
+  } catch(_) {}
+}
+function waBandejaPedirAvisos() {
+  if (!('Notification' in window)) { toast('Este navegador no permite avisos'); return; }
+  Notification.requestPermission().then(p => {
+    toast(p === 'granted' ? '🔔 Listo: esta PC avisa cuando hay un WhatsApp para atender' : 'Sin permiso para avisar: igual suena y sale el cartel con el CRM abierto');
+    waBandejaRenderLista();
+  });
 }
 async function waBandejaEntrar() {
   waBandejaRenderLista();
   await waBandejaCargar();
+  if (wabAbrirAlEntrar) {
+    const a = wabAbrirAlEntrar; wabAbrirAlEntrar = null;
+    await waBandejaAbrirChat(a.local_id, a.celular);
+    return;
+  }
   if (wabSel) waBandejaCargarChat(true);
 }
 
@@ -3158,7 +3238,9 @@ function waBandejaRenderLista() {
   document.getElementById('wab-filtros').innerHTML = chip('todas', 'Todas') + chip('atender', `Para atender${nAt ? ' · ' + nAt : ''}`) + chip('sinleer', `Sin leer${nSl ? ' · ' + nSl : ''}`)
     + (varios ? `<select onchange="wabLocal = this.value; waBandejaRenderLista()" title="Local"><option value="">Todos los locales</option>${locs.map(l => `<option value="${escHtml(l)}"${wabLocal === l ? ' selected' : ''}>${escHtml(_wabLocalNom(l))}</option>`).join('')}</select>` : '');
   const nums = (varios ? locs : [String(session.local_id || '').toLowerCase()]).filter(l => waNumeroLocal[l]).map(l => `${varios ? _wabLocalNom(l) + ' ' : ''}${_fmtNumeroWa(waNumeroLocal[l])}`);
-  document.getElementById('wab-num').textContent = nums.length ? `Charlas del número del sistema: ${nums.join(' · ')}` : '';
+  const pedirAvisos = ('Notification' in window && Notification.permission === 'default')
+    ? ` · <a href="#" onclick="waBandejaPedirAvisos(); return false" style="color:#128c7e;font-weight:600">🔔 Activar avisos en esta PC</a>` : '';
+  document.getElementById('wab-num').innerHTML = (nums.length ? `Charlas del número del sistema: ${escHtml(nums.join(' · '))}` : '') + pedirAvisos;
 
   const sel = wabSel ? _wabKey(wabSel.local_id, wabSel.celular) : '';
   document.getElementById('wab-items').innerHTML = rows.length ? rows.map(c => {
@@ -3358,9 +3440,78 @@ function waBandejaRenderPie() {
         ${_act('bad', `waBandejaSugDescartar(${sug.id})`, 'Descartar la sugerencia (no se manda nada)', ICO.cruz)}
       </div></div>`;
   }
+  // (4-nov-2026, JP) Nuevo pedido sin salir de la charla, con los datos de la clienta ya cargados
+  const btnPedido = _act('wab-btn-pedido', 'waBandejaNuevoPedido()', 'Nuevo pedido para esta clienta (con sus datos ya cargados)', WAB_ICO_PEDIDO);
   el.innerHTML = sugHtml + (dentro
-    ? `<div class="wa-reply"><textarea id="wab-txt" data-no-upper rows="1" placeholder="Escribí un mensaje (Enter manda · Shift+Enter, otra línea)" oninput="wabBorr['${k}'] = this.value" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); waBandejaEnviar(); }">${escHtml(wabBorr[k] || '')}</textarea>${_act('primary wa', 'waBandejaEnviar()', 'Mandar el mensaje por WhatsApp (Enter)', ICO.enviar)}</div>`
-    : `<div class="wa-reply-nota" style="margin-top:0">${ultIn ? `Pasaron más de ${WA_VENTANA_H} h desde el último mensaje del cliente: WhatsApp no deja escribirle texto libre hasta que vuelva a escribir.` : 'El cliente todavía no escribió en esta charla.'}</div>`);
+    ? `<div class="wa-reply">${btnPedido}<textarea id="wab-txt" data-no-upper rows="1" placeholder="Escribí un mensaje (Enter manda · Shift+Enter, otra línea)" oninput="wabBorr['${k}'] = this.value" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); waBandejaEnviar(); }">${escHtml(wabBorr[k] || '')}</textarea>${_act('primary wa', 'waBandejaEnviar()', 'Mandar el mensaje por WhatsApp (Enter)', ICO.enviar)}</div>`
+    : `<div style="display:flex;gap:6px;align-items:center">${btnPedido}<div class="wa-reply-nota" style="margin-top:0;flex:1">${ultIn ? `Pasaron más de ${WA_VENTANA_H} h desde el último mensaje del cliente: WhatsApp no deja escribirle texto libre hasta que vuelva a escribir.` : 'El cliente todavía no escribió en esta charla.'}</div></div>`);
+}
+
+// ── (4-nov-2026, JP: "desde la charla, si el cliente te solicita algo, poder levantar el pedido con un botón, sin tener
+// que salir de la charla, tomando los datos que tenés ahí") La tarjeta de Nuevo pedido se muda a una ventana encima de
+// la charla. Se carga el celular de la charla (con eso el formulario busca solo el DNI, el nombre y el mail en la ficha y
+// en pedidos anteriores) y lo que la clienta pasó por WhatsApp (datos para confirmar del analizador). Al guardar: el
+// pedido queda en el local de la charla, la tarjeta vuelve a su lugar y la confirmación queda escrita en la charla
+// para mandarla desde el número del local (en vez de abrir el WhatsApp de la PC).
+let wabPedidoCtx = null;   // { local_id, celular } mientras se carga un pedido desde una charla
+function waBandejaNuevoPedido() {
+  if (!wabSel) return;
+  const c = _wabConvSel() || { local_id: wabSel.local_id, celular: wabSel.celular, nombre: '' };
+  const card = document.querySelector('#panel-nuevo > .card');
+  if (!card) return;
+  wabPedidoCtx = { local_id: c.local_id, celular: c.celular };
+  document.getElementById('wab-ped-cuerpo').appendChild(card);
+  document.getElementById('wab-ped-titulo').textContent = `Nuevo pedido · ${_wabNombre(c)}`;
+  document.getElementById('wab-ped-modal').style.display = 'block';
+  if (!skuLines.length) addSkuLine();
+  const setIfEmpty = (id, v) => { const el = document.getElementById(id); if (el && v && !el.value.trim()) el.value = v; };
+  const cel10 = String(c.celular || '').replace(/\D/g, '').slice(-10);
+  const fc = document.getElementById('f-celular');
+  if (fc.value.replace(/\D/g, '').slice(-10) !== cel10) {
+    // el formulario tenía datos de otra clienta: se limpian antes de cargar los de esta charla
+    ['f-nombre', 'f-apellido', 'f-dni', 'f-fnac', 'f-email'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    hideClienteDetectado();
+    fc.value = cel10;
+  }
+  // lo que la clienta pasó por WhatsApp (DNI, mail, cumpleaños) y todavía nadie confirmó
+  const sug = (sugerenciasCache || []).find(s => String(s.celular || (s.datos || {}).celular || '').replace(/\D/g, '').slice(-10) === cel10);
+  if (sug) {
+    const d = sug.datos || {};
+    setIfEmpty('f-nombre', d.nombre); setIfEmpty('f-apellido', d.apellido);
+    setIfEmpty('f-dni', String(d.dni || '').replace(/\D/g, '')); setIfEmpty('f-email', d.email);
+    if (d.fecha_nacimiento) setIfEmpty('f-fnac', d.fecha_nacimiento);
+  }
+  // el nombre que figura en la charla (del último pedido o del perfil de WhatsApp), si no hay otro
+  const tk = String(c.nombre || '').trim().split(/\s+/).filter(Boolean);
+  if (tk.length >= 2) { setIfEmpty('f-nombre', tk.slice(0, -1).join(' ')); setIfEmpty('f-apellido', tk[tk.length - 1]); }
+  else if (tk.length === 1) setIfEmpty('f-nombre', tk[0]);
+  setIfEmpty('f-notas', 'Pedido tomado por WhatsApp');
+  fc.dispatchEvent(new Event('input'));   // busca la ficha y los pedidos anteriores de ese celular
+  setTimeout(() => { const v = document.getElementById('f-vendedora'); if (v && !v.value) v.focus(); }, 50);
+}
+function waBandejaPedidoCerrar() {
+  const card = document.querySelector('#wab-ped-cuerpo > .card');
+  const panel = document.getElementById('panel-nuevo');
+  if (card && panel) panel.appendChild(card);
+  document.getElementById('wab-ped-modal').style.display = 'none';
+  wabPedidoCtx = null;
+}
+// lo llama submitPedido cuando el pedido se cargó desde una charla
+function waBandejaPedidoGuardado(nombre, lineas) {
+  const ctx = wabPedidoCtx;
+  waBandejaPedidoCerrar();
+  if (!ctx) return;
+  const arts = lineas.map(l => l.descripcion || l.sku).filter(Boolean);
+  const artTxt = arts.length <= 1 ? (arts[0] || '') : arts.slice(0, -1).join(', ') + ' y ' + arts[arts.length - 1];
+  const primer = String(nombre || '').trim().split(/\s+/)[0] || '';
+  const k = _wabKey(ctx.local_id, ctx.celular);
+  const conf = `${primer ? primer.charAt(0).toUpperCase() + primer.slice(1).toLowerCase() + ', t' : 'T'}e confirmo que tu pedido quedó anotado: ${artTxt.toLowerCase()}. Apenas ${arts.length > 1 ? 'lleguen' : 'llegue'} te avisamos por acá 🤍`;
+  if (!wabBorr[k]) wabBorr[k] = conf;
+  wabPieFirma = '';
+  if (wabSel && _wabKey(wabSel.local_id, wabSel.celular) === k) {
+    waBandejaCargar().then(() => { waBandejaRenderHead(); waBandejaRenderPie(); const ta = document.getElementById('wab-txt'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } });
+  }
+  toast('✅ Pedido guardado. Te dejé escrita la confirmación en la charla: revisala y mandala con Enter');
 }
 async function waBandejaEnviar(sugerenciaId) {
   if (!wabSel) return;
@@ -3421,13 +3572,21 @@ async function waBandejaBot(local, celular, on) {
     waBandejaRenderChat();
   } catch(e) { toast('❌ ' + e.message); }
 }
-// Con la pestaña WhatsApp abierta (y la ventana visible), la lista y la charla se actualizan cada 15 segundos
+// Con la pestaña WhatsApp abierta (y la ventana visible), la lista y la charla se actualizan cada 15 segundos.
+// (4-nov-2026) En cualquier otra pestaña, o con la ventana minimizada, la lista se mira cada 30 s para avisar
+// (el navegador estira ese tiempo a 1 minuto si la ventana está minimizada)
+let _wabTick = 0;
 setInterval(() => {
   try {
-    if (document.visibilityState !== 'visible' || !session || (!session.local_id && !session.isAdmin)) return;
-    if (!document.getElementById('app-screen')?.classList.contains('active') || !_wabPanelActivo()) return;
-    waBandejaCargar();
-    if (wabSel) waBandejaCargarChat(false);
+    if (!session || (!session.local_id && !session.isAdmin)) return;
+    if (!document.getElementById('app-screen')?.classList.contains('active')) return;
+    _wabTick++;
+    if (document.visibilityState === 'visible' && _wabPanelActivo()) {
+      waBandejaCargar();
+      if (wabSel) waBandejaCargarChat(false);
+    } else if (_wabTick % 2 === 0) {
+      waBandejaCargar();
+    }
   } catch(_) {}
 }, 15 * 1000);
 
@@ -3498,7 +3657,8 @@ function updateAlertBadge() {
     badge.classList.add('hidden');
     if (tabAl) { tabAl.classList.remove('has-alert'); tabAl.title = 'Pedidos'; }
   }
-  badgeIcono(total);
+  // (4-nov-2026) el número rojo del ícono de la ventana suma también las charlas de WhatsApp para atender
+  badgeIcono(total + wabConvs.filter(c => c.atender).length);
 }
 
 // (26-oct, JP) Número rojo sobre el ícono de la ventana/pestaña y de la barra de tareas, como en el celular.
@@ -4015,7 +4175,7 @@ async function submitPedido() {
         method: 'POST',
         headers: { ...supaHeaders(), 'Prefer': 'return=representation' },
         body: JSON.stringify({
-          local_id:        session.local_id,
+          local_id:        (wabPedidoCtx && wabPedidoCtx.local_id) || session.local_id,   // (4-nov) desde una charla: el local de la charla
           vendedora:       vendedora,
           nombre_cliente:  nombre,
           dni:             dni,
@@ -4100,6 +4260,8 @@ async function submitPedido() {
     addSkuLine(); // start fresh with one empty line
 
     await loadPedidos();
+    // (4-nov-2026) cargado desde una charla de WhatsApp: se queda en la charla, con la confirmación escrita
+    if (wabPedidoCtx) { waBandejaPedidoGuardado(nombreGuardado, lineasGuardadas); return; }
     switchTab('pedidos');
 
     // Open WhatsApp confirmation
@@ -7641,6 +7803,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=29"></script>
+<script src="manual.js?v=30"></script>
 </body>
 </html>
