@@ -24,7 +24,7 @@ function _manualSecciones() {
     },
     {
       icon: '🧭', titulo: 'Cómo se navega',
-      desc: 'La barra de arriba tiene, en orden, Nuevo pedido, Alertas y Pedidos (y Satisfacción).',
+      desc: 'La barra de arriba tiene, en orden, Nuevo pedido, Alertas, Pedidos y WhatsApp (y Satisfacción).',
       pasos: [
         'Al entrar, el CRM abre directo en Nuevo pedido, que es lo que más se usa.',
         'Cuando hay algo para hacer, la pestaña Alertas se pone toda en verde con el número de pendientes. Si está gris, no hay nada. Ese mismo número aparece en rojo sobre el ícono de la ventana en la barra de tareas (y en el ícono de la app en el celular), aunque la tengas minimizada.',
@@ -60,6 +60,21 @@ function _manualSecciones() {
         'Cuando la clienta necesita a una persona (lo pide, tiene una queja o un cambio, quiere reservar, o el bot no sabe la respuesta), el bot le avisa "dame un segundo que busco a alguno de los chicos del local" (si el local está cerrado, que le escriben apenas abra) y a la vendedora del pedido y a la encargada les llega la notificación "💬 Nombre necesita una persona". Contestale vos desde "💬 WhatsApp". Si nadie del local le escribe en 3 horas, el bot la vuelve a atender solo (y le pide disculpas si reclama).',
         'Lo que el bot nunca hace: decir precios (pasa el link de la web, ahí está el precio), ofrecer reservar o guardar un producto (si la clienta lo pide, le cuenta lo de la seña y te la pasa) ni confirmar stock sin mirar el sistema (dice "según el sistema hoy lo tenemos", le ofrece que ustedes lo confirmen y la invita a pasar por el local). Audios, videos y archivos no los puede ver: te los pasa.',
         'Si aprobás o corregís la sugerencia, el bot sigue atendiendo esa conversación. Si escribís vos un mensaje propio, el bot se corre durante 12 horas para no pisarte; con el ✓ del recuadro "bot en pausa" se lo devolvés antes.',
+      ],
+    },
+    {
+      icon: '💬', titulo: 'WhatsApp',
+      desc: 'Todas las charlas del número del local en el sistema (el del bot), tengan o no un pedido. Funciona como el WhatsApp Web.',
+      pasos: [
+        'A la izquierda está la lista de charlas, la más nueva arriba. El número verde son los mensajes que nadie del local leyó todavía. Las que necesitan a una persona aparecen primero y con la cara en amarillo: "para atender", "sugerencia" (el bot dejó una respuesta para aprobar) o "pasada al local" (el bot la derivó).',
+        'El número sobre la pestaña WhatsApp cuenta las charlas para atender de las últimas 24 horas. Arriba de la lista podés filtrar Todas, Para atender o Sin leer, y buscar por nombre o celular.',
+        'Tocá una charla para verla entera: lo que escribió la clienta (blanco), lo que contestó Clodi, el bot (violeta), y lo que mandaron ustedes (verde), con ✓ enviado, ✓✓ entregado y ✓✓ leído.',
+        'Para contestar escribí abajo y apretá Enter (Shift+Enter para bajar de renglón). Sale desde el número del local. WhatsApp solo deja escribir libre hasta 24 horas después del último mensaje de la clienta; pasado ese tiempo el cuadro se cierra hasta que ella vuelva a escribir.',
+        'Si hay una respuesta sugerida por el bot: ✓ la mandás tal cual, ✎ la corregís en el cuadro antes de mandarla o ✗ la descartás.',
+        'Arriba a la derecha de la charla ves qué hace el bot ahí: con ✗ lo pausás y la seguís vos; con ✓ se la devolvés al bot. Si escribís un mensaje propio, el bot se corre solo durante 12 horas.',
+        'Las fotos que manda la clienta se ven en la charla (tocala para agrandarla). Los audios, videos y archivos se abren al tocarlos. WhatsApp guarda esos archivos unos 30 días.',
+        'Al abrir una charla queda leída para todo el local. Si la abre alguien de la oficina, para ustedes sigue como nueva.',
+        'Hoy acá están solo las charlas del número del sistema. Las del celular del local siguen en el WhatsApp de siempre.',
       ],
     },
     {

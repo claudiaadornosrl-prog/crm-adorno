@@ -3,7 +3,7 @@
 //  Estrategia: network-first para HTML/datos, cache-first para assets
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'crm-adorno-v84-manual-bot';
+const CACHE_VERSION = 'crm-adorno-v85-bandeja-whatsapp';
 const CACHE_ASSETS = [
   './',
   './index.html',

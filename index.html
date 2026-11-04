@@ -1179,6 +1179,78 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .wa-bot-chip.pausa { background: #fef3c7; color: #92400e; }
 .wa-bot-chip.derivado { background: #fee2e2; color: #991b1b; }
 .wa-bot-chip .act { width: 24px; height: 24px; } .wa-bot-chip .act svg { width: 14px; height: 14px; }
+
+/* ── (4-nov-2026) Bandeja de WhatsApp: todas las charlas del número del local, como el WhatsApp Web ── */
+#panel-whatsapp.active { display: block; overflow: hidden; padding: 12px; }
+.wab { display: flex; height: 100%; max-width: 1180px; margin: 0 auto; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.wab-lista { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); min-height: 0; }
+.wab-lista-top { padding: 10px 12px 8px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.wab-num { font-size: 11px; color: var(--muted); }
+.wab-filtros { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.wab-chipf { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 14px; padding: 3px 10px; font-size: 12px; cursor: pointer; font-weight: 600; }
+.wab-chipf.on { background: #128c7e; border-color: #128c7e; color: white; }
+.wab-filtros select { border: 1px solid var(--border); border-radius: 14px; padding: 3px 8px; font-size: 12px; background: var(--bg); color: var(--text); }
+.wab-busca { width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; text-transform: none; background: var(--bg); color: var(--text); }
+.wab-items { flex: 1; overflow-y: auto; min-height: 0; }
+.wab-item { display: flex; gap: 10px; padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--border); align-items: center; }
+.wab-item:hover { background: var(--bg); }
+.wab-item.sel { background: #e7f6f2; }
+.wab-av { width: 40px; height: 40px; border-radius: 50%; background: #dfe5e7; color: #54656f; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0; }
+.wab-item.atender .wab-av { background: #fde68a; color: #92400e; }
+.wab-it-body { flex: 1; min-width: 0; }
+.wab-it-top { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.wab-it-nom { font-weight: 600; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wab-it-hora { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.wab-item.nuevo .wab-it-hora { color: #16a34a; font-weight: 700; }
+.wab-it-bot { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+.wab-it-prev { flex: 1; min-width: 0; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wab-item.nuevo .wab-it-prev { color: var(--text); font-weight: 600; }
+.wab-n { background: #25d366; color: white; border-radius: 10px; font-size: 11px; font-weight: 700; min-width: 20px; height: 20px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.wab-tag { font-size: 10px; font-weight: 700; border-radius: 8px; padding: 1px 6px; flex-shrink: 0; background: #ede9fe; color: #5b21b6; }
+.wab-tag.atender { background: #fef3c7; color: #92400e; }
+.wab-tag.derivado { background: #fee2e2; color: #991b1b; }
+.wab-tag.local { background: #e0f2fe; color: #075985; }
+.wab-chat { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.wab-chat-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--card); }
+.wab-chat-head .wab-av { width: 36px; height: 36px; font-size: 14px; }
+.wab-chat-tit { flex: 1; min-width: 0; }
+.wab-chat-tit b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wab-chat-tit span { display: block; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wab-volver { display: none; }
+.wab-msgs { flex: 1; overflow-y: auto; min-height: 0; padding: 12px 6%; display: flex; flex-direction: column; gap: 4px; background: #efeae2; font-size: 13.5px; }
+.wab-msgs .wa-msg { max-width: 75%; box-shadow: 0 1px 1px rgba(0,0,0,.06); }
+.wab-msgs .wa-msg.in { border: none; }
+.wab-dia { align-self: center; background: #fff; color: #54656f; font-size: 11.5px; padding: 3px 10px; border-radius: 8px; margin: 8px 0 4px; box-shadow: 0 1px 1px rgba(0,0,0,.06); }
+.wab-media img { display: block; max-width: 260px; max-height: 300px; border-radius: 8px; margin-bottom: 4px; cursor: zoom-in; }
+.wab-media audio { width: 250px; max-width: 100%; display: block; }
+.wab-media video { max-width: 260px; border-radius: 8px; display: block; }
+.wab-media .wab-media-btn { border: 1px dashed #94a3b8; background: rgba(255,255,255,.6); border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; color: #334155; }
+.wab-media .wab-media-err { font-size: 11.5px; color: #92400e; font-style: italic; }
+.wab-tpl { display: block; font-size: 10px; font-weight: 700; opacity: .6; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+.wab-pie { padding: 8px 12px 10px; border-top: 1px solid var(--border); background: var(--card); }
+/* el asistente flotante de ayuda (abajo a la derecha) tapaba el botón de mandar */
+.wab-pie { padding-right: 84px; }
+@media (min-width: 1440px) { .wab-pie { padding-right: 12px; } }
+.wab-pie .wa-reply { margin-top: 0; }
+.wab-pie .wa-reply textarea { min-height: 42px; }
+.wab-pie .wa-sug { margin: 0 0 8px; }
+.wab-vacio { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 13px; padding: 24px; background: #f7f5f2; }
+.wab-lista-vacia { padding: 24px 16px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.5; }
+@media (max-width: 760px) {
+  #panel-whatsapp.active { padding: 0; }
+  .wab { border-radius: 0; }
+  .wab-lista { width: 100%; border-right: none; }
+  .wab-chat { display: none; }
+  .wab.con-chat .wab-lista { display: none; }
+  .wab.con-chat .wab-chat { display: flex; }
+  .wab-volver { display: inline-flex; }
+  .wab-msgs { padding: 10px 8px; }
+  .wab-msgs .wa-msg { max-width: 88%; }
+}
+html.dark .wab-item.sel { background: #134e4a; }
+html.dark .wab-msgs { background: #0b141a; }
+html.dark .wab-dia { background: #1f2c34; color: #8696a0; }
+html.dark .wab-vacio { background: #111b21; }
 .alert-wa-ult { font-size: 12px; color: #1e293b; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px 10px; margin: 6px 0; white-space: pre-wrap; }
 .btn-quick-avisar { background: #dbeafe; color: #1e40af; border: 2px solid #bfdbfe; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
 .btn-quick-avisar:hover { background: #1e40af; color: white; border-color: #1e40af; }
@@ -1401,6 +1473,11 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
       <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6"/><path d="M9 10h6M9 14h6M9 18h3"/></svg></span>
       <span class="lb">Pedidos</span>
     </button>
+    <button class="tab-btn" data-tab="whatsapp" onclick="switchTab('whatsapp')" id="tab-whatsapp" style="display:none" title="WhatsApp">
+      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3 3z"/><path d="M9 10h6M9 13.5h4"/></svg></span>
+      <span class="lb">WhatsApp</span>
+      <span class="tab-badge hidden" id="wab-badge">0</span>
+    </button>
     <button class="tab-btn" data-tab="satisfaccion" onclick="switchTab('satisfaccion')" title="Satisfacción">
       <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg></span>
       <span class="lb">Satisfacción</span>
@@ -1422,6 +1499,14 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
     <!-- ── HOY ────────────────── -->
     <div class="tab-panel" id="panel-hoy" style="display:none">
       <div id="hoy-content"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+    </div>
+
+    <!-- ── WHATSAPP: bandeja con todas las charlas del número del local (4-nov-2026) ── -->
+    <div class="tab-panel" id="panel-whatsapp">
+      <div class="wab" id="wab">
+        <div class="wab-lista" id="wab-lista"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+        <div class="wab-chat" id="wab-chat"><div class="wab-vacio">Elegí una charla de la lista para verla y responderla.</div></div>
+      </div>
     </div>
 
     <!-- ── SATISFACCIÓN ── -->
@@ -2261,10 +2346,12 @@ function enterApp() {
   document.getElementById('tab-admin').style.display = session.isAdmin ? 'flex' : 'none';
   // Show/hide tab Clientes (solo vendedoras con local — el admin lo tiene dentro de Admin)
   document.getElementById('tab-clientes').style.display = (!session.isAdmin && session.local_id) ? 'flex' : 'none';
+  // (4-nov-2026) Bandeja de WhatsApp: admin (todos los locales) y cada local (el suyo)
+  document.getElementById('tab-whatsapp').style.display = (session.isAdmin || session.local_id) ? 'flex' : 'none';
 
   // ── Modo simple (Clau): solo Satisfacción + Admin ──────────────
   const esModoSimple = session.isAdmin && MODO_SIMPLE_EMAILS.includes((session.email || '').toLowerCase());
-  ['nuevo', 'pedidos', 'alertas'].forEach(t => {
+  ['nuevo', 'pedidos', 'alertas', 'whatsapp'].forEach(t => {
     const b = document.querySelector(`.tab-btn[data-tab="${t}"]`);
     if (b) b.style.display = esModoSimple ? 'none' : '';
   });
@@ -2324,7 +2411,7 @@ function showScreen(id) {
 function switchTab(tab) {
   // (10-ago) Modo simple (Clau): las tabs ocultas redirigen a Satisfacción
   const _simple = session?.isAdmin && MODO_SIMPLE_EMAILS.includes((session.email || '').toLowerCase());
-  if (_simple && ['nuevo', 'pedidos', 'alertas', 'clientes'].includes(tab)) tab = 'satisfaccion';
+  if (_simple && ['nuevo', 'pedidos', 'alertas', 'clientes', 'whatsapp'].includes(tab)) tab = 'satisfaccion';
   if (tab === 'hoy') tab = 'nuevo';   // (26-oct) la pestaña Hoy se eliminó
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
@@ -2334,6 +2421,7 @@ function switchTab(tab) {
   if (tab === 'clientes') loadClientesVendedora('');
   if (tab === 'hoy')     renderHoy();
   if (tab === 'satisfaccion') renderSatisfaccion();
+  if (tab === 'whatsapp') waBandejaEntrar();
   if (tab === 'nuevo' && skuLines.length === 0) addSkuLine();
 }
 
@@ -2445,11 +2533,12 @@ function dragonBadge(dni) {
 // ═══════════════════════════════════════════════════════════════════════
 let waApiLocales = {};   // local_id → true si tiene la API activa
 let waBotModo = {};      // local_id → 'off' | 'sugerir' | 'auto' (27-oct-2026)
+let waNumeroLocal = {};  // local_id → número del sistema (el del bot), para la bandeja (4-nov-2026)
 async function loadWaApiLocales() {
   try {
-    const rows = await supaGet('wa_cuentas_pub', { select: 'local_id,activa,bot_modo' });
-    const m = {}, mb = {}; (rows || []).forEach(r => { if (r.activa) m[(r.local_id || '').toLowerCase()] = true; mb[(r.local_id || '').toLowerCase()] = r.bot_modo || 'off'; });
-    waApiLocales = m; waBotModo = mb;
+    const rows = await supaGet('wa_cuentas_pub', { select: 'local_id,activa,bot_modo,numero' });
+    const m = {}, mb = {}, mn = {}; (rows || []).forEach(r => { const l = (r.local_id || '').toLowerCase(); if (r.activa) m[l] = true; mb[l] = r.bot_modo || 'off'; mn[l] = r.numero || ''; });
+    waApiLocales = m; waBotModo = mb; waNumeroLocal = mn;
   } catch(e) { console.warn('wa_cuentas_pub:', e); }
 }
 function waApiActiva(local) { return !!waApiLocales[(local || '').toLowerCase()]; }
@@ -2927,6 +3016,378 @@ async function waBotToggle(id, on) {
   } catch(e) { toast('❌ ' + e.message); }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  Bandeja de WhatsApp (4-nov-2026, JP: "un apartado dentro del CRM para que las chicas puedan ver estos mensajes
+//  ... el día de mañana eliminamos el WhatsApp web y que miren todos los mensajes a través del CRM").
+//  Todas las charlas del número del sistema de cada local, con o sin pedido (antes solo se veían dentro de la tarjeta
+//  de un pedido): lista + hilo + responder dentro de las 24 h + sugerencias del bot + pausar o devolver el bot +
+//  fotos, audios, videos y archivos del cliente (función wa-media). Base: crm_wa_bandeja (una fila por charla) y
+//  crm_wa_marcar_leido (solo las chicas del local mueven la marca; el admin mira sin marcar). Envíos: wa-enviar v7
+//  con local_id + celular. Con la pestaña abierta se refresca cada 15 s; el número de la pestaña, con los pedidos.
+// ═══════════════════════════════════════════════════════════════════════
+let wabConvs = [];
+let wabFiltro = 'todas';      // 'todas' | 'atender' | 'sinleer'
+let wabLocal = '';            // admin: '' = todos los locales
+let wabBusca = '';
+let wabSel = null;            // { local_id, celular } de la charla abierta
+let wabMsgs = [];
+let wabFirma = '';            // para no redibujar el hilo si no cambió nada
+let wabPieFirma = '';         // ídem el pie (así no se pierde lo que se está escribiendo)
+let wabPegado = true;         // el hilo está scrolleado hasta abajo
+const wabMedia = {};          // mensaje_id → { url } | { cargando } | { error }
+const wabBorr = {};           // charla → texto a medio escribir
+const wabEdit = {};           // charla → id de la sugerencia del bot que se está corrigiendo en el cuadro
+const WAB_TIPO_TXT = { image: '📷 Foto', audio: '🎤 Audio', video: '🎥 Video', document: '📄 Archivo', sticker: 'Sticker', location: '📍 Ubicación', contacts: '👤 Contacto', reaction: 'Reacción' };
+const WAB_ICO_VOLVER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>';
+const _wabKey = (l, c) => (l || '').toLowerCase() + '|' + String(c || '').replace(/\D/g, '').slice(-10);
+const _wabPanelActivo = () => !!document.getElementById('panel-whatsapp')?.classList.contains('active');
+function _wabConvSel() { return wabSel ? wabConvs.find(c => _wabKey(c.local_id, c.celular) === _wabKey(wabSel.local_id, wabSel.celular)) || null : null; }
+function _wabFmtCel(cel) {
+  const d = String(cel || '').replace(/\D/g, '');
+  const m = d.match(/^549(11)(\d{4})(\d{4})$/) || d.match(/^549(\d{3})(\d{3})(\d{4})$/);
+  return m ? `+54 9 ${m[1]} ${m[2]}-${m[3]}` : (d ? '+' + d : '');
+}
+function _wabNombre(c) { return String(c.nombre || '').trim() || _wabFmtCel(c.celular); }
+function _wabInicial(c) { const n = String(c.nombre || '').trim(); return n ? n[0].toUpperCase() : '#'; }
+function _wabLocalNom(l) { return (LOCALES[l] && LOCALES[l].nombre) || l || ''; }
+function _wabTextoCorto(texto, tipo) {
+  const t = String(texto || '').replace(/^\[[^\]]+\]\s*/, '').replace(/\s+/g, ' ').trim();
+  const et = WAB_TIPO_TXT[tipo];
+  if (et) return t ? `${et} · ${t}` : et;
+  return t || (tipo === 'template' ? 'Aviso automático' : '');
+}
+function _wabDia(d) {
+  const hoy = new Date(), ayer = new Date(Date.now() - 86400000);
+  if (d.toDateString() === hoy.toDateString()) return 'Hoy';
+  if (d.toDateString() === ayer.toDateString()) return 'Ayer';
+  return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'numeric' });
+}
+// hora de la lista como en WhatsApp: hoy "13:36", ayer "Ayer", antes "3/11" (siempre en 24 h)
+function _wabHora(iso) {
+  if (!iso) return '';
+  const d = new Date(iso), hoy = new Date(), ayer = new Date(Date.now() - 86400000);
+  if (d.toDateString() === hoy.toDateString()) return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  if (d.toDateString() === ayer.toDateString()) return 'Ayer';
+  return `${d.getDate()}/${d.getMonth() + 1}`;
+}
+function _wabLinkify(t) { return escHtml(t).replace(/https?:\/\/[^\s<]+/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`); }
+
+async function waBandejaCargar() {
+  if (!session || (!session.isAdmin && !session.local_id)) return;
+  try {
+    wabConvs = await _rpcBot('crm_wa_bandeja', { p_local: session.isAdmin ? null : session.local_id, p_dias: 60 }) || [];
+  } catch(e) {
+    console.warn('crm_wa_bandeja:', e);
+    const el = document.getElementById('wab-items');
+    if (el && !wabConvs.length) el.innerHTML = `<div class="wab-lista-vacia">No se pudieron cargar las charlas: ${escHtml(e.message)}</div>`;
+    return;
+  }
+  waBandejaBadge();
+  if (_wabPanelActivo()) waBandejaRenderLista();
+}
+function waBandejaBadge() {
+  const n = wabConvs.filter(c => c.atender).length;
+  const b = document.getElementById('wab-badge');
+  if (b) { b.textContent = n; b.classList.toggle('hidden', !n); }
+  const t = document.getElementById('tab-whatsapp');
+  if (t) t.title = n ? `WhatsApp · ${n === 1 ? '1 charla para atender' : n + ' charlas para atender'}` : 'WhatsApp';
+}
+async function waBandejaEntrar() {
+  waBandejaRenderLista();
+  await waBandejaCargar();
+  if (wabSel) waBandejaCargarChat(true);
+}
+
+function waBandejaRenderLista() {
+  const el = document.getElementById('wab-lista');
+  if (!el) return;
+  const varios = !!session.isAdmin;
+  if (!document.getElementById('wab-items')) {
+    el.innerHTML = `<div class="wab-lista-top">
+        <div class="wab-filtros" id="wab-filtros"></div>
+        <input type="search" class="wab-busca" id="wab-busca" data-no-upper placeholder="Buscar por nombre o celular" oninput="wabBusca = this.value; waBandejaRenderLista()">
+        <div class="wab-num" id="wab-num"></div>
+      </div>
+      <div class="wab-items" id="wab-items"><div class="loading"><span class="spinner"></span> Cargando...</div></div>`;
+  }
+  let rows = wabConvs.filter(c => !wabLocal || c.local_id === wabLocal);
+  const nAt = rows.filter(c => c.atender).length, nSl = rows.filter(c => c.sin_leer > 0).length;
+  if (wabFiltro === 'atender') rows = rows.filter(c => c.atender);
+  if (wabFiltro === 'sinleer') rows = rows.filter(c => c.sin_leer > 0);
+  const q = wabBusca.trim().toLowerCase(), qd = q.replace(/\D/g, '');
+  if (q) rows = rows.filter(c => String(c.nombre || '').toLowerCase().includes(q) || (qd.length >= 3 && String(c.celular || '').includes(qd)));
+  rows.sort((a, b) => (Number(!!b.atender) - Number(!!a.atender)) || (new Date(b.ult_at || 0) - new Date(a.ult_at || 0)));
+
+  const chip = (v, t) => `<button class="wab-chipf${wabFiltro === v ? ' on' : ''}" onclick="wabFiltro='${v}'; waBandejaRenderLista()">${t}</button>`;
+  const locs = Object.keys(waNumeroLocal).length ? Object.keys(waNumeroLocal) : [...new Set(wabConvs.map(c => c.local_id))];
+  document.getElementById('wab-filtros').innerHTML = chip('todas', 'Todas') + chip('atender', `Para atender${nAt ? ' · ' + nAt : ''}`) + chip('sinleer', `Sin leer${nSl ? ' · ' + nSl : ''}`)
+    + (varios ? `<select onchange="wabLocal = this.value; waBandejaRenderLista()" title="Local"><option value="">Todos los locales</option>${locs.map(l => `<option value="${escHtml(l)}"${wabLocal === l ? ' selected' : ''}>${escHtml(_wabLocalNom(l))}</option>`).join('')}</select>` : '');
+  const nums = (varios ? locs : [String(session.local_id || '').toLowerCase()]).filter(l => waNumeroLocal[l]).map(l => `${varios ? _wabLocalNom(l) + ' ' : ''}${_fmtNumeroWa(waNumeroLocal[l])}`);
+  document.getElementById('wab-num').textContent = nums.length ? `Charlas del número del sistema: ${nums.join(' · ')}` : '';
+
+  const sel = wabSel ? _wabKey(wabSel.local_id, wabSel.celular) : '';
+  document.getElementById('wab-items').innerHTML = rows.length ? rows.map(c => {
+    const k = _wabKey(c.local_id, c.celular);
+    const quien = c.ult_direccion === 'in' ? '' : (/^bot/i.test(c.ult_enviado_por || '') ? '🤖 ' : 'Vos: ');
+    const tags = [
+      varios && !wabLocal ? `<span class="wab-tag local">${escHtml(_wabLocalNom(c.local_id))}</span>` : '',
+      c.sugerencia ? `<span class="wab-tag">sugerencia</span>` : '',
+      c.bot_estado === 'derivado' ? `<span class="wab-tag derivado">pasada al local</span>` : '',
+      c.atender && !c.sugerencia && c.bot_estado !== 'derivado' ? `<span class="wab-tag atender">para atender</span>` : '',
+      c.sin_leer > 0 ? `<span class="wab-n">${c.sin_leer > 99 ? '99+' : c.sin_leer}</span>` : '',
+    ].join('');
+    return `<div class="wab-item${k === sel ? ' sel' : ''}${c.atender ? ' atender' : ''}${c.sin_leer > 0 ? ' nuevo' : ''}" onclick="waBandejaAbrirChat('${escHtml(c.local_id)}', '${escHtml(c.celular)}')">
+      <div class="wab-av">${escHtml(_wabInicial(c))}</div>
+      <div class="wab-it-body">
+        <div class="wab-it-top"><span class="wab-it-nom">${escHtml(_wabNombre(c))}</span><span class="wab-it-hora">${escHtml(_wabHora(c.ult_at))}</span></div>
+        <div class="wab-it-bot"><span class="wab-it-prev">${escHtml(quien + _wabTextoCorto(c.ult_texto, c.ult_tipo))}</span>${tags}</div>
+      </div></div>`;
+  }).join('') : `<div class="wab-lista-vacia">${wabConvs.length ? 'No hay charlas con ese filtro.' : 'Todavía no hay charlas.<br>Aparecen acá cuando un cliente le escribe al número del local en el sistema (el del bot).'}</div>`;
+}
+
+async function waBandejaAbrirChat(local, celular) {
+  const cambio = !wabSel || _wabKey(wabSel.local_id, wabSel.celular) !== _wabKey(local, celular);
+  wabSel = { local_id: local, celular };
+  if (cambio) { wabMsgs = []; wabFirma = ''; wabPieFirma = ''; }
+  document.getElementById('wab')?.classList.add('con-chat');
+  waBandejaRenderLista();
+  if (cambio) { const ch = document.getElementById('wab-chat'); ch.dataset.key = ''; ch.innerHTML = `<div class="wab-vacio"><span class="spinner"></span></div>`; }
+  await waBandejaCargarChat(true);
+  if (cambio) document.getElementById('wab-txt')?.focus();
+}
+function waBandejaVolver() { document.getElementById('wab')?.classList.remove('con-chat'); }
+
+async function waBandejaCargarChat(forzar) {
+  const s = wabSel;
+  if (!s) return;
+  const c10 = String(s.celular).replace(/\D/g, '').slice(-10);
+  let rows;
+  try {
+    rows = await supaGet('wa_mensajes', { select: 'id,direccion,tipo,texto,plantilla,estado,estado_at,creado_at,pedido_id,enviado_por,bot_estado,bot_clasificacion,error,motivo:raw->>motivo,imagen:raw->>imagen,archivo:raw->message->document->>filename',
+      local_id: 'eq.' + s.local_id, or: `(de.like.*${c10},para.like.*${c10})`, tipo: 'neq.status', order: 'id.desc', limit: '300' });
+  } catch(e) {
+    if (forzar) { const ch = document.getElementById('wab-chat'); if (ch) ch.innerHTML = `<div class="wab-vacio">No se pudo cargar la charla: ${escHtml(e.message)}</div>`; }
+    return;
+  }
+  if (!wabSel || _wabKey(wabSel.local_id, wabSel.celular) !== _wabKey(s.local_id, s.celular)) return;   // cambió de charla mientras cargaba
+  wabMsgs = (rows || []).reverse();
+  const firma = wabMsgs.map(x => `${x.id}:${x.estado}:${x.bot_estado}`).join(',');
+  if (forzar || firma !== wabFirma) { wabFirma = firma; waBandejaRenderChat(); }
+  // leída: solo las chicas del local mueven la marca (si el admin la abre desde la oficina, para ellas sigue nueva)
+  const c = _wabConvSel();
+  if (c && c.sin_leer > 0 && !session.isAdmin && document.visibilityState === 'visible') {
+    try { await _rpcBot('crm_wa_marcar_leido', { p_local: s.local_id, p_celular: s.celular }); c.sin_leer = 0; waBandejaRenderLista(); }
+    catch(e) { console.warn('crm_wa_marcar_leido:', e); }
+  }
+}
+
+function waBandejaRenderChat() {
+  const el = document.getElementById('wab-chat');
+  if (!el || !wabSel) return;
+  const c = _wabConvSel() || { local_id: wabSel.local_id, celular: wabSel.celular, nombre: '', bot_estado: 'activo', bot_modo: waBotModo[wabSel.local_id] || 'off' };
+  const k = _wabKey(c.local_id, c.celular);
+  if (el.dataset.key !== k) {
+    el.dataset.key = k;
+    el.innerHTML = `<div class="wab-chat-head" id="wab-head"></div><div class="wab-msgs" id="wab-msgs"></div><div class="wab-pie" id="wab-pie"></div>`;
+    wabPieFirma = '';
+  }
+  const ped = c.pedido_id ? (pedidosCache || []).find(p => p.id === c.pedido_id) : null;
+  const sub = [_wabFmtCel(c.celular), session.isAdmin ? _wabLocalNom(c.local_id) : '', ped ? `pedido: ${String(ped.descripcion_sku || ped.sku || '').toLowerCase()} (${ped.estado})` : ''].filter(Boolean).join(' · ');
+  document.getElementById('wab-head').innerHTML = `${_act('wab-volver', 'waBandejaVolver()', 'Volver a la lista', WAB_ICO_VOLVER)}
+    <div class="wab-av">${escHtml(_wabInicial(c))}</div>
+    <div class="wab-chat-tit"><b>${escHtml(_wabNombre(c))}</b><span>${escHtml(sub)}</span></div>
+    ${_wabBotChip(c)}`;
+  const m = document.getElementById('wab-msgs');
+  const abajo = !m.childElementCount || (m.scrollHeight - m.scrollTop - m.clientHeight < 120);
+  m.innerHTML = _wabBurbujas();
+  if (abajo) { m.scrollTop = m.scrollHeight; wabPegado = true; }
+  // las fotos cargan después y empujan el hilo: si estaba abajo, sigue abajo (como en WhatsApp)
+  m.onscroll = () => { wabPegado = (m.scrollHeight - m.scrollTop - m.clientHeight < 120); };
+  m.querySelectorAll('img').forEach(img => img.addEventListener('load', () => { if (wabPegado) m.scrollTop = m.scrollHeight; }));
+  waBandejaRenderPie();
+  // fotos y stickers del cliente se bajan solos; audios, videos y archivos, al tocarlos
+  wabMsgs.forEach(x => { if (x.direccion === 'in' && (x.tipo === 'image' || x.tipo === 'sticker') && !wabMedia[x.id]) _wabMedia(x.id); });
+}
+function _wabBotChip(c) {
+  const modo = c.bot_modo || waBotModo[c.local_id] || 'off';
+  if (modo === 'off') return '';
+  const l = escHtml(c.local_id), cel = escHtml(c.celular);
+  if (c.bot_estado === 'derivado') return `<span class="wa-bot-chip derivado" title="${escHtml(c.derivado_motivo || 'El bot la pasó al local')}">${ICO.robot} pasada al local ${_act('', `waBandejaBot('${l}', '${cel}', true)`, 'Devolverle la charla al bot', ICO.check)}</span>`;
+  if (c.bot_estado === 'humano') return `<span class="wa-bot-chip pausa" title="La sigue ${escHtml(String(c.humano_por || '').replace(/@.*$/, ''))}">${ICO.robot} bot en pausa ${_act('', `waBandejaBot('${l}', '${cel}', true)`, 'Devolverle la charla al bot', ICO.check)}</span>`;
+  return `<span class="wa-bot-chip" title="El bot ${modo === 'auto' ? 'contesta solo' : 'sugiere respuestas y vos las aprobás'}">${ICO.robot} bot ${modo === 'auto' ? 'automático' : 'sugiere'} ${_act('', `waBandejaBot('${l}', '${cel}', false)`, 'Pausar el bot en esta charla (la seguís vos)', ICO.cruz)}</span>`;
+}
+function _wabBurbujas() {
+  const vis = wabMsgs.filter(x => !(x.direccion === 'out' && (x.bot_estado === 'sugerido' || x.bot_estado === 'descartado')) && !(x.bot_estado === 'error' && !x.texto));
+  if (!vis.length) return `<div class="wab-dia">Sin mensajes en los últimos días</div>`;
+  let dia = '';
+  return vis.map(x => {
+    const d = new Date(x.creado_at);
+    let sep = '';
+    if (d.toDateString() !== dia) { dia = d.toDateString(); sep = `<div class="wab-dia">${escHtml(_wabDia(d))}</div>`; }
+    const bot = x.direccion === 'out' && /^bot/i.test(x.enviado_por || '');
+    const quien = x.direccion === 'in' ? '' : bot ? '🤖 Clodi' : (x.bot_estado === 'aprobado' || x.bot_estado === 'editado' ? '🤖→ ' : '') + String(x.enviado_por || 'local').replace(/@.*$/, '').replace(/^sistema.*$/, 'sistema');
+    const hora = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    const fallo = (x.estado === 'failed' || x.bot_estado === 'error') ? ' failed' : '';
+    return sep + `<div class="wa-msg ${x.direccion}${bot ? ' bot' : ''}${fallo}" title="${escHtml(x.error || x.motivo || '')}">${_wabContenido(x)}<span class="wa-msg-meta">${escHtml([quien, hora].filter(Boolean).join(' · '))} ${_waEstadoTxt(x)}</span></div>`;
+  }).join('');
+}
+function _wabContenido(x) {
+  const txt = String(x.texto || '');
+  if (x.direccion === 'in' && ['image', 'audio', 'video', 'document', 'sticker'].includes(x.tipo)) {
+    const pie = txt.replace(/^\[[^\]]+\]\s*/, '');
+    return `<div class="wab-media" id="wab-media-${x.id}">${_wabMediaInner(x)}</div>${pie ? _wabLinkify(pie) : ''}`;
+  }
+  if (x.direccion === 'out' && x.tipo === 'image' && x.imagen) {
+    return `<div class="wab-media"><img src="${escHtml(x.imagen)}" loading="lazy" alt="" onclick="window.open(this.src, '_blank')"></div>${_wabLinkify(txt)}`;
+  }
+  const tpl = x.tipo === 'template' ? `<span class="wab-tpl">aviso automático</span>` : '';
+  if (!txt) return tpl + escHtml(`[${WAB_TIPO_TXT[x.tipo] || x.tipo || 'mensaje'}]`);
+  return tpl + _wabLinkify(txt);
+}
+function _wabMediaInner(x) {
+  const m = wabMedia[x.id];
+  const nom = (WAB_TIPO_TXT[x.tipo] || 'Archivo').replace(/^\S+\s/, '').toLowerCase();
+  if (m && m.url) {
+    if (x.tipo === 'image' || x.tipo === 'sticker') return `<img src="${m.url}" alt="" onclick="window.open(this.src, '_blank')">`;
+    if (x.tipo === 'audio') return `<audio controls src="${m.url}"></audio>`;
+    if (x.tipo === 'video') return `<video controls src="${m.url}"></video>`;
+    return `<a href="${m.url}" download="${escHtml(x.archivo || 'archivo')}">📄 ${escHtml(x.archivo || 'Descargar el archivo')}</a>`;
+  }
+  if (m && m.error) return `<span class="wab-media-err">No se pudo abrir ${escHtml(nom)}: ${escHtml(m.error)}</span>`;
+  if (m && m.cargando) return `<span class="wab-media-err" style="color:var(--muted);font-style:normal">Cargando ${escHtml(nom)}…</span>`;
+  const t = { audio: '▶ Escuchar el audio', video: '▶ Ver el video', document: `📄 Abrir ${x.archivo || 'el archivo'}` }[x.tipo] || 'Ver';
+  return `<button class="wab-media-btn" onclick="_wabMedia(${x.id}, true)">${escHtml(t)}</button>`;
+}
+async function _wabMedia(id, alTocar) {
+  if (wabMedia[id] && (wabMedia[id].url || wabMedia[id].cargando)) return;
+  wabMedia[id] = { cargando: true };
+  _wabMediaPintar(id);
+  try {
+    await _ensureFreshToken();
+    const r = await fetch(`${SUPA_URL}/functions/v1/wa-media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
+      body: JSON.stringify({ mensaje_id: id }),
+    });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `HTTP ${r.status}`); }
+    wabMedia[id] = { url: URL.createObjectURL(await r.blob()) };
+  } catch(e) { wabMedia[id] = { error: e.message }; }
+  _wabMediaPintar(id);
+  if (alTocar && wabMedia[id].url) {
+    const box = document.getElementById('wab-media-' + id);
+    const av = box && box.querySelector('audio,video');
+    if (av) av.play().catch(() => {});
+    const x = wabMsgs.find(y => y.id === id);
+    if (x && x.tipo === 'document') { const a = document.createElement('a'); a.href = wabMedia[id].url; a.download = x.archivo || 'archivo'; document.body.appendChild(a); a.click(); a.remove(); }
+  }
+}
+function _wabMediaPintar(id) {
+  const box = document.getElementById('wab-media-' + id);
+  const x = wabMsgs.find(y => y.id === id);
+  if (!box || !x) return;
+  const m = document.getElementById('wab-msgs');
+  box.innerHTML = _wabMediaInner(x);
+  const img = box.querySelector('img');
+  if (img && m) img.onload = () => { if (wabPegado) m.scrollTop = m.scrollHeight; };
+}
+
+function waBandejaRenderPie() {
+  const el = document.getElementById('wab-pie');
+  if (!el || !wabSel) return;
+  const k = _wabKey(wabSel.local_id, wabSel.celular);
+  const sug = [...wabMsgs].reverse().find(x => x.bot_estado === 'sugerido') || null;
+  const ultIn = [...wabMsgs].reverse().find(x => x.direccion === 'in');
+  const dentro = !!ultIn && (Date.now() - new Date(ultIn.creado_at).getTime()) < WA_VENTANA_H * 3600 * 1000;
+  const firma = `${k}|${sug ? sug.id : 0}|${dentro}|${wabEdit[k] || 0}|${ultIn ? ultIn.id : 0}`;
+  if (firma === wabPieFirma) return;
+  wabPieFirma = firma;
+  let sugHtml = '';
+  if (sug && wabEdit[k] === sug.id) {
+    sugHtml = `<div class="wa-sug"><div class="wa-sug-t">${ICO.robot} Corrigiendo la respuesta del bot en el cuadro de abajo ${_act('', 'waBandejaSugCancelar()', 'Volver a la sugerencia original', ICO.cruz)}</div></div>`;
+  } else if (sug) {
+    sugHtml = `<div class="wa-sug">
+      <div class="wa-sug-t">${ICO.robot} Respuesta sugerida por el bot${sug.bot_clasificacion ? ` · <span style="font-weight:400">${escHtml(sug.bot_clasificacion.replace('_', ' '))}</span>` : ''}</div>
+      <div class="wa-sug-txt">${escHtml(sug.texto || '')}</div>
+      ${sug.motivo ? `<div class="wa-sug-motivo">${escHtml(sug.motivo)}</div>` : ''}
+      <div class="wa-sug-acts">
+        ${dentro ? _act('primary ok', `waBandejaEnviar(${sug.id})`, 'Mandar esta respuesta tal cual', ICO.enviar) : ''}
+        ${_act('', `waBandejaSugEditar(${sug.id})`, 'Corregirla antes de mandarla', ICO.lapiz)}
+        ${_act('bad', `waBandejaSugDescartar(${sug.id})`, 'Descartar la sugerencia (no se manda nada)', ICO.cruz)}
+      </div></div>`;
+  }
+  el.innerHTML = sugHtml + (dentro
+    ? `<div class="wa-reply"><textarea id="wab-txt" data-no-upper rows="1" placeholder="Escribí un mensaje (Enter manda · Shift+Enter, otra línea)" oninput="wabBorr['${k}'] = this.value" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); waBandejaEnviar(); }">${escHtml(wabBorr[k] || '')}</textarea>${_act('primary wa', 'waBandejaEnviar()', 'Mandar el mensaje por WhatsApp (Enter)', ICO.enviar)}</div>`
+    : `<div class="wa-reply-nota" style="margin-top:0">${ultIn ? `Pasaron más de ${WA_VENTANA_H} h desde el último mensaje del cliente: WhatsApp no deja escribirle texto libre hasta que vuelva a escribir.` : 'El cliente todavía no escribió en esta charla.'}</div>`);
+}
+async function waBandejaEnviar(sugerenciaId) {
+  if (!wabSel) return;
+  const s = { ...wabSel };
+  const k = _wabKey(s.local_id, s.celular);
+  const ta = document.getElementById('wab-txt');
+  const texto = sugerenciaId ? String((wabMsgs.find(x => x.id === sugerenciaId) || {}).texto || '') : String((ta ? ta.value : wabBorr[k]) || '').trim();
+  if (!texto.trim()) { toast('⚠️ Escribí el mensaje primero'); return; }
+  // si el cuadro tiene una sugerencia del bot corregida, viaja su id: queda "editado" y el bot sigue activo
+  const sugId = sugerenciaId || wabEdit[k] || undefined;
+  if (ta && !sugerenciaId) ta.disabled = true;
+  try {
+    await _waEnviarFetch({ local_id: s.local_id, celular: s.celular, texto, sugerencia_id: sugId });
+    if (!sugerenciaId || wabEdit[k] === sugerenciaId) delete wabBorr[k];
+    delete wabEdit[k];
+    wabPieFirma = '';
+    await waBandejaCargarChat(true);
+    waBandejaCargar();
+    loadWaMensajes().then(() => { renderPedidos(); renderAlertas(); updateAlertBadge(); });   // la tarjeta del pedido también lo muestra
+    document.getElementById('wab-txt')?.focus();
+  } catch(e) {
+    toast('❌ No se pudo mandar: ' + e.message);
+    if (ta) { ta.disabled = false; ta.focus(); }
+  }
+}
+function waBandejaSugEditar(id) {
+  if (!wabSel) return;
+  const k = _wabKey(wabSel.local_id, wabSel.celular);
+  const sug = wabMsgs.find(x => x.id === id);
+  if (!sug) return;
+  wabBorr[k] = sug.texto || ''; wabEdit[k] = id; wabPieFirma = '';
+  waBandejaRenderPie();
+  const ta = document.getElementById('wab-txt');
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+function waBandejaSugCancelar() {
+  if (!wabSel) return;
+  const k = _wabKey(wabSel.local_id, wabSel.celular);
+  delete wabEdit[k]; delete wabBorr[k]; wabPieFirma = '';
+  waBandejaRenderPie();
+}
+async function waBandejaSugDescartar(id) {
+  if (!wabSel) return;
+  delete wabEdit[_wabKey(wabSel.local_id, wabSel.celular)];
+  try {
+    await _waEnviarFetch({ accion: 'descartar', sugerencia_id: id });
+    toast('Sugerencia descartada');
+    wabPieFirma = '';
+    await waBandejaCargarChat(true);
+    waBandejaCargar();
+  } catch(e) { toast('❌ ' + e.message); }
+}
+async function waBandejaBot(local, celular, on) {
+  try {
+    await _waEnviarFetch({ accion: on ? 'bot_on' : 'bot_off', local_id: local, celular });
+    toast(on ? '🤖 El bot vuelve a atender esta charla' : '⏸ Bot en pausa: la charla la seguís vos');
+    await waBandejaCargar();
+    waBandejaRenderChat();
+  } catch(e) { toast('❌ ' + e.message); }
+}
+// Con la pestaña WhatsApp abierta (y la ventana visible), la lista y la charla se actualizan cada 15 segundos
+setInterval(() => {
+  try {
+    if (document.visibilityState !== 'visible' || !session || (!session.local_id && !session.isAdmin)) return;
+    if (!document.getElementById('app-screen')?.classList.contains('active') || !_wabPanelActivo()) return;
+    waBandejaCargar();
+    if (wabSel) waBandejaCargarChat(false);
+  } catch(_) {}
+}, 15 * 1000);
+
 async function loadPedidos() {
   try {
     // Sin filtro temporal: traer todos los pedidos (necesario para pedidos viejos pendientes
@@ -2938,6 +3399,7 @@ async function loadPedidos() {
     loadPushDragon().then(() => { if (typeof renderPedidos === 'function') renderPedidos(); });
     loadWaApiLocales().then(() => loadWaMensajes()).then(() => { if (typeof renderPedidos === 'function') { renderPedidos(); renderAlertas(); updateAlertBadge(); } });
     loadSugerenciasCliente().then(() => { renderAlertas(); updateAlertBadge(); });
+    waBandejaCargar();   // (4-nov-2026) número de la pestaña WhatsApp
     updateAlertBadge();
     renderPedidos();
     renderAlertas();
@@ -7106,6 +7568,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=25"></script>
+<script src="manual.js?v=26"></script>
 </body>
 </html>
