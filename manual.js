@@ -24,11 +24,12 @@ function _manualSecciones() {
     },
     {
       icon: '🧭', titulo: 'Cómo se navega',
-      desc: 'La barra de arriba tiene, en orden, Nuevo pedido, Alertas, Pedidos y WhatsApp (y Satisfacción).',
+      desc: 'La barra de arriba tiene, en orden, Nuevo pedido, Pedidos (con las Alertas arriba de todo) y WhatsApp (y Satisfacción).',
       pasos: [
         'Al entrar, el CRM abre directo en Nuevo pedido, que es lo que más se usa.',
-        'Cuando hay algo para hacer, la pestaña Alertas se pone toda en verde con el número de pendientes. Si está gris, no hay nada. Ese mismo número aparece en rojo sobre el ícono de la ventana en la barra de tareas (y en el ícono de la app en el celular), aunque la tengas minimizada.',
-        'La pestaña Hoy ya no existe (26-oct-2026): lo que mostraba está en Alertas y en Pedidos.',
+        'Cuando hay algo para hacer, la pestaña Pedidos se pone toda en verde con el número de alertas. Si está gris, no hay nada. Ese mismo número aparece en rojo sobre el ícono de la ventana en la barra de tareas (y en el ícono de la app en el celular), aunque la tengas minimizada.',
+        'Desde el 4-nov-2026 Alertas ya no es una pestaña aparte: está arriba de todo dentro de Pedidos. La pestaña Hoy tampoco existe (26-oct-2026).',
+        'Los botones se mueven al pasar el mouse (se agrandan un poco) y se hunden al tocarlos. En las alertas, el botón principal late suave para que se vea qué conviene hacer.',
       ],
     },
     {
@@ -45,8 +46,9 @@ function _manualSecciones() {
     },
     {
       icon: '📦', titulo: 'Pedidos',
-      desc: 'El listado completo con el circuito de estados de cada pedido.',
+      desc: 'Arriba, las Alertas en verde; abajo, el listado del resto de los pedidos con el circuito de estados.',
       pasos: [
+        'Si hay alertas, arriba de todo aparece la barra verde "Alertas" con el número y abajo sus tarjetas (ver Alertas). Debajo dice "Los demás pedidos": ahí están los filtros y el resto. Un pedido que tiene una alerta se ve solo arriba; si el filtro elegido tiene alguno, te lo avisa ("1 pedido de este filtro está arriba, en Alertas").',
         'Cuando abrís el chat de WhatsApp de un pedido Avisado y volvés al CRM, aparece abajo "¿Respondió?": tocás Sí, No o Después y listo. No hace falta entrar al pedido para cargar la respuesta.',
         'El circuito es: Pendiente → Listo para avisar → Avisado → Respondió / No contestó → Completado o Cancelado.',
         'Los botones de cada pedido son solo íconos: dejá el mouse encima (o mantené apretado en el celular) y te dice qué hace. El más grande y de color es la acción principal de ese estado: avisar, marcar que respondió o que ya retiró. El verde siempre es WhatsApp.',
@@ -90,7 +92,7 @@ function _manualSecciones() {
     },
     {
       icon: '⏰', titulo: 'Alertas',
-      desc: 'Todos los pedidos que están esperando una acción tuya.',
+      desc: 'Todos los pedidos que están esperando una acción tuya. Están arriba de todo en la pestaña Pedidos.',
       pasos: [
         'Primero aparecen siempre los artículos que ya llegaron y hay que avisar; abajo, los pedidos avisados hace más de una hora que esperan que cargues si el cliente respondió. Cuando los avisos salgan por la API, esa segunda parte se completa sola.',
         'Concentra los avisados sin respuesta (+60 min) y otros vencimientos.',
