@@ -2605,6 +2605,29 @@ const WA_API_PLANTILLAS = {
   pedido_recontacto: { titulo: 'Recontacto (no respondió)', pregunta: '¿Qué vendedora re-contacta al cliente?' },
   pedido_confirmado: { titulo: 'Confirmación del pedido', pregunta: null },
 };
+// (4-nov-2026, JP: "el primer aviso, que el pedido está cargado, lo sigue mandando al WhatsApp web en vez de por el
+// bot") Al guardar un pedido en un local con el número del sistema activo, la confirmación ("registramos tu pedido de
+// ...") sale por la API con la plantilla pedido_confirmado (wa-enviar v9: una sola, con todos los artículos). Si falla,
+// ofrece mandarla desde el WhatsApp del local como antes.
+async function enviarConfirmacionApi(pedido, nombre, celular, lineas) {
+  const nombres = (lineas || []).map(l => waProducto(l.descripcion || l.sku)).filter(Boolean);
+  const producto = nombres.length <= 1 ? (nombres[0] || '') : nombres.slice(0, -1).join(', ') + ' y ' + nombres[nombres.length - 1];
+  try {
+    await _ensureFreshToken();
+    const r = await fetch(`${SUPA_URL}/functions/v1/wa-enviar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
+      body: JSON.stringify({ pedido_id: pedido.id, plantilla: 'pedido_confirmado', producto }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    toast(`✅ Confirmación enviada por WhatsApp a ${waNombre(nombre) || celular}`);
+  } catch (e) {
+    console.warn('confirmación por API:', e);
+    const link = buildWaConfirm(nombre, celular, lineas);
+    if (link && confirm(`No salió la confirmación por el número del sistema (${e.message}).\n\n¿La mandás desde el WhatsApp del local?`)) window.open(link, '_blank');
+  }
+}
 async function enviarAvisoApi(id, plantilla) {
   const p = pedidosCache.find(x => x.id === id);
   if (!p) { toast('Pedido no encontrado'); return; }
@@ -4232,7 +4255,9 @@ async function submitPedido() {
     }
 
     const count = validLines.length;
-    toast(`✅ ${count} pedido${count > 1 ? 's' : ''} guardado${count > 1 ? 's' : ''} — abriendo WhatsApp...`);
+    // (4-nov-2026, JP) con el número del sistema activo en el local, la confirmación sale por la API, no por wa.me
+    const confirmaPorApi = waApiActiva(creados[0].local_id);
+    toast(`✅ ${count} pedido${count > 1 ? 's' : ''} guardado${count > 1 ? 's' : ''} — ${confirmaPorApi ? 'mandando la confirmación por WhatsApp...' : 'abriendo WhatsApp...'}`);
 
     // Save for WA confirmation before resetting
     const nombreGuardado  = nombre;
@@ -4273,7 +4298,9 @@ async function submitPedido() {
     if (wabPedidoCtx) { waBandejaPedidoGuardado(nombreGuardado, lineasGuardadas); return; }
     switchTab('pedidos');
 
-    // Open WhatsApp confirmation
+    // Confirmación al cliente: por el número del sistema (plantilla pedido_confirmado) si el local lo tiene activo;
+    // si no, el WhatsApp del local por wa.me como siempre
+    if (confirmaPorApi) { await enviarConfirmacionApi(creados[0], nombreGuardado, celularGuardado, lineasGuardadas); return; }
     const waConfirm = buildWaConfirm(nombreGuardado, celularGuardado, lineasGuardadas);
     if (waConfirm) setTimeout(() => window.open(waConfirm, '_blank'), 400);
   } catch(e) {
@@ -7834,6 +7861,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=32"></script>
+<script src="manual.js?v=33"></script>
 </body>
 </html>
