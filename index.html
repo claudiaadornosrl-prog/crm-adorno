@@ -4256,8 +4256,9 @@ async function submitPedido() {
 
     const count = validLines.length;
     // (4-nov-2026, JP) con el número del sistema activo en el local, la confirmación sale por la API, no por wa.me
-    const confirmaPorApi = waApiActiva(creados[0].local_id);
-    toast(`✅ ${count} pedido${count > 1 ? 's' : ''} guardado${count > 1 ? 's' : ''} — ${confirmaPorApi ? 'mandando la confirmación por WhatsApp...' : 'abriendo WhatsApp...'}`);
+    // (desde una charla de la bandeja, en cambio, queda escrita en el cuadro: ver la rama de wabPedidoCtx más abajo)
+    const confirmaPorApi = !wabPedidoCtx && waApiActiva(creados[0].local_id);
+    toast(`✅ ${count} pedido${count > 1 ? 's' : ''} guardado${count > 1 ? 's' : ''}${wabPedidoCtx ? '' : (confirmaPorApi ? ' — mandando la confirmación por WhatsApp...' : ' — abriendo WhatsApp...')}`);
 
     // Save for WA confirmation before resetting
     const nombreGuardado  = nombre;
