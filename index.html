@@ -2858,9 +2858,10 @@ async function loadBotConfig() {
     const rows = await supaGet('wa_cuentas_pub', { select: 'local_id,numero,activa,bot_modo,bot_solo_celulares', order: 'local_id' });
     const intro = `<div class="card"><div class="card-body" style="font-size:13px;color:var(--muted);line-height:1.5">
       El bot contesta los WhatsApp que llegan a los números del sistema (no al WhatsApp del celular del local).
-      Cambiar el modo acá no prende los avisos por API ni el recontacto automático.
-      <br><strong style="color:#92400e">Mientras Meta no habilite el pago de la cuenta, las respuestas no le llegan al cliente:</strong>
-      en la conversación figuran como "✗ no salió".</div></div>`;
+      Cambiar el modo acá no prende los avisos por API ni el recontacto automático (eso es "Avisos por API: activos").
+      <br>Con los avisos por API activos, la vendedora carga el pedido y manda el primer aviso; después es automático: si
+      la clienta contesta pasa a Respondió, si no, recibe 2 recontactos (a las 48 h y 48 h después) y 48 h más tarde pasa a
+      No contestó.</div></div>`;
     el.innerHTML = intro + (rows || []).map(r => {
       const lid = escHtml(r.local_id);
       const nombre = (LOCALES[r.local_id] && LOCALES[r.local_id].nombre) || r.local_id;
@@ -3621,12 +3622,20 @@ function refreshAll() {
   loadData().finally(() => { btn.style.animation = ''; });
 }
 
+// (4-nov-2026, JP: "el sistema ya puede responder solo si el cliente respondió el aviso: dejarlo automatizado")
+// Aviso que salió por la API (plantilla desde el número del local): la respuesta entra sola (Respondió), a las 48 h
+// sale el recontacto automático y 72 h después, sin respuesta, pasa solo a No contestó. No se le pregunta a nadie.
+function avisoPorApi(p) {
+  if (p.wa_entregado_at || p.wa_leido_at) return true;
+  return (waMensajesPorPedido[p.id] || []).some(x => x.direccion === 'out' && x.tipo === 'template' && x.estado !== 'failed');
+}
 // ─── Helper: pedidos avisados hace +60 min que necesitan confirmar respuesta ───
 function pedidosVencidos60() {
   const hace60min = new Date(Date.now() - 60 * 60 * 1000);
   let base = pedidosCache.filter(p => {
     if (p.estado !== 'Avisado') return false;
     if (!p.avisado_at) return false;
+    if (avisoPorApi(p)) return false;   // (4-nov) la respuesta la carga el sistema solo
     return new Date(p.avisado_at) < hace60min;
   });
   // Si es vendedora o encargada con local, filtrar por local (toda vendedora del local los ve)
@@ -7577,6 +7586,7 @@ function _preguntarRespuesta() {
   const p = pedidosCache.find(x => x.id === id);
   waRespPendiente = null;
   if (!p || p.estado !== 'Avisado') return;
+  if (avisoPorApi(p)) return;   // (4-nov) aviso por la API: la respuesta la carga el sistema solo
   const sheet = document.getElementById('resp-sheet');
   document.getElementById('resp-sheet-nombre').textContent = p.nombre_cliente || 'la clienta';
   document.getElementById('resp-sheet-desc').textContent = p.descripcion_sku || p.sku || '';
@@ -7644,27 +7654,48 @@ function buildWaConfirm(nombre, celular, lines) {
   else if (match3) digits = match3[1] + match3[3];
   else if (match4) digits = match4[1] + match4[3];
   const phone = digits.startsWith('549') ? digits : '549' + digits;
-  const primerNombre = (nombre || '').split(' ')[0];
+  const primerNombre = waNombre(nombre);
   // Build article list (support both array of lines and legacy single sku object)
   let articuloTxt = '';
   if (Array.isArray(lines)) {
-    const nombres = lines.map(l => l.descripcion || l.sku).filter(Boolean);
+    const nombres = lines.map(l => waProducto(l.descripcion || l.sku)).filter(Boolean);
     if (nombres.length === 1) articuloTxt = nombres[0];
     else if (nombres.length === 2) articuloTxt = nombres.join(' y ');
     else articuloTxt = nombres.slice(0, -1).join(', ') + ' y ' + nombres[nombres.length - 1];
   } else {
-    articuloTxt = (lines && lines.descripcion) ? lines.descripcion : (lines && lines.sku) ? lines.sku : '';
+    articuloTxt = waProducto((lines && lines.descripcion) ? lines.descripcion : (lines && lines.sku) ? lines.sku : '');
   }
   const plural = Array.isArray(lines) && lines.length > 1;
   const msg = encodeURIComponent(
-    `Hola ${primerNombre}! Te confirmamos que tu pedido en Claudia Adorno quedo registrado: ${articuloTxt}. En cuanto ${plural ? 'esten disponibles' : 'este disponible'} te avisamos. Gracias!`
+    `Hola ${primerNombre}! Te confirmamos que tu pedido en Claudia Adorno quedó registrado: ${articuloTxt}. En cuanto ${plural ? 'estén disponibles' : 'esté disponible'} te avisamos. Gracias!`
   );
   return `${WA_PREFIX}${phone}?text=${msg}`;
 }
 
+// (4-nov-2026, JP) Los avisos salían "Hola KARINA! ... el JUEGO DE SABANAS PARIS QUEEN 300 HILOS" y sonaban a
+// sistema: el nombre va con mayúscula inicial y, si la descripción viene toda en mayúsculas (Dragonfish), se pasa a
+// minúscula y se le ponen los tildes de las palabras más comunes. Lo que una vendedora escribió a mano queda igual.
+const _WA_TILDES = { sabana: 'sábana', sabanas: 'sábanas', almohadon: 'almohadón', jabon: 'jabón', algodon: 'algodón',
+  marmol: 'mármol', ceramica: 'cerámica', acrilico: 'acrílico', bambu: 'bambú', rustico: 'rústico', rustica: 'rústica',
+  lampara: 'lámpara', lamparas: 'lámparas', nordico: 'nórdico', nordica: 'nórdica', macrame: 'macramé', bano: 'baño',
+  aromatico: 'aromático', aromatica: 'aromática', organico: 'orgánico', organica: 'orgánica', ultimo: 'último' };
+function waNombre(n) {
+  let s = String(n || '').trim();
+  if (s.includes(',')) s = s.slice(s.indexOf(',') + 1).trim();  // "Apellido, Nombre"
+  const p = s.split(/\s+/)[0] || '';
+  return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : '';
+}
+function waProducto(d) {
+  const s = String(d || '').trim();
+  const letras = s.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, '');
+  const minus = letras.replace(/[^a-záéíóúüñ]/g, '').length;
+  if (!letras || minus > letras.length * 0.3) return s;  // ya viene escrito a mano, con minúsculas
+  return s.toLowerCase().split(/(\s+)/).map(w => _WA_TILDES[w] || w).join('');
+}
+
 function waMsg(p) {
-  const nombre = (p.nombre_cliente || '').split(' ')[0]; // Solo el primer nombre
-  const articulo = p.descripcion_sku || p.sku || '';
+  const nombre = waNombre(p.nombre_cliente); // Solo el primer nombre, con mayúscula inicial
+  const articulo = waProducto(p.descripcion_sku || p.sku || '');
   const txt = `Hola ${nombre}! Te escribimos de Claudia Adorno con buenas noticias: el ${articulo} que estabas esperando ya está disponible en el local. Cuando quieras pasate a buscarlo, te esperamos!`;
   return encodeURIComponent(txt);
 }
@@ -7803,6 +7834,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=30"></script>
+<script src="manual.js?v=31"></script>
 </body>
 </html>

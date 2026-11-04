@@ -41,6 +41,7 @@ function _manualSecciones() {
         'Anotá seña si dejó, y cualquier aclaración en las notas.',
         'El pedido arranca en estado "Pendiente".',
         'Si tu local tiene el WhatsApp conectado al sistema, vas a ver el botón verde "Enviar aviso": manda el mensaje desde el número del local y marca Avisado solo. Cuando el cliente responde, el pedido pasa a "Respondió" automáticamente y ves su mensaje en la tarjeta, junto con ✓✓ entregado / leído.',
+        'Con el aviso mandado por el sistema, vos solo cargás el pedido y mandás el primer aviso: lo demás es automático. Si la clienta contesta, pasa a Respondió. Si no contesta, a las 48 horas le llega un recontacto, 48 horas después otro y, si sigue sin contestar 48 horas más, el pedido pasa a No contestó. Los recontactos salen entre las 10 y las 20, nunca de noche. Ya no hace falta cargar si respondió.',
         'Si el DNI no tenía ficha, el pedido muestra "⏳ Dragon": el cliente se da de alta solo en Dragonfish desde Oficina (cada 15 min) y pasa a "✔ Dragon". No hace falta cargarlo a mano.',
       ],
     },
