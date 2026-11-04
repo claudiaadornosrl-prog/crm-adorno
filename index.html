@@ -583,6 +583,11 @@ a { color: inherit; text-decoration: none; }
 .hdr-ico { background: transparent; border: none; color: white; opacity: .85; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: background .15s, opacity .15s; }
 .hdr-ico:hover { background: rgba(255,255,255,0.16); opacity: 1; }
 .hdr-ico:active { background: rgba(255,255,255,0.28); }
+/* (4-nov-2026, JP) número de versión en la barra de arriba, para saber si el CRM está actualizado; si hay una más nueva
+   publicada, se pone amarillo y al tocarlo recarga */
+.hdr-ver { font: inherit; font-size: 11px; color: white; opacity: .55; background: transparent; border: none; border-radius: 999px; padding: 3px 8px; white-space: nowrap; cursor: default; letter-spacing: .02em; }
+.hdr-ver.nueva { opacity: 1; background: #fde68a; color: #78350f; font-weight: 700; cursor: pointer; }
+.hdr-ver.nueva:hover { background: #fcd34d; }
 .header-search-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-right: 4px; }
 .header-search-btn:hover { background: rgba(255,255,255,0.22); }
 
@@ -1492,6 +1497,7 @@ html.dark .wab-vacio { background: #111b21; }
       </div>
     </div>
     <div class="header-right">
+      <button class="hdr-ver" id="hdr-ver" type="button" onclick="crmActualizarVersion()"></button>
       <span class="local-badge" id="hdr-badge"></span>
       <button class="hdr-ico" onclick="openGlobalSearch()" title="Buscar clientes, pedidos y artículos (Ctrl+B)" aria-label="Buscar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
       <button class="hdr-ico header-refresh" onclick="refreshAll()" title="Actualizar los datos" aria-label="Actualizar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></button>
@@ -7764,6 +7770,52 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 }
 
+// ═══════════════════════════════════════════════════════
+//  (4-nov-2026, JP) Versión a la vista: "ponerle arriba el número de versión, así sé si se actualiza o no; me pasa
+//  siempre que estoy corriendo versiones viejas y no sé si es un error". CRM_VERSION es la versión de ESTA página y
+//  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
+//  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
+// ═══════════════════════════════════════════════════════
+const CRM_VERSION = 'crm-adorno-v94-version-a-la-vista';
+const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
+let crmVersionNueva = '';
+function crmPintarVersion() {
+  const el = document.getElementById('hdr-ver');
+  if (!el) return;
+  el.classList.toggle('nueva', !!crmVersionNueva);
+  el.textContent = crmVersionNueva ? `Actualizar a v${_verNum(crmVersionNueva)}` : `v${_verNum(CRM_VERSION)}`;
+  el.title = crmVersionNueva
+    ? `Estás usando la v${_verNum(CRM_VERSION)} y ya está publicada la v${_verNum(crmVersionNueva)}: tocá para recargar el CRM`
+    : `Versión del CRM: v${_verNum(CRM_VERSION)} (es la última publicada)`;
+}
+let _crmVerAt = 0;
+async function crmChequearVersion() {
+  if (location.protocol !== 'https:') return crmPintarVersion();
+  if (Date.now() - _crmVerAt < 60_000) return;   // al volver a la pestaña, como mucho una vez por minuto
+  _crmVerAt = Date.now();
+  try {
+    const r = await fetch(`service-worker.js?ver=${Date.now()}`, { cache: 'no-store' });
+    const m = r.ok ? (await r.text()).match(/CACHE_VERSION\s*=\s*['"]([^'"]+)['"]/) : null;
+    const pub = m ? m[1] : '';
+    // si ya se recargó por esta versión y la página sigue siendo la vieja (alguien se olvidó de cambiar CRM_VERSION),
+    // no se insiste: se muestra la versión de la página nomás
+    let yaRecargo = '';
+    try { yaRecargo = sessionStorage.getItem('crm-recargo-por') || ''; } catch (_) { /* sin storage */ }
+    crmVersionNueva = pub && _verNum(pub) > _verNum(CRM_VERSION) && yaRecargo !== pub ? pub : '';
+  } catch (_) { /* sin conexión: queda lo que había */ }
+  crmPintarVersion();
+}
+async function crmActualizarVersion() {
+  if (!crmVersionNueva) { toast(`Estás en la v${_verNum(CRM_VERSION)}, la última publicada`); return; }
+  try { sessionStorage.setItem('crm-recargo-por', crmVersionNueva); } catch (_) { /* sin storage */ }
+  try { const reg = await navigator.serviceWorker?.getRegistration(); await reg?.update(); } catch (_) { /* sigue igual */ }
+  location.reload();
+}
+crmPintarVersion();
+crmChequearVersion();
+setInterval(crmChequearVersion, 10 * 60_000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') crmChequearVersion(); });
+
 // Banner de instalación (Chrome/Edge en desktop y Android)
 let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', e => {
@@ -7862,6 +7914,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=33"></script>
+<script src="manual.js?v=34"></script>
 </body>
 </html>

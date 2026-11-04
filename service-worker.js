@@ -3,7 +3,9 @@
 //  Estrategia: network-first para HTML/datos, cache-first para assets
 // ════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'crm-adorno-v93-confirmacion-charla';
+// (4-nov-2026) Al publicar, cambiar también CRM_VERSION en index.html (mismo texto): el número se ve arriba en el CRM y
+// las pestañas abiertas con una versión más vieja avisan "Actualizar a vN"
+const CACHE_VERSION = 'crm-adorno-v94-version-a-la-vista';
 const CACHE_ASSETS = [
   './',
   './index.html',
@@ -53,10 +55,16 @@ self.addEventListener('fetch', event => {
     return;  // dejar que el browser maneje
   }
 
+  // (4-nov-2026) el control de versión del CRM pide este archivo: siempre a la red, nunca al cache
+  if (url.pathname.endsWith('/service-worker.js')) return;
+
   // Navegación HTML: network-first
+  // (4-nov-2026) cache 'no-cache': GitHub Pages manda max-age=600 y el navegador podía dar una página de hasta 10
+  // minutos atrás aunque ya hubiera una versión nueva publicada (JP: "estoy corriendo versiones viejas"); así revalida
+  // siempre con el servidor (si no cambió, vuelve un 304 sin bajar todo)
   if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' })
         .then(resp => {
           // Actualizar cache del index si la response es OK
           if (resp && resp.ok) {

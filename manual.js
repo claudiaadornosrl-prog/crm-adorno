@@ -64,6 +64,7 @@ function _manualSecciones() {
         'Si el bot del local está en "Sugiere respuestas", cuando el cliente escribe te deja una "respuesta sugerida" en la tarjeta y en Alertas: ✓ la mandás tal cual, ✎ la corregís antes de mandarla o ✗ la descartás; nada sale sin que alguien lo apruebe. Si está en "Responde solo", el bot (Clodi, la asistente virtual) contesta directo y vos ves toda la charla en "💬 WhatsApp".',
         'Cuando la clienta necesita a una persona (lo pide, tiene una queja o un cambio, quiere reservar, o el bot no sabe la respuesta), el bot le avisa "dame un segundo que busco a alguno de los chicos del local" (si el local está cerrado, que le escriben apenas abra) y a las que están trabajando en el local en ese momento (según las fichadas del reloj) y a la encargada les llega al celular la notificación "💬 Nombre necesita una persona", que abre la charla directo. Contestale vos desde la pestaña WhatsApp. Si nadie del local le escribe en 3 horas, el bot la vuelve a atender solo (y le pide disculpas si reclama).',
         'Lo que el bot nunca hace: decir precios (pasa el link de la web, ahí está el precio), ofrecer reservar o guardar un producto (si la clienta lo pide, le cuenta lo de la seña y te la pasa) ni confirmar stock sin mirar el sistema (dice "según el sistema hoy lo tenemos", le ofrece que ustedes lo confirmen y la invita a pasar por el local). Audios, videos y archivos no los puede ver: te los pasa.',
+        'El bot sabe quién está trabajando ahora en el local (por el reloj de fichadas y los turnos). Si la clienta pregunta "¿está Soraya?", le dice si está o no (sin dar horarios). Si pide que la atienda una vendedora en particular, el aviso le llega solo a esa vendedora ("💬 … quiere que la atiendas vos"); si esa vendedora no está ahora, le llega igual y también al local, para que alguien la atienda.',
         'Otras cosas del bot: si preguntan por envíos o compras online, le pasa el WhatsApp de administración (no te la pasa a vos). Si la clienta pregunta si le guardan un pedido que ya llegó, no le habla de seña (no es una reserva): te la pasa para que le confirmes hasta cuándo. Si no está exactamente lo que busca, le ofrece lo más parecido de la web antes de pasártela (por ejemplo, para algo con aroma, la línea Spa).',
         'Si aprobás o corregís la sugerencia, el bot sigue atendiendo esa conversación. Si escribís vos un mensaje propio, el bot se corre durante 12 horas para no pisarte; con el ✓ del recuadro "bot en pausa" se lo devolvés antes.',
       ],
@@ -121,6 +122,7 @@ function _manualSecciones() {
         'La lupa 🔍 (o Ctrl+B) busca en todo: clientes, pedidos, productos y facturas.',
         '🌙 cambia entre tema claro y oscuro.',
         '↻ actualiza los datos sin recargar la página.',
+        'Arriba a la derecha está el número de versión del CRM (por ejemplo "v94"). Si se publicó una versión más nueva mientras tenías la página abierta, se pone amarillo y dice "Actualizar a v95": tocalo y el CRM se recarga con la nueva. Si algo no anda como te contaron, mirá primero ese número.',
       ],
     },
   ];
