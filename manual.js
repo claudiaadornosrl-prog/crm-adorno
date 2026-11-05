@@ -83,6 +83,7 @@ function _manualSecciones() {
         'Si hay una respuesta sugerida por el bot: ✓ la mandás tal cual, ✎ la corregís en el cuadro antes de mandarla o ✗ la descartás.',
         'Si la clienta te encarga algo, tocá el botón de pedido que está a la izquierda del cuadro de escribir: se abre Nuevo pedido encima de la charla con sus datos ya cargados (nombre, DNI, celular y mail, si los tenemos). Elegís tu nombre y el artículo y guardás. El pedido queda en el local de la charla y en el cuadro queda escrita la confirmación para la clienta: revisala y mandala con Enter. Con la ✗ de arriba cerrás sin guardar.',
         'Arriba a la derecha de la charla ves qué hace el bot ahí: con ✗ lo pausás y la seguís vos; con ✓ se la devolvés al bot. Si escribís un mensaje propio, el bot se corre solo durante 12 horas.',
+        'Si la clienta manda varios mensajes seguidos (por ejemplo "hola", "estoy en Neuquén", "hacen envíos?"), Clodi espera unos segundos a que termine de escribir y le contesta una sola vez a todo junto. Por eso a veces la respuesta tarda unos 10 segundos más.',
         'Las fotos que manda la clienta se ven en la charla (tocala para agrandarla). Los audios, videos y archivos se abren al tocarlos. WhatsApp guarda esos archivos unos 30 días.',
         'Al abrir una charla queda leída para todo el local. Si la abre alguien de la oficina, para ustedes sigue como nueva.',
         'Hoy acá están solo las charlas del número del sistema. Las del celular del local siguen en el WhatsApp de siempre.',
