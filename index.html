@@ -1207,6 +1207,11 @@ html.dark .btn-wa-tpl { background: rgba(37, 211, 102, 0.2); color: #34d399; }
 .wa-msg.out.bot { background: #ede9fe; color: #3b0764; }
 .wa-msg.out.failed { background: #fee2e2; color: #991b1b; }
 .wa-msg .wa-msg-meta { display: block; font-size: 10px; opacity: .65; margin-top: 2px; text-align: right; }
+/* (6-nov-2026) reacción pegada abajo del mensaje, como en WhatsApp */
+.wa-msg.con-reac { margin-bottom: 14px; }
+.wa-msg .wa-reac { position: absolute; bottom: -13px; left: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 999px; padding: 0 6px; font-size: 14px; line-height: 20px; box-shadow: 0 1px 2px rgba(0,0,0,.08); white-space: nowrap; }
+.wa-msg.out .wa-reac { left: auto; right: 10px; }
+html.dark .wa-msg .wa-reac { background: #1f2c34; border-color: #2a3942; }
 .wa-msg.in .wa-msg-meta { text-align: left; }
 .wa-sug { margin-top: 6px; border: 1px dashed #8b5cf6; background: #f5f3ff; border-radius: 10px; padding: 8px 10px; }
 .wa-sug-t { font-weight: 700; color: #6d28d9; font-size: 11px; display: flex; align-items: center; gap: 6px; }
@@ -3303,6 +3308,7 @@ function _wabInicial(c) { const n = String(c.nombre || '').trim(); return n ? n[
 function _wabLocalNom(l) { return (LOCALES[l] && LOCALES[l].nombre) || l || ''; }
 function _wabTextoCorto(texto, tipo) {
   const t = String(texto || '').replace(/^\[[^\]]+\]\s*/, '').replace(/\s+/g, ' ').trim();
+  if (tipo === 'reaction') return t || 'Reaccionó a un mensaje';   // (6-nov) la base ya manda "Reaccionó ❤️"
   const et = WAB_TIPO_TXT[tipo];
   if (et) return t ? `${et} · ${t}` : et;
   return t || (tipo === 'template' ? 'Aviso automático' : '');
@@ -3473,7 +3479,7 @@ async function waBandejaCargarChat(forzar) {
   const c10 = String(s.celular).replace(/\D/g, '').slice(-10);
   let rows;
   try {
-    rows = await supaGet('wa_mensajes', { select: 'id,direccion,tipo,texto,plantilla,estado,estado_at,creado_at,pedido_id,enviado_por,bot_estado,bot_clasificacion,error,motivo:raw->>motivo,imagen:raw->>imagen,archivo:raw->message->document->>filename',
+    rows = await supaGet('wa_mensajes', { select: 'id,wa_message_id,direccion,tipo,texto,plantilla,estado,estado_at,creado_at,pedido_id,enviado_por,bot_estado,bot_clasificacion,error,motivo:raw->>motivo,imagen:raw->>imagen,archivo:raw->message->document->>filename,emoji:raw->message->reaction->>emoji,reac_a:raw->message->reaction->>message_id',
       local_id: 'eq.' + s.local_id, or: `(de.like.*${c10},para.like.*${c10})`, tipo: 'neq.status', order: 'id.desc', limit: '300' });
   } catch(e) {
     if (forzar) { const ch = document.getElementById('wab-chat'); if (ch) ch.innerHTML = `<div class="wab-vacio">No se pudo cargar la charla: ${escHtml(e.message)}</div>`; }
@@ -3535,18 +3541,33 @@ function _wabBotChip(c) {
   return `<span class="wa-bot-chip" title="El bot ${modo === 'auto' ? 'contesta solo' : 'sugiere respuestas y vos las aprobás'}">${ICO.robot} bot ${modo === 'auto' ? 'automático' : 'sugiere'} ${_act('', `waBandejaBot('${l}', '${cel}', false)`, 'Pausar el bot en esta charla (la seguís vos)', ICO.cruz)}</span>`;
 }
 function _wabBurbujas() {
-  const vis = wabMsgs.filter(x => !(x.direccion === 'out' && (x.bot_estado === 'sugerido' || x.bot_estado === 'descartado')) && !(x.bot_estado === 'error' && !x.texto));
+  const vis0 = wabMsgs.filter(x => !(x.direccion === 'out' && (x.bot_estado === 'sugerido' || x.bot_estado === 'descartado')) && !(x.bot_estado === 'error' && !x.texto));
+  // (6-nov-2026, JP: "cuando mandan la reacción aparece 'reacción' pero no te muestra qué te mandan") las reacciones
+  // van pegadas abajo del mensaje al que reaccionaron, como en WhatsApp (vale la última de cada lado; vacía = la sacó).
+  // Si ese mensaje no está en lo cargado, queda un renglón "Reaccionó ❤️ a un mensaje anterior".
+  const porWamid = {};
+  vis0.forEach(x => { if (x.wa_message_id) porWamid[x.wa_message_id] = x; });
+  const reac = {};
+  vis0.filter(x => x.tipo === 'reaction' && x.reac_a && porWamid[x.reac_a]).forEach(x => { (reac[x.reac_a] = reac[x.reac_a] || {})[x.direccion] = x.emoji || ''; });
+  const vis = vis0.filter(x => !(x.tipo === 'reaction' && x.reac_a && porWamid[x.reac_a]));
   if (!vis.length) return `<div class="wab-dia">Sin mensajes en los últimos días</div>`;
   let dia = '';
   return vis.map(x => {
     const d = new Date(x.creado_at);
     let sep = '';
     if (d.toDateString() !== dia) { dia = d.toDateString(); sep = `<div class="wab-dia">${escHtml(_wabDia(d))}</div>`; }
+    if (x.tipo === 'reaction') {
+      const hora = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+      return sep + `<div class="wab-dia wab-reac-suelta">${escHtml(x.emoji ? `${x.direccion === 'in' ? 'Reaccionó' : 'Reaccionaste'} ${x.emoji} a un mensaje anterior` : 'Sacó una reacción')} · ${escHtml(hora)}</div>`;
+    }
+    const r = x.wa_message_id && reac[x.wa_message_id];
+    const emojis = r ? [r.in, r.out].filter(Boolean) : [];
+    const badge = emojis.length ? `<span class="wa-reac" title="${escHtml(r.in ? 'Reacción de la clienta' : 'Reacción del local')}">${escHtml(emojis.join(' '))}</span>` : '';
     const bot = x.direccion === 'out' && /^bot/i.test(x.enviado_por || '');
     const quien = x.direccion === 'in' ? '' : bot ? '🤖 Clodi' : (x.bot_estado === 'aprobado' || x.bot_estado === 'editado' ? '🤖→ ' : '') + String(x.enviado_por || 'local').replace(/@.*$/, '').replace(/^sistema.*$/, 'sistema');
     const hora = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
     const fallo = (x.estado === 'failed' || x.bot_estado === 'error') ? ' failed' : '';
-    return sep + `<div class="wa-msg ${x.direccion}${bot ? ' bot' : ''}${fallo}" title="${escHtml(x.error || x.motivo || '')}">${_wabContenido(x)}<span class="wa-msg-meta">${escHtml([quien, hora].filter(Boolean).join(' · '))} ${_waEstadoTxt(x)}</span></div>`;
+    return sep + `<div class="wa-msg ${x.direccion}${bot ? ' bot' : ''}${fallo}${badge ? ' con-reac' : ''}" title="${escHtml(x.error || x.motivo || '')}">${_wabContenido(x)}<span class="wa-msg-meta">${escHtml([quien, hora].filter(Boolean).join(' · '))} ${_waEstadoTxt(x)}</span>${badge}</div>`;
   }).join('');
 }
 function _wabContenido(x) {
@@ -7939,7 +7960,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v103-alta-por-pagina';
+const CRM_VERSION = 'crm-adorno-v104-reacciones';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8077,6 +8098,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=41"></script>
+<script src="manual.js?v=42"></script>
 </body>
 </html>
