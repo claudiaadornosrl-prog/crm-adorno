@@ -37,6 +37,7 @@ function _manualSecciones() {
       desc: 'Cargar el encargo de una clienta cuando no hay stock o hay que traerlo.',
       pasos: [
         'Cargá el DNI o CUIT: si la clienta ya compró alguna vez, el sistema la detecta solo y completa sus datos.',
+        'El celular cargalo con la característica: 11 y los 8 números (sin el 0 ni el 15). Si lo ponés como 15 + 8 números, o solo los 8, el sistema le agrega el 11 solo al salir del casillero: es de Buenos Aires. Si es de otra ciudad, poné su característica.',
         'Agregá los artículos buscando por descripción o SKU. Al lado de cada código ves el stock vivo de cada local: A = Alcorta, U = Unicenter, O = Oficina (verde si hay).',
         'Anotá seña si dejó, y cualquier aclaración en las notas.',
         'El pedido arranca en estado "Pendiente".',

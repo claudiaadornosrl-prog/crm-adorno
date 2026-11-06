@@ -2005,6 +2005,31 @@ function logoLocal(loc, h) { const u = LOGO_LOCAL[loc]; return u ? `<img class="
 const _LOCALES_FIN = {
 };
 const WA_PREFIX = 'https://wa.me/';
+// (6-nov-2026, sesión de pruebas + JP: "Sí, arreglalo") Celular → número de WhatsApp (549 + característica + número),
+// con la misma regla que normalizar() de las Edge Functions: saca 54 / 0 / el 15 de en medio, y "15" + 8 sin la
+// característica (u 8 sueltos) son de Buenos Aires (11). Antes "1562476803" quedaba "5491562476803" y la clienta,
+// que contesta desde 5491162476803, no se vinculaba con su pedido.
+function waCelular(raw) {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (!d) return '';
+  if (/^54915\d{8}$/.test(d)) return '54911' + d.slice(5);
+  if (d.startsWith('549')) return d;
+  if (d.startsWith('54')) d = d.slice(2);
+  if (d.startsWith('0')) d = d.slice(1);
+  const m2 = d.match(/^(\d{2})15(\d{8})$/), m3 = d.match(/^(\d{3})15(\d{7})$/), m4 = d.match(/^(\d{4})15(\d{6})$/);
+  if (m2) d = m2[1] + m2[2]; else if (m3) d = m3[1] + m3[2]; else if (m4) d = m4[1] + m4[2];
+  else if (/^15\d{8}$/.test(d)) d = '11' + d.slice(2);
+  else if (/^\d{8}$/.test(d)) d = '11' + d;
+  if (d.startsWith('9')) d = d.slice(1);
+  return '549' + d;
+}
+// Celular como se guarda en el pedido: 10 dígitos (característica + número, sin 0 ni 15). Los de otro país (+598…) quedan como están.
+function celularLocal(raw) {
+  const t = String(raw || '').trim();
+  if (/^\+(?!54)/.test(t)) return t.replace(/[^\d+]/g, '');
+  const w = waCelular(t);
+  return w ? w.slice(3) : t;
+}
 // (27-oct-2026, JP) En las PC de los locales el link wa.me abría la página "¿app o WhatsApp Web?" y, al elegir web,
 // una ventana NUEVA con el perfil de Edge del CRM, sin sesión (pedía el QR). Modo por PC, lo fija el kiosco con
 // ?wa=kiosco|app|web (queda en localStorage; ?wa=off lo saca):
@@ -4277,6 +4302,11 @@ function _wireDetectCliente() {
   };
   if (cel) cel.addEventListener('input', handler);
   if (dni) dni.addEventListener('input', handler);
+  // (6-nov-2026) si cargan el celular como "15" + 8 (o solo los 8), se corrige a la vista: 11 + los 8
+  if (cel) cel.addEventListener('blur', () => {
+    const d = cel.value.replace(/\D/g, '');
+    if (/^15\d{8}$/.test(d) || /^\d{8}$/.test(d)) { cel.value = celularLocal(d); toast('Celular corregido: va con el 11 adelante y sin el 15'); handler(); }
+  });
 }
 setTimeout(_wireDetectCliente, 0);
 setTimeout(aplicarKioscoLocal, 0);
@@ -4305,7 +4335,7 @@ async function submitPedido() {
   const apellidoInput     = document.getElementById('f-apellido').value.trim();
   const dni     = document.getElementById('f-dni').value.trim();
   const fnac    = document.getElementById('f-fnac').value || null;  // YYYY-MM-DD
-  const celular = document.getElementById('f-celular').value.trim();
+  const celular = celularLocal(document.getElementById('f-celular').value.trim());   // (6-nov) 15 + 8 → 11 + 8
   const email   = document.getElementById('f-email').value.trim() || null;
   if (!vendedora)         { toast('⚠️ Falta el nombre de la vendedora'); return; }
   if (!primerNombreInput) { toast('⚠️ Falta el nombre del cliente'); return; }
@@ -4379,8 +4409,7 @@ async function submitPedido() {
     // Si la verificación falla, no bloqueamos el submit (no perder datos)
   }
 
-  const digits = celular.replace(/\D/g, '');
-  const phone = digits.startsWith('549') ? digits : '549' + digits;
+  const phone = waCelular(celular);
   const chatUrl = WA_PREFIX + phone;
   const motivo = document.getElementById('f-motivo').value;
   const notas  = document.getElementById('f-notas').value.trim() || null;
@@ -4820,15 +4849,7 @@ function renderHoyCardCumple(c) {
   if (tieneWa) {
     const primerN = nombre.split(' ')[0] || '';
     const saludo = encodeURIComponent(`¡Feliz cumpleaños, ${primerN}! 🎂🎉 Te esperamos en Claudia Adorno para festejar.`);
-    let digits = String(c.celular).replace(/\D/g,'');
-    if (digits.startsWith('0')) digits = digits.slice(1);
-    const m2 = digits.match(/^(\d{2})(15)(\d{8})$/);
-    const m3 = digits.match(/^(\d{3})(15)(\d{7})$/);
-    const m4 = digits.match(/^(\d{4})(15)(\d{6})$/);
-    if (m2) digits = m2[1] + m2[3];
-    else if (m3) digits = m3[1] + m3[3];
-    else if (m4) digits = m4[1] + m4[3];
-    const phone = digits.startsWith('549') ? digits : '549' + digits;
+    const phone = waCelular(c.celular);
     wa = _actLink('primary wa', `https://wa.me/${phone}?text=${saludo}`, 'event.stopPropagation()', 'Saludar por WhatsApp por el cumpleaños', waSvg());
   }
   return `<div class="hoy-card" onclick="openClienteDetail('${escHtml(c.globalid)}')">
@@ -5771,7 +5792,7 @@ function renderCumpleanos(clientes) {
 
   const fmtCard = (c, klass) => {
     const edad = edadAlCumplir(c.fecha_nacimiento, c.dias);
-    const wa = c.celular ? `https://wa.me/549${c.celular.replace(/\D/g,'')}?text=${encodeURIComponent('¡Feliz cumpleaños, '+ (c.nombre_completo||'').split(' ')[0] +'! 🎂🎉 Te esperamos en Claudia Adorno para festejar.')}` : null;
+    const wa = c.celular ? `https://wa.me/${waCelular(c.celular)}?text=${encodeURIComponent('¡Feliz cumpleaños, '+ (c.nombre_completo||'').split(' ')[0] +'! 🎂🎉 Te esperamos en Claudia Adorno para festejar.')}` : null;
     const diasTxt = c.dias === 0 ? '¡HOY!' : (c.dias === 1 ? 'mañana' : `en ${c.dias} días`);
     return `<div class="cumple-card ${klass}" onclick="openClienteDetail('${escHtml(c.globalid)}')" style="cursor:pointer">
       <div class="cumple-emoji">${c.dias === 0 ? '🎉' : '🎂'}</div>
@@ -6492,15 +6513,7 @@ async function openClienteDetail(globalid) {
 // Helper: arma URL de WhatsApp para un cliente del modal C360
 function clienteWaUrl(celular, nombre_completo) {
   if (!celular) return null;
-  let digits = String(celular).replace(/\D/g,'');
-  if (digits.startsWith('0')) digits = digits.slice(1);
-  const m2 = digits.match(/^(\d{2})(15)(\d{8})$/);
-  const m3 = digits.match(/^(\d{3})(15)(\d{7})$/);
-  const m4 = digits.match(/^(\d{4})(15)(\d{6})$/);
-  if (m2) digits = m2[1] + m2[3];
-  else if (m3) digits = m3[1] + m3[3];
-  else if (m4) digits = m4[1] + m4[3];
-  const phone = digits.startsWith('549') ? digits : '549' + digits;
+  const phone = waCelular(celular);
   const primerNombre = (nombre_completo || '').trim().split(/\s+/)[0] || '';
   const saludo = primerNombre ? `Hola ${primerNombre}! Te escribimos de Claudia Adorno 🌿` : 'Hola! Te escribimos de Claudia Adorno 🌿';
   return `https://wa.me/${phone}?text=${encodeURIComponent(saludo)}`;
@@ -7545,15 +7558,14 @@ async function saveEdit() {
   if (!editingId) return;
   const editNombreVal   = document.getElementById('edit-nombre').value.trim();
   const editApellidoVal = document.getElementById('edit-apellido').value.trim();
-  const celular = document.getElementById('edit-celular').value.trim();
+  const celular = celularLocal(document.getElementById('edit-celular').value.trim());   // (6-nov) 15 + 8 → 11 + 8
   if (!editNombreVal)   { toast('⚠️ Falta el nombre'); return; }
   if (!editApellidoVal) { toast('⚠️ Falta el apellido'); return; }
   if (!celular) { toast('⚠️ Falta el celular'); return; }
   const nombre = editNombreVal + ' ' + editApellidoVal;
   if (!editSelectedSku) { toast('⚠️ Seleccioná un artículo'); return; }
 
-  const digits = celular.replace(/\D/g, '');
-  const phone  = digits.startsWith('549') ? digits : '549' + digits;
+  const phone  = waCelular(celular);
 
   const btn = document.getElementById('edit-save-btn');
   btn.disabled = true;
@@ -7753,15 +7765,7 @@ async function sendWaTemplate(templateId) {
   }
 
   // Reconstruir el URL de WA con el texto del template
-  let digits = String(p.celular || '').replace(/\D/g,'');
-  if (digits.startsWith('0')) digits = digits.slice(1);
-  const m2 = digits.match(/^(\d{2})(15)(\d{8})$/);
-  const m3 = digits.match(/^(\d{3})(15)(\d{7})$/);
-  const m4 = digits.match(/^(\d{4})(15)(\d{6})$/);
-  if (m2) digits = m2[1] + m2[3];
-  else if (m3) digits = m3[1] + m3[3];
-  else if (m4) digits = m4[1] + m4[3];
-  const phone = digits.startsWith('549') ? digits : '549' + digits;
+  const phone = waCelular(p.celular);
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(tpl.text(p))}`;
   window.open(url, '_blank');
   closeWaTemplates();
@@ -7839,39 +7843,13 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const sh
 // ═══════════════════════════════════════════════════════
 function buildWa(p) {
   if (!p.celular) return null;
-  let digits = p.celular.replace(/\D/g, '');
-  // Si ya tiene el prefijo completo +549...
-  if (digits.startsWith('549') && digits.length >= 12) {
-    return WA_PREFIX + digits + '?text=' + waMsg(p);
-  }
-  // Sacar 0 inicial (ej: 01155...)
-  if (digits.startsWith('0')) digits = digits.slice(1);
-  // Si tiene 15 después del código de área (ej: 1115... donde 11 es el área y 15 el prefijo móvil)
-  // Área codes de 2 dígitos: 11 → quitar 15 si aparece en posición 2
-  // Área codes de 3 dígitos: 221, 341, 351 → quitar 15 si aparece en posición 3
-  // Área codes de 4 dígitos: 2202, 3405 → quitar 15 si aparece en posición 4
-  if (digits.length >= 10) {
-    const match2 = digits.match(/^(\d{2})(15)(\d{8})$/);
-    const match3 = digits.match(/^(\d{3})(15)(\d{7})$/);
-    const match4 = digits.match(/^(\d{4})(15)(\d{6})$/);
-    if (match2) digits = match2[1] + match2[3];
-    else if (match3) digits = match3[1] + match3[3];
-    else if (match4) digits = match4[1] + match4[3];
-  }
-  return WA_PREFIX + '549' + digits + '?text=' + waMsg(p);
+  // (6-nov-2026) misma regla que normalizar() de las Edge Functions (waCelular): "15" + 8 sin el 11 era 54915…
+  return WA_PREFIX + waCelular(p.celular) + '?text=' + waMsg(p);
 }
 
 function buildWaConfirm(nombre, celular, lines) {
   if (!celular) return null;
-  let digits = celular.replace(/\D/g, '');
-  if (digits.startsWith('0')) digits = digits.slice(1);
-  const match2 = digits.match(/^(\d{2})(15)(\d{8})$/);
-  const match3 = digits.match(/^(\d{3})(15)(\d{7})$/);
-  const match4 = digits.match(/^(\d{4})(15)(\d{6})$/);
-  if (match2) digits = match2[1] + match2[3];
-  else if (match3) digits = match3[1] + match3[3];
-  else if (match4) digits = match4[1] + match4[3];
-  const phone = digits.startsWith('549') ? digits : '549' + digits;
+  const phone = waCelular(celular);
   const primerNombre = waNombre(nombre);
   // Build article list (support both array of lines and legacy single sku object)
   let articuloTxt = '';
@@ -7960,7 +7938,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v104-reacciones';
+const CRM_VERSION = 'crm-adorno-v105-celular-15';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8098,6 +8076,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=42"></script>
+<script src="manual.js?v=43"></script>
 </body>
 </html>
