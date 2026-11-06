@@ -2941,6 +2941,7 @@ window.addEventListener('message', (ev) => {
   if (!String(ev.origin || '').endsWith('facebook.com')) return;
   let d; try { d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; } catch { return; }
   if (!d || d.type !== 'WA_EMBEDDED_SIGNUP') return;
+  console.log('Meta (registro insertado):', d);
   _coexSesion = d;
   if (d.event === 'CANCEL') toast('Se cerró el alta de Meta sin terminar' + (d.data && d.data.current_step ? ` (paso: ${d.data.current_step})` : ''));
   if (d.event === 'ERROR') toast('❌ Meta: ' + ((d.data && d.data.error_message) || 'error en el alta'));
@@ -2955,10 +2956,11 @@ function coexConectar() {
     const code = resp && resp.authResponse && resp.authResponse.code;
     if (!code) { toast('No se terminó el alta en Meta'); return; }
     // el código vence a los 30 segundos: se manda ya (el evento de la ventana de Meta llega antes o enseguida)
+    // (v102) si el aviso de la ventana no llega, se manda igual: wa-alta averigua la cuenta con el permiso
     let n = 0;
     const esperar = () => {
       const fin = _coexSesion && /^FINISH/.test(_coexSesion.event || '');
-      if (fin || n++ >= 10) coexEnviar(local, code, fin ? _coexSesion.data || {} : {});
+      if (fin || n++ >= 15) coexEnviar(local, code, fin ? _coexSesion.data || {} : {});
       else setTimeout(esperar, 200);
     };
     esperar();
@@ -2969,12 +2971,11 @@ async function coexEnviar(local, code, datos) {
   const el = document.getElementById('coex-estado');
   if (el) el.innerHTML = `<div class="loading"><span class="spinner"></span> Conectando el número y pidiendo el historial...</div>`;
   try {
-    if (!datos.waba_id) throw new Error('Meta no devolvió la cuenta de WhatsApp. Volvé a intentar y llegá hasta el final del alta.');
     await _ensureFreshToken();
     const r = await fetch(`${SUPA_URL}/functions/v1/wa-alta`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
-      body: JSON.stringify({ local_id: local, code, waba_id: datos.waba_id, phone_number_id: datos.phone_number_id || null }),
+      body: JSON.stringify({ local_id: local, code, waba_id: datos.waba_id || null, phone_number_id: datos.phone_number_id || null, sesion: _coexSesion }),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
@@ -7920,7 +7921,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v101-codigo-celular';
+const CRM_VERSION = 'crm-adorno-v102-alta-sin-cuenta';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
