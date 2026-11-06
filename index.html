@@ -2878,24 +2878,130 @@ const BOT_MODOS = [
 function _fmtNumeroWa(n) {
   const d = String(n || '').replace(/\D/g, '');
   if (d.length === 11 && d.startsWith('1')) return `+1 ${d.slice(1, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+  if (d.length === 13 && d.startsWith('5491')) return `+54 9 11 ${d.slice(5, 9)}-${d.slice(9)}`;
   return d ? '+' + d : '';
+}
+
+// ── (6-nov-2026) Coexistencia: conectar el número de siempre del local (app WhatsApp Business del celular) ──
+// JP: "en el local dejarlo que está" → el número de siempre reemplaza al +1 del local en todo; el +1 queda libre.
+// Botón en Admin › Bot WhatsApp → registro insertado de Meta (FB.login con la configuración "Conectar número del
+// local") → la Edge Function wa-alta cambia el código por el token, libera el +1, suscribe los webhooks y pide el
+// historial (6 meses) y los contactos. Solo desde el CRM publicado (dominio habilitado en la app de Meta).
+const META_APP_ID = '1851188922719199';
+const META_ES_CONFIG = '2169939457226812';   // Inicio de sesión con Facebook para empresas › Configuraciones
+let _fbSdk = null, _coexSesion = null;
+function _cargarFbSdk() {
+  if (_fbSdk) return _fbSdk;
+  _fbSdk = new Promise((res, rej) => {
+    window.fbAsyncInit = function() { FB.init({ appId: META_APP_ID, autoLogAppEvents: true, xfbml: false, version: 'v23.0' }); res(); };
+    const s = document.createElement('script');
+    s.src = 'https://connect.facebook.net/es_LA/sdk.js'; s.async = true; s.defer = true; s.crossOrigin = 'anonymous';
+    s.onerror = () => { _fbSdk = null; rej(new Error('No se pudo cargar el inicio de sesión de Meta')); };
+    document.head.appendChild(s);
+  });
+  return _fbSdk;
+}
+window.addEventListener('message', (ev) => {
+  if (!String(ev.origin || '').endsWith('facebook.com')) return;
+  let d; try { d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; } catch { return; }
+  if (!d || d.type !== 'WA_EMBEDDED_SIGNUP') return;
+  _coexSesion = d;
+  if (d.event === 'CANCEL') toast('Se cerró el alta de Meta sin terminar' + (d.data && d.data.current_step ? ` (paso: ${d.data.current_step})` : ''));
+  if (d.event === 'ERROR') toast('❌ Meta: ' + ((d.data && d.data.error_message) || 'error en el alta'));
+});
+function coexConectar() {
+  const local = (document.getElementById('coex-local') || {}).value;
+  if (!local || !LOCALES[local]) { toast('Elegí el local'); return; }
+  if (!window.FB) { toast('⏳ Todavía está cargando el inicio de sesión de Meta, probá en unos segundos'); _cargarFbSdk().catch(e => toast('❌ ' + e.message)); return; }
+  if (!confirm(`Conectar el WhatsApp de siempre de ${LOCALES[local].nombre}\n\nTené a mano el celular del local con WhatsApp Business actualizado: Meta te va a pedir el número y un código que aparece en la app.\nCuando pregunte, elegí compartir el historial de charlas.\n\nEl +1 que usa hoy el local queda libre. ¿Seguimos?`)) return;
+  _coexSesion = null;
+  FB.login((resp) => {
+    const code = resp && resp.authResponse && resp.authResponse.code;
+    if (!code) { toast('No se terminó el alta en Meta'); return; }
+    // el código vence a los 30 segundos: se manda ya (el evento de la ventana de Meta llega antes o enseguida)
+    let n = 0;
+    const esperar = () => {
+      const fin = _coexSesion && /^FINISH/.test(_coexSesion.event || '');
+      if (fin || n++ >= 10) coexEnviar(local, code, fin ? _coexSesion.data || {} : {});
+      else setTimeout(esperar, 200);
+    };
+    esperar();
+  }, { config_id: META_ES_CONFIG, response_type: 'code', override_default_response_type: true,
+       extras: { setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' } });
+}
+async function coexEnviar(local, code, datos) {
+  const el = document.getElementById('coex-estado');
+  if (el) el.innerHTML = `<div class="loading"><span class="spinner"></span> Conectando el número y pidiendo el historial...</div>`;
+  try {
+    if (!datos.waba_id) throw new Error('Meta no devolvió la cuenta de WhatsApp. Volvé a intentar y llegá hasta el final del alta.');
+    await _ensureFreshToken();
+    const r = await fetch(`${SUPA_URL}/functions/v1/wa-alta`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
+      body: JSON.stringify({ local_id: local, code, waba_id: datos.waba_id, phone_number_id: datos.phone_number_id || null }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    toast(`✅ ${LOCALES[local].nombre} ya usa su número de siempre (${_fmtNumeroWa(j.numero)}). El historial va llegando en unos minutos.`);
+  } catch (e) {
+    toast('❌ ' + e.message);
+  }
+  loadBotConfig();
+}
+async function coexEstado() {
+  const el = document.getElementById('coex-estado');
+  if (!el) return;
+  try {
+    const rows = await supaGet('wa_altas', { select: 'id,creado_at,local_id,numero,estado,historial,historial_progreso,historial_mensajes,contactos,detalle', order: 'id.desc', limit: 4 });
+    if (!rows || !rows.length) { el.innerHTML = ''; return; }
+    const H = { pedido: 'pedido, esperando a Meta', en_curso: 'llegando', completo: 'completo', rechazado: 'no se compartió desde el celular', error: 'no se pudo pedir' };
+    el.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-top:12px">Últimas altas</div>` + rows.map(a => {
+      const nom = (LOCALES[a.local_id] && LOCALES[a.local_id].nombre) || a.local_id;
+      const err = a.detalle && a.detalle.error;
+      return `<div style="font-size:12.5px;padding:8px 12px;margin-top:6px;border:1px solid var(--border);border-radius:14px">
+        <strong>${escHtml(nom)}</strong> · ${escHtml(_fmtNumeroWa(a.numero) || 'sin número')} · ${escHtml(formatDate(a.creado_at))}<br>
+        ${a.estado === 'error' ? `<span style="color:#b91c1c">No se pudo conectar: ${escHtml(err || '')}</span>`
+          : `${a.estado === 'conectada' ? '✅ Conectado' : '⏳ ' + escHtml(a.estado)} · Historial: ${escHtml(H[a.historial] || a.historial || '—')}${a.historial_progreso ? ` (${a.historial_progreso}%)` : ''} · ${a.historial_mensajes || 0} mensajes · ${a.contactos || 0} contactos`}
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = ''; }
 }
 async function loadBotConfig() {
   const el = document.getElementById('bot-config');
   if (!el) return;
   try {
-    const rows = await supaGet('wa_cuentas_pub', { select: 'local_id,numero,activa,bot_modo,bot_solo_celulares', order: 'local_id' });
+    const rows = await supaGet('wa_cuentas_pub', { select: 'local_id,numero,activa,bot_modo,bot_solo_celulares,coexistencia', order: 'local_id' });
     const intro = `<div class="card"><div class="card-body" style="font-size:13px;color:var(--muted);line-height:1.5">
-      El bot contesta los WhatsApp que llegan a los números del sistema (no al WhatsApp del celular del local).
+      El bot contesta los WhatsApp que llegan a los números del sistema. Si un local conectó su número de siempre (abajo),
+      contesta en ese número; si no, en el +1 del local.
       Cambiar el modo acá no prende los avisos por API ni el recontacto automático (eso es "Avisos por API: activos").
       <br>Con los avisos por API activos, la vendedora carga el pedido y manda el primer aviso; después es automático: si
       la clienta contesta pasa a Respondió, si no, recibe 2 recontactos (a las 48 h y 48 h después) y 48 h más tarde pasa a
       No contestó.</div></div>`;
-    el.innerHTML = intro + (rows || []).map(r => {
+    const coex = `<div class="card"><div class="card-header"><span class="card-title">📲 Conectar el número de siempre del local</span></div>
+      <div class="card-body" style="font-size:13px;line-height:1.5">
+        Conecta al CRM el WhatsApp de siempre del local (el del celular, con la app WhatsApp Business). El celular sigue
+        funcionando igual y además: llegan al CRM las charlas de los últimos 6 meses (sin los grupos), lo que las chicas
+        manden desde el celular queda en la charla y Clodi se calla ahí, y Clodi contesta desde el número que las clientas
+        ya conocen. El +1 que usaba el local queda libre.
+        <div style="font-size:12px;color:var(--muted);margin-top:8px">Hace falta el celular del local a mano con WhatsApp
+        Business actualizado. En el celular: las listas de difusión quedan solo para leer, no andan los mensajes temporales
+        ni "ver una vez", y WhatsApp para Windows deja de funcionar (en la compu, usar WhatsApp Web). Los avisos por API del
+        local quedan apagados hasta que Meta apruebe las plantillas en el número nuevo y se cargue la forma de pago.</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px">
+          <select id="coex-local" style="padding:8px 14px;border:1px solid var(--border);border-radius:999px;font-size:13px;background:var(--surface,#fff)">
+            ${Object.keys(LOCALES).map(l => `<option value="${l}">${escHtml(LOCALES[l].nombre)}</option>`).join('')}
+          </select>
+          <button type="button" onclick="coexConectar()" style="padding:8px 18px;border:0;border-radius:999px;background:var(--accent,#0e6b55);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Conectar número</button>
+        </div>
+        <div id="coex-estado"></div>
+      </div></div>`;
+    el.innerHTML = intro + coex + (rows || []).map(r => {
       const lid = escHtml(r.local_id);
-      const nombre = (LOCALES[r.local_id] && LOCALES[r.local_id].nombre) || r.local_id;
+      const libre = String(r.local_id || '').startsWith('libre-');
+      const nombre = libre ? 'Número libre' : ((LOCALES[r.local_id] && LOCALES[r.local_id].nombre) || r.local_id);
       return `<div class="card">
-        <div class="card-header"><span class="card-title">${escHtml(nombre)} · ${escHtml(_fmtNumeroWa(r.numero))}</span>
+        <div class="card-header"><span class="card-title">${escHtml(nombre)} · ${escHtml(_fmtNumeroWa(r.numero))}${r.coexistencia ? ' · número de siempre' : ''}</span>
           <span style="font-size:11px;color:${r.activa ? '#16a34a' : '#92400e'}">${r.activa ? 'Avisos por API: activos' : 'Avisos por API: apagados'}</span></div>
         <div class="card-body">
           ${BOT_MODOS.map(m => `<label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;cursor:pointer">
@@ -2909,6 +3015,8 @@ async function loadBotConfig() {
         </div></div>`;
     }).join('') + `<div id="bot-textos"><div class="loading"><span class="spinner"></span> Cargando...</div></div>`;
     loadBotTextos();
+    coexEstado();
+    _cargarFbSdk().catch(() => {});   // se precarga para que la ventana de Meta abra desde el clic (sin bloqueo de ventanas)
   } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudo cargar la configuración del bot: ${escHtml(e.message)}</p></div>`; }
 }
 
@@ -7776,7 +7884,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v99-clodi-loop-nocturno';
+const CRM_VERSION = 'crm-adorno-v100-conectar-numero';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -7914,6 +8022,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=39"></script>
+<script src="manual.js?v=40"></script>
 </body>
 </html>
