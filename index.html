@@ -1960,6 +1960,9 @@ html.dark .wab-vacio { background: #111b21; }
 <!-- Toast -->
 <div id="toast"></div>
 
+<!-- (6-nov-2026) Código del celular (doble factor) como en los demás módulos: supabase-js solo para el paso del código -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js" integrity="sha384-UagCvVPT5XXA0Hx+nJYUAGBFseHT9zBgpJMSebsAxl9lciTwbT+39j5VfRjdP5Tp" crossorigin="anonymous"></script>
+<script src="/hub/seguridad.js?v=1"></script>
 <script>
 'use strict';
 
@@ -2229,6 +2232,24 @@ function _setSetupError(msg) {
   else { el.textContent = ''; el.style.display = 'none'; }
 }
 
+// (6-nov-2026, JP: "sigue tirando el mismo error") Código del celular en Clientes. Las cuentas admin con el código
+// activado (Hub v68) entraban acá solo con la clave y la base rechazaba todo con MFA01 "Falta el código del celular".
+// Se usa el mismo modal del Hub (/hub/seguridad.js → ADORNO_MFA.pedirCodigo) con un cliente supabase-js de un solo
+// uso: si hace falta el código lo pide y devuelve los tokens nuevos (aal2); si no, devuelve los mismos.
+// null = canceló.
+async function _mfaSesion(authData) {
+  if (!window.ADORNO_MFA || !window.supabase || !authData || !authData.refresh_token) return authData;
+  try {
+    const c = window.supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+    const { error } = await c.auth.setSession({ access_token: authData.access_token, refresh_token: authData.refresh_token });
+    if (error) return authData;
+    const ok = await ADORNO_MFA.pedirCodigo(c);
+    if (!ok) return null;
+    const s = (await c.auth.getSession()).data.session;
+    return s ? { access_token: s.access_token, refresh_token: s.refresh_token, expires_at: s.expires_at, user: s.user } : authData;
+  } catch (_) { return authData; }
+}
+
 // Guarda la sesión de auth (tokens) en memoria + localStorage
 function _guardarSesion(authData, extra) {
   authToken = authData.access_token;
@@ -2297,6 +2318,20 @@ function _guardarSesion(authData, extra) {
       return;
     }
   }
+  // (6-nov-2026) Admin con el código del celular activado y sesión guardada sin el código (o heredada del Hub sin él):
+  // se pide acá, si no la base rechaza todo con MFA01. Las vendedoras no tienen código: no se les pregunta nada.
+  if (session.isAdmin) {
+    const nuevo = await _mfaSesion({ access_token: authToken, refresh_token: authRefreshToken, expires_at: session.expires_at });
+    if (!nuevo) {
+      localStorage.removeItem('ca_session');
+      authToken = authRefreshToken = null;
+      session = { local_id: null, nombre: null, isAdmin: false };
+      return;
+    }
+    if (nuevo.access_token !== authToken) {
+      _guardarSesion(nuevo, { local_id: session.local_id, nombre: session.nombre, isAdmin: true, email: session.email });
+    }
+  }
   setTimeout(enterApp, 0);
 })();
 
@@ -2332,7 +2367,8 @@ async function startAdmin() {
   const pass = prompt('Contraseña:');
   if (pass === null) return; // canceló
   try {
-    const authData = await supaLogin(email, pass.trim());
+    const authData = await _mfaSesion(await supaLogin(email, pass.trim()));
+    if (!authData) { alert('Hace falta el código del celular para entrar como admin.'); return; }
     const nombre = email === ADMIN_EMAIL ? 'JP (Admin)' : 'Clau (Admin)';
     _guardarSesion(authData, { local_id: null, nombre, isAdmin: true, email });
     enterApp();
@@ -7884,7 +7920,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v100-conectar-numero';
+const CRM_VERSION = 'crm-adorno-v101-codigo-celular';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8022,6 +8058,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=40"></script>
+<script src="manual.js?v=41"></script>
 </body>
 </html>
