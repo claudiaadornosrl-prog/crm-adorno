@@ -2946,28 +2946,47 @@ window.addEventListener('message', (ev) => {
   if (d.event === 'CANCEL') toast('Se cerró el alta de Meta sin terminar' + (d.data && d.data.current_step ? ` (paso: ${d.data.current_step})` : ''));
   if (d.event === 'ERROR') toast('❌ Meta: ' + ((d.data && d.data.error_message) || 'error en el alta'));
 });
+// (v103, 6-nov-2026) El código de la ventanita de FB.login no se podía canjear: Meta respondía "make sure your
+// redirect_uri is identical" (error 36008, mismo caso sin solución en el foro de Meta) y tampoco mandaba el aviso de la
+// ventana. Ahora el alta va por la página de Meta (dialog/oauth) con una dirección de vuelta fija, que es la misma que
+// wa-alta usa al canjear el código. La cuenta de WhatsApp la averigua wa-alta (debug_token).
+const COEX_VUELTA = 'https://claudiaadornosrl-prog.github.io/crm-adorno/';
 function coexConectar() {
   const local = (document.getElementById('coex-local') || {}).value;
   if (!local || !LOCALES[local]) { toast('Elegí el local'); return; }
-  if (!window.FB) { toast('⏳ Todavía está cargando el inicio de sesión de Meta, probá en unos segundos'); _cargarFbSdk().catch(e => toast('❌ ' + e.message)); return; }
-  if (!confirm(`Conectar el WhatsApp de siempre de ${LOCALES[local].nombre}\n\nTené a mano el celular del local con WhatsApp Business actualizado: Meta te va a pedir el número y un código que aparece en la app.\nCuando pregunte, elegí compartir el historial de charlas.\n\nEl +1 que usa hoy el local queda libre. ¿Seguimos?`)) return;
-  _coexSesion = null;
-  FB.login((resp) => {
-    const code = resp && resp.authResponse && resp.authResponse.code;
-    if (!code) { toast('No se terminó el alta en Meta'); return; }
-    // el código vence a los 30 segundos: se manda ya (el evento de la ventana de Meta llega antes o enseguida)
-    // (v102) si el aviso de la ventana no llega, se manda igual: wa-alta averigua la cuenta con el permiso
-    let n = 0;
-    const esperar = () => {
-      const fin = _coexSesion && /^FINISH/.test(_coexSesion.event || '');
-      if (fin || n++ >= 15) coexEnviar(local, code, fin ? _coexSesion.data || {} : {});
-      else setTimeout(esperar, 200);
-    };
-    esperar();
-  }, { config_id: META_ES_CONFIG, response_type: 'code', override_default_response_type: true,
-       extras: { setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' } });
+  if (!confirm(`Conectar el WhatsApp de siempre de ${LOCALES[local].nombre}\n\nTe vamos a llevar a la página de Meta. Tené a mano el celular del local con WhatsApp Business actualizado: Meta te va a pedir el número y un código que aparece en la app.\nCuando pregunte, elegí compartir el historial de charlas. Al terminar volvés solo al CRM.\n\nEl +1 que usa hoy el local queda libre. ¿Seguimos?`)) return;
+  const estado = local + '-' + Math.random().toString(36).slice(2, 12);
+  try { sessionStorage.setItem('coex_estado', estado); } catch (_) {}
+  const extras = JSON.stringify({ setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' });
+  const u = new URL('https://www.facebook.com/v23.0/dialog/oauth');
+  u.searchParams.set('client_id', META_APP_ID);
+  u.searchParams.set('config_id', META_ES_CONFIG);
+  u.searchParams.set('response_type', 'code');
+  u.searchParams.set('override_default_response_type', 'true');
+  u.searchParams.set('redirect_uri', COEX_VUELTA);
+  u.searchParams.set('state', estado);
+  u.searchParams.set('extras', extras);
+  location.href = u.toString();
 }
-async function coexEnviar(local, code, datos) {
+// Vuelta de la página de Meta: ?code=…&state=<local>-<azar> (o ?error=…). El código hay que canjearlo enseguida.
+async function coexRetorno() {
+  const q = new URLSearchParams(location.search);
+  const code = q.get('code'), estado = q.get('state') || '', err = q.get('error_description') || q.get('error_reason') || q.get('error');
+  if (!code && !err) return;
+  let guardado = '';
+  try { guardado = sessionStorage.getItem('coex_estado') || ''; sessionStorage.removeItem('coex_estado'); } catch (_) {}
+  history.replaceState({}, '', location.pathname);   // que el código no quede en la barra ni se reuse al recargar
+  if (!guardado || estado !== guardado) return;       // no es una vuelta de nuestra alta
+  const local = estado.split('-')[0];
+  if (err) { toast('Se cortó el alta en Meta: ' + err); return; }
+  // espera la sesión del admin (restoreSession puede tardar un poco o pedir el código del celular)
+  for (let i = 0; i < 40 && !(session && session.isAdmin && authToken); i++) await new Promise(r => setTimeout(r, 250));
+  if (!(session && session.isAdmin)) { toast('Para conectar el número hay que entrar como administrador'); return; }
+  try { switchTab('admin'); setAdminView('bot'); } catch (_) {}
+  await coexEnviar(local, code, {}, COEX_VUELTA);
+}
+if (/[?&](code|error)=/.test(location.search)) setTimeout(coexRetorno, 300);
+async function coexEnviar(local, code, datos, redirectUri) {
   const el = document.getElementById('coex-estado');
   if (el) el.innerHTML = `<div class="loading"><span class="spinner"></span> Conectando el número y pidiendo el historial...</div>`;
   try {
@@ -2975,7 +2994,7 @@ async function coexEnviar(local, code, datos) {
     const r = await fetch(`${SUPA_URL}/functions/v1/wa-alta`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
-      body: JSON.stringify({ local_id: local, code, waba_id: datos.waba_id || null, phone_number_id: datos.phone_number_id || null, sesion: _coexSesion }),
+      body: JSON.stringify({ local_id: local, code, waba_id: datos.waba_id || null, phone_number_id: datos.phone_number_id || null, sesion: _coexSesion, redirect_uri: redirectUri || null }),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
@@ -3053,7 +3072,6 @@ async function loadBotConfig() {
     }).join('') + `<div id="bot-textos"><div class="loading"><span class="spinner"></span> Cargando...</div></div>`;
     loadBotTextos();
     coexEstado();
-    _cargarFbSdk().catch(() => {});   // se precarga para que la ventana de Meta abra desde el clic (sin bloqueo de ventanas)
   } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudo cargar la configuración del bot: ${escHtml(e.message)}</p></div>`; }
 }
 
@@ -7921,7 +7939,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v102-alta-sin-cuenta';
+const CRM_VERSION = 'crm-adorno-v103-alta-por-pagina';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
