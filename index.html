@@ -1449,7 +1449,7 @@ html.dark .wab-vacio { background: #111b21; }
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#6E7D5A">
-  <link rel="stylesheet" href="/hub/banner.css?v=5"><!-- banner común de los módulos (infra, 11-nov-2026) -->
+  <link rel="stylesheet" href="/hub/banner.css?v=6"><!-- banner común de los módulos (infra, 11-nov-2026) -->
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="icon-192-v2.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1550,7 +1550,7 @@ html.dark .wab-vacio { background: #111b21; }
       <button class="hbtn ab-fijo" onclick="logout()" title="Salir de la sesión" aria-label="Salir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 4v16"/></svg><span class="lb">Salir</span></button>
     </div>
   </div>
-  <script src="/hub/banner.js?v=5"></script>
+  <script src="/hub/banner.js?v=6"></script>
 
   <!-- Tab panels -->
   <div class="tab-panels">
@@ -7949,7 +7949,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v107-banner-comun';
+const CRM_VERSION = 'crm-adorno-v108-letra-marca';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8087,6 +8087,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=44"></script>
+<script src="manual.js?v=45"></script>
 </body>
 </html>
