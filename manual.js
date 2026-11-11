@@ -12,6 +12,8 @@ function _manualSecciones() {
   const admin = (typeof session !== 'undefined') && session?.isAdmin;
 
   const base = [
+    { icon: '🧭', titulo: 'La barra de arriba', desc: 'Es igual en todos los módulos: mismo lugar para cada cosa y el color de la moneda del módulo (el mismo del Hub).',
+      pasos: ['A la izquierda, la moneda y el nombre del módulo, con tu local y tu nombre al lado. En la computadora, tocando el nombre (Clientes ▾) se abre la lista para pasar a otro módulo; al final de esa lista está «Volver al Hub».', 'Al lado van las pestañas (Nuevo, Pedidos, WhatsApp, Satisfacción, Clientes): son íconos; al pasar el mouse aparece el nombre, y la pestaña en la que estás queda marcada en blanco con su nombre. Cuando hay alertas, Pedidos se pone verde con el número.', 'A la derecha: el número de versión (si se pone amarillo, «Actualizar a vN», tocalo para cargar la nueva), 🔍 Buscar, 🔄 Actualizar y Salir.', 'En el celular: las pestañas, Buscar y Actualizar están adentro del botón ☰ (si Pedidos tiene alertas, el ☰ muestra un puntito verde); a la vista quedan 🏠 Hub (volver al Hub) y Salir.', '¿Dudas? Preguntale a Clodi (el botón de abajo a la derecha): sabe todo lo que dice este manual.'] },
     {
       icon: '🔐', titulo: 'Entrar una sola vez',
       desc: 'La sesión se comparte entre todos los módulos del sistema.',

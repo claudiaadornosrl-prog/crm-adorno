@@ -499,6 +499,13 @@ a { color: inherit; text-decoration: none; }
 .badge-unicenter  { background: var(--uni-bg); color: var(--uni-c); }
 .badge-alcorta    { background: var(--alco-bg); color: var(--alco-c); }
 .header-right { display: flex; align-items: center; gap: 8px; }
+/* (11-nov-2026, banner común) el local y el nombre van como subtítulo, en una sola línea; el logo del local al lado */
+.ab-banner .header-txt { flex-direction: row; align-items: baseline; }
+.ab-banner .header-local, .ab-banner .header-name { font-size: 12px; font-weight: 400; opacity: 1; text-transform: none; letter-spacing: 0; line-height: 1.2; }
+.ab-banner .header-name:not(:empty)::before { content: " · "; }
+.ab-banner .hdr-logo { height: 28px; }
+.ab-banner .hdr-ver { color: #FBF6EE; }
+@media (max-width: 900px) { .ab-banner .hdr-logo { display: none !important; } }
 
 
 
@@ -1441,7 +1448,8 @@ html.dark .wab-vacio { background: #111b21; }
 .settings-row button { font-size: 12px; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; }
 </style>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#5b21b6">
+  <meta name="theme-color" content="#6E7D5A">
+  <link rel="stylesheet" href="/hub/banner.css?v=5"><!-- banner común de los módulos (infra, 11-nov-2026) -->
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="icon-192-v2.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1492,54 +1500,57 @@ html.dark .wab-vacio { background: #111b21; }
 <!-- ════════════════════ APP SCREEN ════════════════════ -->
 <div id="app-screen" class="screen">
   <!-- Header -->
-  <div class="header">
-    <a href="https://claudiaadornosrl-prog.github.io/hub/" class="hdr-ico" title="Volver al Hub" aria-label="Volver al Hub" style="text-decoration:none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg></a>
-    <div class="header-left">
+  <!-- (11-nov-2026, infra) banner común de los módulos: /hub/banner.css + /hub/banner.js (moneda, colores del Hub, ☰).
+       Las pestañas (antes una barra aparte abajo del encabezado) van adentro del banner; Pedidos con alertas sigue en verde. -->
+  <div class="header ab-banner" data-modulo="crm">
+    <div class="header-left ab-izq">
+      <span class="ab-nombre">Clientes</span>
       <span class="hdr-logo" id="hdr-logo" style="display:none"></span>
-      <div class="header-txt">
+      <div class="header-txt ab-sub">
         <span class="header-local" id="hdr-local"></span>
         <span class="header-name" id="hdr-nombre"></span>
       </div>
     </div>
-    <div class="header-right">
+    <div class="tab-bar ab-tabs" id="tabs">
+      <button class="tab-btn active" data-tab="nuevo" onclick="switchTab('nuevo')" title="Nuevo">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span>
+        <span class="lb">Nuevo</span>
+      </button>
+      <!-- (4-nov-2026, JP) Alertas ya no es una pestaña: va arriba de todo dentro de Pedidos, y Pedidos se pone verde con el número -->
+      <button class="tab-btn" data-tab="pedidos" onclick="switchTab('pedidos')" title="Pedidos">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6"/><path d="M9 10h6M9 14h6M9 18h3"/></svg></span>
+        <span class="lb">Pedidos</span>
+        <span class="tab-badge hidden" id="alertas-badge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="whatsapp" onclick="switchTab('whatsapp')" id="tab-whatsapp" style="display:none" title="WhatsApp">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3 3z"/><path d="M9 10h6M9 13.5h4"/></svg></span>
+        <span class="lb">WhatsApp</span>
+        <span class="tab-badge hidden" id="wab-badge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="satisfaccion" onclick="switchTab('satisfaccion')" title="Satisfacción">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg></span>
+        <span class="lb">Satisfacción</span>
+      </button>
+      <button class="tab-btn" data-tab="clientes" onclick="switchTab('clientes')" id="tab-clientes" style="display:none" title="Clientes">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5a5 5 0 0 1 6 4.5"/></svg></span>
+        <span class="lb">Clientes</span>
+      </button>
+      <button class="tab-btn" data-tab="admin" onclick="switchTab('admin')" id="tab-admin" style="display:none" title="Admin">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
+        <span class="lb">Admin</span>
+      </button>
+    </div>
+    <div class="header-right ab-der">
       <button class="hdr-ver" id="hdr-ver" type="button" onclick="crmActualizarVersion()"></button>
-      <span class="local-badge" id="hdr-badge"></span>
-      <button class="hdr-ico" onclick="openGlobalSearch()" title="Buscar clientes, pedidos y artículos (Ctrl+B)" aria-label="Buscar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
-      <button class="hdr-ico header-refresh" onclick="refreshAll()" title="Actualizar los datos" aria-label="Actualizar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></button>
-      <button class="hdr-ico" onclick="logout()" title="Salir de la sesión" aria-label="Salir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 4v16"/></svg></button>
+      <span class="local-badge" id="hdr-badge" style="display:none"></span>
+      <button class="hbtn" onclick="openGlobalSearch()" title="Buscar clientes, pedidos y artículos (Ctrl+B)" aria-label="Buscar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="lb">Buscar</span></button>
+      <button class="hbtn header-refresh" onclick="refreshAll()" title="Actualizar los datos" aria-label="Actualizar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg><span class="lb">Actualizar</span></button>
+      <span class="hsep"></span>
+      <a class="hbtn ab-fijo" href="https://claudiaadornosrl-prog.github.io/hub/" title="Volver al Hub" aria-label="Volver al Hub"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg><span class="lb">Hub</span></a>
+      <button class="hbtn ab-fijo" onclick="logout()" title="Salir de la sesión" aria-label="Salir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 4v16"/></svg><span class="lb">Salir</span></button>
     </div>
   </div>
-
-  <!-- Tab bar -->
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="nuevo" onclick="switchTab('nuevo')" title="Nuevo">
-      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span>
-      <span class="lb">Nuevo</span>
-    </button>
-    <!-- (4-nov-2026, JP) Alertas ya no es una pestaña: va arriba de todo dentro de Pedidos, y Pedidos se pone verde con el número -->
-    <button class="tab-btn" data-tab="pedidos" onclick="switchTab('pedidos')" title="Pedidos">
-      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6"/><path d="M9 10h6M9 14h6M9 18h3"/></svg></span>
-      <span class="lb">Pedidos</span>
-      <span class="tab-badge hidden" id="alertas-badge">0</span>
-    </button>
-    <button class="tab-btn" data-tab="whatsapp" onclick="switchTab('whatsapp')" id="tab-whatsapp" style="display:none" title="WhatsApp">
-      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3 3z"/><path d="M9 10h6M9 13.5h4"/></svg></span>
-      <span class="lb">WhatsApp</span>
-      <span class="tab-badge hidden" id="wab-badge">0</span>
-    </button>
-    <button class="tab-btn" data-tab="satisfaccion" onclick="switchTab('satisfaccion')" title="Satisfacción">
-      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg></span>
-      <span class="lb">Satisfacción</span>
-    </button>
-    <button class="tab-btn" data-tab="clientes" onclick="switchTab('clientes')" id="tab-clientes" style="display:none" title="Clientes">
-      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5a5 5 0 0 1 6 4.5"/></svg></span>
-      <span class="lb">Clientes</span>
-    </button>
-    <button class="tab-btn" data-tab="admin" onclick="switchTab('admin')" id="tab-admin" style="display:none" title="Admin">
-      <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
-      <span class="lb">Admin</span>
-    </button>
-  </div>
+  <script src="/hub/banner.js?v=5"></script>
 
   <!-- Tab panels -->
   <div class="tab-panels">
@@ -7938,7 +7949,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v105-celular-15';
+const CRM_VERSION = 'crm-adorno-v107-banner-comun';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8076,6 +8087,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=43"></script>
+<script src="manual.js?v=44"></script>
 </body>
 </html>
