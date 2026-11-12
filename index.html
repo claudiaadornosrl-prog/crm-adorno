@@ -469,6 +469,16 @@ a { color: inherit; text-decoration: none; }
 }
 .btn-primary:hover { opacity: 0.88; }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.ofi-ver { margin-bottom: 12px; }
+.ofi-ver-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ofi-ver-chips .ofi-ver-t { font-size: 12px; font-weight: 600; color: var(--muted); margin-right: 2px; }
+.ofi-chip { border: 1.5px solid var(--border); background: white; color: var(--text); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.ofi-chip.on { border-color: var(--accent); background: var(--accent); color: white; }
+.ofi-ver-nota { margin-top: 8px; font-size: 12.5px; color: #92400e; background: #fef3c7; border-radius: 999px; padding: 7px 14px; display: inline-block; }
+html.dark .ofi-chip { background: #1e2434; }
+.oficina-cuentas { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.oficina-cuenta-opt { border: 2px solid var(--border); background: #fafafa; color: var(--text); border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; }
+.oficina-cuenta-opt.sel { border-color: var(--accent); background: var(--accent); color: white; }
 .setup-admin-link { text-align: center; margin-top: 16px; font-size: 13px; color: rgba(255,255,255,0.4); }
 .setup-admin-link a { color: rgba(255,255,255,0.6); text-decoration: underline; cursor: pointer; }
 
@@ -1484,6 +1494,14 @@ html.dark .wab-vacio { background: #111b21; }
         </div>
       </div>
     </div>
+    <!-- (12-nov-2026) La oficina tiene dos cuentas: la de la PC de Marisa y la de la PC de Analía -->
+    <div class="form-group" id="oficina-cuenta" style="display:none">
+      <label>Cuenta de la oficina</label>
+      <div class="oficina-cuentas">
+        <button type="button" class="oficina-cuenta-opt" data-email="administracion@claudiaadorno.com" onclick="elegirCuentaOficina(this)">administracion@</button>
+        <button type="button" class="oficina-cuenta-opt" data-email="claudiaadorno@claudiaadorno.com" onclick="elegirCuentaOficina(this)">claudiaadorno@</button>
+      </div>
+    </div>
     <div class="form-group">
       <label>Contraseña</label>
       <input type="password" id="setup-pass" placeholder="Contraseña de la sucursal"
@@ -1658,6 +1676,8 @@ html.dark .wab-vacio { background: #111b21; }
 
     <!-- ── PEDIDOS ── -->
     <div class="tab-panel" id="panel-pedidos">
+      <!-- (12-nov-2026) Oficina: elegir qué local mirar (los otros, solo para ver) -->
+      <div class="ofi-ver" id="ofi-ver" style="display:none"></div>
       <!-- (4-nov-2026, JP) Alertas arriba de todo, en verde; abajo el resto de los pedidos -->
       <div class="ped-alertas" id="ped-alertas" style="display:none">
         <div class="ped-alertas-tit"><span class="ped-alertas-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><span>Alertas</span><span class="ped-alertas-n" id="ped-alertas-n">0</span></div>
@@ -2103,6 +2123,9 @@ let articulos = [];  // {sku, descripcion, local_id}
 let pedidosCache = [];
 let pedidosCargados = false;  // true cuando loadPedidos terminó (aunque devuelva vacío)
 let currentFilter = 'Pendiente';
+// (12-nov-2026) Oficina: qué local está mirando en Pedidos ('oficina' = los suyos, con botones; otro = solo mirar)
+let oficinaVer = 'oficina';
+let pedidosMirar = [];
 let currentMyOnlyMode = true;  // true = solo mis pedidos (vendedora); se ajusta al loguear
 let currentSearch = '';
 let currentSortOrder = 'desc';
@@ -2125,6 +2148,13 @@ const LOCAL_EMAILS = {
   alcorta:   'alcorta@claudiaadorno.com',
   oficina:   'administracion@claudiaadorno.com',
 };
+// (12-nov-2026, JP) La oficina entra con cualquiera de sus dos cuentas (rol directora, sin legajo): PC de Marisa
+// (administracion@) y PC de Analía (claudiaadorno@). Las dos son local 'oficina' en crm_usuarios: VEN todos los locales
+// (crm_ve_todo) pero solo operan como Oficina.
+const OFICINA_EMAILS = ['administracion@claudiaadorno.com', 'claudiaadorno@claudiaadorno.com'];
+function esOficina() { return !!session && !session.isAdmin && String(session.local_id || '').toLowerCase() === 'oficina'; }
+// ¿Puede cargar, cambiar o responder en nombre de ese local? (la base lo frena igual: esto es para no mostrar botones)
+function puedeOperarLocal(l) { return !!session && (session.isAdmin || String(l || '').toLowerCase() === String(session.local_id || '').toLowerCase()); }
 const ADMIN_EMAIL = 'juanpsimonelli@gmail.com';
 // Admins del CRM (coincide con crm_usuarios.es_admin en la base).
 const ADMIN_EMAILS = ['juanpsimonelli@gmail.com', 'clau@claudiaadorno.com'];
@@ -2180,7 +2210,7 @@ async function _ensureFreshToken() {
     try {
       const fresh = await supaRefresh(authRefreshToken);
       _guardarSesion(fresh, {
-        local_id: session.local_id, nombre: session.nombre, isAdmin: session.isAdmin
+        local_id: session.local_id, nombre: session.nombre, isAdmin: session.isAdmin, email: session.email
       });
     } catch (e) {
       console.warn('Refresh de sesión falló:', e);
@@ -2204,7 +2234,7 @@ async function _esJwtExpiredYRefrescar(resp) {
   try {
     const fresh = await supaRefresh(authRefreshToken);
     _guardarSesion(fresh, {
-      local_id: session?.local_id, nombre: session?.nombre, isAdmin: session?.isAdmin
+      local_id: session?.local_id, nombre: session?.nombre, isAdmin: session?.isAdmin, email: session?.email
     });
     return true;
   } catch (e) {
@@ -2263,7 +2293,39 @@ function checkSetupReady() {
   const localSel = document.querySelector('.local-opt.selected');
   const pass = document.getElementById('setup-pass');
   const passOk = pass && pass.value.trim().length > 0;
-  document.getElementById('setup-btn').disabled = !(localSel && passOk);
+  // (12-nov-2026) Oficina: elegir cuál de las dos cuentas (queda recordada en esta PC)
+  const esOfi = !!localSel && localSel.dataset.local === 'oficina';
+  const caja = document.getElementById('oficina-cuenta');
+  if (caja) caja.style.display = esOfi ? '' : 'none';
+  if (esOfi && !document.querySelector('.oficina-cuenta-opt.sel')) {
+    let guardada = '';
+    try { guardada = localStorage.getItem('ca_oficina_cuenta') || ''; } catch(_) {}
+    const b = document.querySelector(`.oficina-cuenta-opt[data-email="${guardada}"]`);
+    if (b) b.classList.add('sel');
+  }
+  const cuentaOk = !esOfi || !!document.querySelector('.oficina-cuenta-opt.sel');
+  document.getElementById('setup-btn').disabled = !(localSel && passOk && cuentaOk);
+}
+function elegirCuentaOficina(el) {
+  if (el.disabled) return;
+  document.querySelectorAll('.oficina-cuenta-opt').forEach(b => b.classList.toggle('sel', b === el));
+  checkSetupReady();
+}
+// Email con el que entra el local elegido (Oficina: la cuenta marcada)
+function _emailIngreso(local) {
+  if (local !== 'oficina') return LOCAL_EMAILS[local];
+  const b = document.querySelector('.oficina-cuenta-opt.sel');
+  return b ? b.dataset.email : '';
+}
+// (12-nov-2026) El usuario (id + mail) va dentro de ca_session para que /hub/equipo.js sepa qué cuenta está abierta en
+// el equipo. Si la respuesta de Auth no lo trae, se saca del token.
+function _usuarioDeAuth(authData) {
+  if (authData && authData.user && authData.user.email) return { id: authData.user.id, email: String(authData.user.email).toLowerCase() };
+  try {
+    const p = JSON.parse(atob(String(authData.access_token).split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (p.email) return { id: p.sub, email: String(p.email).toLowerCase() };
+  } catch(_) {}
+  return null;
 }
 
 function _setSetupError(msg) {
@@ -2295,11 +2357,13 @@ async function _mfaSesion(authData) {
 function _guardarSesion(authData, extra) {
   authToken = authData.access_token;
   authRefreshToken = authData.refresh_token;
+  const usuario = _usuarioDeAuth(authData);
   session = Object.assign({
     access_token: authData.access_token,
     refresh_token: authData.refresh_token,
     expires_at: authData.expires_at,  // epoch seconds
   }, extra);
+  if (usuario) { session.user = usuario; if (!session.email) session.email = usuario.email; }
   localStorage.setItem('ca_session', JSON.stringify(session));
   // El CRM y los demás módulos comparten el refresh token, y Supabase lo rota
   // cada vez que se usa: si el CRM renueva por su cuenta y no avisa, el que
@@ -2345,6 +2409,8 @@ function _guardarSesion(authData, extra) {
   authToken = s.access_token;
   authRefreshToken = s.refresh_token;
   session = s;
+  // (12-nov-2026) sesiones guardadas antes de que ca_session llevara el usuario: se lo agrega (para /hub/equipo.js)
+  if (!s.user) { const u = _usuarioDeAuth(s); if (u) { session.user = u; if (!session.email) session.email = u.email; try { localStorage.setItem('ca_session', JSON.stringify(session)); } catch(_) {} } }
 
   // Si el token está por expirar (o ya expiró), refrescarlo
   const ahora = Math.floor(Date.now() / 1000);
@@ -2381,8 +2447,8 @@ async function startSession() {
   const pass = document.getElementById('setup-pass').value.trim();
   if (!localEl || !pass) return;
   const local = localEl.dataset.local;
-  const email = LOCAL_EMAILS[local];
-  if (!email) { _setSetupError('Local no válido'); return; }
+  const email = _emailIngreso(local);
+  if (!email) { _setSetupError(local === 'oficina' ? 'Elegí la cuenta de la oficina' : 'Local no válido'); return; }
 
   const btn = document.getElementById('setup-btn');
   btn.disabled = true; btn.textContent = 'Entrando...';
@@ -2392,7 +2458,8 @@ async function startSession() {
     // nombre vacío a propósito: las cuentas de sucursal ven TODOS los pedidos del
     // local. session.nombre se reserva para filtrar por vendedora individual
     // (cuando una vendedora elige su nombre dentro de la app).
-    _guardarSesion(authData, { local_id: local, nombre: '', isAdmin: false });
+    _guardarSesion(authData, { local_id: local, nombre: '', isAdmin: false, email });
+    if (local === 'oficina') { try { localStorage.setItem('ca_oficina_cuenta', email); } catch(_) {} }
     document.getElementById('setup-pass').value = '';
     enterApp();
   } catch(e) {
@@ -2481,6 +2548,10 @@ function enterApp() {
   document.getElementById('tab-clientes').style.display = (!session.isAdmin && session.local_id) ? 'flex' : 'none';
   // (4-nov-2026) Bandeja de WhatsApp: admin (todos los locales) y cada local (el suyo)
   document.getElementById('tab-whatsapp').style.display = (session.isAdmin || session.local_id) ? 'flex' : 'none';
+  // (12-nov-2026) Oficina: arranca mirando lo suyo; puede elegir mirar los otros locales (sin botones)
+  oficinaVer = 'oficina'; pedidosMirar = [];
+  if (esOficina()) wabLocal = '';   // la Oficina no tiene número del sistema: en WhatsApp arranca viendo todos los locales
+  renderOficinaVer();
 
   // ── Modo simple (Clau): solo Satisfacción + Admin ──────────────
   const esModoSimple = session.isAdmin && MODO_SIMPLE_EMAILS.includes((session.email || '').toLowerCase());
@@ -2529,6 +2600,17 @@ function enterApp() {
 function aplicarKioscoLocal() {
   let k = null;
   try { k = localStorage.getItem('ca_kiosco_local'); } catch(_) {}
+  // (12-nov-2026) Equipo trabado desde el Hub (/hub/equipo.js) con la cuenta de un local o de la oficina: el ingreso
+  // queda fijo en ese local y, si es la oficina, en esa cuenta
+  let cuentaFija = '';
+  try {
+    if (window.ADORNO_EQUIPO && ADORNO_EQUIPO.trabado()) {
+      const u = String((ADORNO_EQUIPO.leer() || {}).usuario || '').toLowerCase();
+      const loc = OFICINA_EMAILS.includes(u) ? 'oficina' : Object.keys(LOCAL_EMAILS).find(l => LOCAL_EMAILS[l] === u);
+      if (loc) { k = loc; if (loc === 'oficina') cuentaFija = u; }
+    }
+  } catch(_) {}
+  if (cuentaFija) document.querySelectorAll('.oficina-cuenta-opt').forEach(b => { const es = b.dataset.email === cuentaFija; b.classList.toggle('sel', es); b.disabled = !es; b.style.display = es ? '' : 'none'; });
   if (!k || !LOCALES[k]) return;
   document.querySelectorAll('.local-opt').forEach(e => {
     const es = e.dataset.local === k;
@@ -2769,12 +2851,15 @@ async function loadWaMensajes() {
   try {
     const hayApi = Object.keys(waApiLocales).length || Object.values(waBotModo).some(m => m && m !== 'off');
     if (!hayApi && !session.isAdmin) { waMensajesPorPedido = {}; return; }
-    const rows = await supaGet('wa_mensajes', { select: 'id,direccion,tipo,texto,plantilla,estado,estado_at,creado_at,pedido_id,enviado_por,bot_estado,bot_clasificacion,responde_a,error,motivo:raw->>motivo', pedido_id: 'not.is.null', tipo: 'neq.status', order: 'id.desc', limit: '800' });
+    // (12-nov-2026) la Oficina lee los de todos los locales: acá (hilos de SUS pedidos) solo los suyos, así el tope no se
+    // llena con los de los locales
+    const soloMio = (!session.isAdmin && session.local_id) ? { local_id: 'ilike.' + session.local_id } : {};
+    const rows = await supaGet('wa_mensajes', { select: 'id,direccion,tipo,texto,plantilla,estado,estado_at,creado_at,pedido_id,enviado_por,bot_estado,bot_clasificacion,responde_a,error,motivo:raw->>motivo', pedido_id: 'not.is.null', tipo: 'neq.status', order: 'id.desc', limit: '800', ...soloMio });
     const m = {};
     (rows || []).forEach(r => { (m[r.pedido_id] = m[r.pedido_id] || []).push(r); });
     Object.values(m).forEach(arr => arr.reverse());
     waMensajesPorPedido = m;
-    const convs = await supaGet('wa_conversaciones', { select: 'local_id,celular,bot_estado,humano_por,humano_at,derivado_motivo,derivado_at', order: 'id.desc', limit: '500' });
+    const convs = await supaGet('wa_conversaciones', { select: 'local_id,celular,bot_estado,humano_por,humano_at,derivado_motivo,derivado_at', order: 'id.desc', limit: '500', ...soloMio });
     const c = {}; (convs || []).forEach(r => { c[(r.local_id || '').toLowerCase() + '|' + String(r.celular || '').slice(-10)] = r; });
     waConvPorCel = c;
   } catch(e) { console.warn('wa_mensajes:', e); }
@@ -3368,7 +3453,8 @@ function _wabLinkify(t) { return escHtml(t).replace(/https?:\/\/[^\s<]+/g, u => 
 async function waBandejaCargar() {
   if (!session || (!session.isAdmin && !session.local_id)) return;
   try {
-    wabConvs = await _rpcBot('crm_wa_bandeja', { p_local: session.isAdmin ? null : session.local_id, p_dias: 60 }) || [];
+    // (12-nov-2026) la Oficina, como el admin, trae las charlas de todos los locales (para mirar)
+    wabConvs = await _rpcBot('crm_wa_bandeja', { p_local: (session.isAdmin || esOficina()) ? null : session.local_id, p_dias: 60 }) || [];
   } catch(e) {
     console.warn('crm_wa_bandeja:', e);
     const el = document.getElementById('wab-items');
@@ -3380,7 +3466,7 @@ async function waBandejaCargar() {
   if (_wabPanelActivo()) { waBandejaRenderLista(); waBandejaRenderHead(); }   // el estado del bot puede cambiar sin mensajes nuevos
 }
 function waBandejaBadge() {
-  const n = wabConvs.filter(c => c.atender).length;
+  const n = wabConvs.filter(c => c.atender && puedeOperarLocal(c.local_id)).length;   // (12-nov) la Oficina: solo las suyas
   const b = document.getElementById('wab-badge');
   if (b) { b.textContent = n; b.classList.toggle('hidden', !n); }
   const t = document.getElementById('tab-whatsapp');
@@ -3412,7 +3498,7 @@ function _wabSonido() {
 function waBandejaAvisar() {
   const marca = (c) => _wabKey(c.local_id, c.celular) + '@' + c.ult_in_at;
   const viendo = (c) => document.visibilityState === 'visible' && _wabPanelActivo() && wabSel && _wabKey(wabSel.local_id, wabSel.celular) === _wabKey(c.local_id, c.celular);
-  const nuevos = wabConvs.filter(c => c.atender && c.ult_in_at && !wabAvisados.has(marca(c)));
+  const nuevos = wabConvs.filter(c => c.atender && c.ult_in_at && puedeOperarLocal(c.local_id) && !wabAvisados.has(marca(c)));
   if (!nuevos.length) return;
   nuevos.forEach(c => wabAvisados.add(marca(c)));
   try { localStorage.setItem('ca_wab_avisados', JSON.stringify([...wabAvisados].slice(-300))); } catch(_) {}
@@ -3451,7 +3537,7 @@ async function waBandejaEntrar() {
 function waBandejaRenderLista() {
   const el = document.getElementById('wab-lista');
   if (!el) return;
-  const varios = !!session.isAdmin;
+  const varios = !!session.isAdmin || esOficina();   // (12-nov) la Oficina elige qué local mirar
   if (!document.getElementById('wab-items')) {
     el.innerHTML = `<div class="wab-lista-top">
         <div class="wab-filtros" id="wab-filtros"></div>
@@ -3525,9 +3611,9 @@ async function waBandejaCargarChat(forzar) {
   wabMsgs = (rows || []).reverse();
   const firma = wabMsgs.map(x => `${x.id}:${x.estado}:${x.bot_estado}`).join(',');
   if (forzar || firma !== wabFirma) { wabFirma = firma; waBandejaRenderChat(); }
-  // leída: solo las chicas del local mueven la marca (si el admin la abre desde la oficina, para ellas sigue nueva)
+  // leída: solo las chicas del local mueven la marca (si el admin o la Oficina la abren, para ellas sigue nueva)
   const c = _wabConvSel();
-  if (c && c.sin_leer > 0 && !session.isAdmin && document.visibilityState === 'visible') {
+  if (c && c.sin_leer > 0 && !session.isAdmin && puedeOperarLocal(s.local_id) && document.visibilityState === 'visible') {
     try { await _rpcBot('crm_wa_marcar_leido', { p_local: s.local_id, p_celular: s.celular }); c.sin_leer = 0; waBandejaRenderLista(); }
     catch(e) { console.warn('crm_wa_marcar_leido:', e); }
   }
@@ -3539,7 +3625,7 @@ function waBandejaRenderHead() {
   if (!h || !wabSel) return;
   const c = _wabConvSel() || { local_id: wabSel.local_id, celular: wabSel.celular, nombre: '', bot_estado: 'activo', bot_modo: waBotModo[wabSel.local_id] || 'off' };
   const ped = c.pedido_id ? (pedidosCache || []).find(p => p.id === c.pedido_id) : null;
-  const sub = [_wabFmtCel(c.celular), session.isAdmin ? _wabLocalNom(c.local_id) : '', ped ? `pedido: ${String(ped.descripcion_sku || ped.sku || '').toLowerCase()} (${ped.estado})` : ''].filter(Boolean).join(' · ');
+  const sub = [_wabFmtCel(c.celular), (session.isAdmin || esOficina()) ? _wabLocalNom(c.local_id) : '', ped ? `pedido: ${String(ped.descripcion_sku || ped.sku || '').toLowerCase()} (${ped.estado})` : ''].filter(Boolean).join(' · ');
   const html = `${_act('wab-volver', 'waBandejaVolver()', 'Volver a la lista', WAB_ICO_VOLVER)}
     <div class="wab-av">${escHtml(_wabInicial(c))}</div>
     <div class="wab-chat-tit"><b>${escHtml(_wabNombre(c))}</b><span>${escHtml(sub)}</span></div>
@@ -3571,6 +3657,11 @@ function waBandejaRenderChat() {
 function _wabBotChip(c) {
   const modo = c.bot_modo || waBotModo[c.local_id] || 'off';
   if (modo === 'off') return '';
+  // (12-nov-2026) Oficina mirando la charla de un local: se ve qué hace el bot, sin botones para pausarlo o devolverlo
+  if (!puedeOperarLocal(c.local_id)) {
+    const t = c.bot_estado === 'derivado' ? 'pasada al local' : c.bot_estado === 'humano' ? 'bot en pausa' : `bot ${modo === 'auto' ? 'automático' : 'sugiere'}`;
+    return `<span class="wa-bot-chip${c.bot_estado === 'derivado' ? ' derivado' : c.bot_estado === 'humano' ? ' pausa' : ''}">${ICO.robot} ${t}</span>`;
+  }
   const l = escHtml(c.local_id), cel = escHtml(c.celular);
   if (c.bot_estado === 'derivado') return `<span class="wa-bot-chip derivado" title="${escHtml(c.derivado_motivo || 'El bot la pasó al local')}">${ICO.robot} pasada al local ${_act('', `waBandejaBot('${l}', '${cel}', true)`, 'Devolverle la charla al bot', ICO.check)}</span>`;
   if (c.bot_estado === 'humano') return `<span class="wa-bot-chip pausa" title="La sigue ${escHtml(String(c.humano_por || '').replace(/@.*$/, ''))}">${ICO.robot} bot en pausa ${_act('', `waBandejaBot('${l}', '${cel}', true)`, 'Devolverle la charla al bot', ICO.check)}</span>`;
@@ -3676,6 +3767,12 @@ function waBandejaRenderPie() {
   const firma = `${k}|${sug ? sug.id : 0}|${dentro}|${wabEdit[k] || 0}|${ultIn ? ultIn.id : 0}`;
   if (firma === wabPieFirma) return;
   wabPieFirma = firma;
+  // (12-nov-2026, JP) La Oficina mira las charlas de los locales pero no les responde a sus clientes (wa-enviar también
+  // lo frena): ni cuadro para escribir, ni sugerencias del bot para aprobar, ni pedido nuevo en nombre del local
+  if (!puedeOperarLocal(wabSel.local_id)) {
+    el.innerHTML = `<div class="wa-reply-nota" style="margin-top:0">👁 Charla de ${escHtml(_wabLocalNom(wabSel.local_id))}: desde la Oficina se mira, no se responde. La atienden las chicas del local.</div>`;
+    return;
+  }
   let sugHtml = '';
   if (sug && wabEdit[k] === sug.id) {
     sugHtml = `<div class="wa-sug"><div class="wa-sug-t">${ICO.robot} Corrigiendo la respuesta del bot en el cuadro de abajo ${_act('', 'waBandejaSugCancelar()', 'Volver a la sugerencia original', ICO.cruz)}</div></div>`;
@@ -3848,6 +3945,7 @@ async function loadPedidos() {
     if (!session.isAdmin && session.local_id) params['local_id'] = 'ilike.' + session.local_id;
     pedidosCache = await supaGet('pedidos', params);
     pedidosCargados = true;
+    if (mirandoOtroLocal()) await cargarPedidosMirar();
     loadPushDragon().then(() => { if (typeof renderPedidos === 'function') renderPedidos(); });
     loadWaApiLocales().then(() => loadWaMensajes()).then(() => { if (typeof renderPedidos === 'function') { renderPedidos(); renderAlertas(); updateAlertBadge(); } });
     loadSugerenciasCliente().then(() => { renderAlertas(); updateAlertBadge(); });
@@ -3863,6 +3961,39 @@ async function loadPedidos() {
     console.error('loadPedidos:', e);
     toast('❌ Error al cargar pedidos');
   }
+}
+
+// ── (12-nov-2026, JP desde Infraestructura) Oficina: "pueden VER todo pero NO operar en nombre de los locales" ──
+// pedidosCache sigue siendo solo lo de la Oficina (alertas, número de la pestaña y botones, como siempre). Si elige
+// mirar otro local, la lista de abajo muestra esos pedidos (pedidosMirar) sin botones. La base también lo frena:
+// pedidos_insert/update/delete siguen atados a crm_mi_local().
+function mirandoOtroLocal() { return esOficina() && oficinaVer !== 'oficina'; }
+function renderOficinaVer() {
+  const el = document.getElementById('ofi-ver');
+  if (!el) return;
+  if (!esOficina()) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const ops = [['oficina', 'Oficina'], ['unicenter', 'Unicenter'], ['alcorta', 'Alcorta'], ['todos', 'Todos los locales']];
+  el.style.display = '';
+  el.innerHTML = `<div class="ofi-ver-chips"><span class="ofi-ver-t">Pedidos de:</span>${ops.map(([v, t]) => `<button class="ofi-chip${oficinaVer === v ? ' on' : ''}" onclick="setOficinaVer('${v}')">${t}</button>`).join('')}</div>`
+    + (mirandoOtroLocal() ? `<div class="ofi-ver-nota">👁 Solo para mirar: los pedidos de los locales los manejan las chicas de cada local. Para cargar o cambiar, volvé a Oficina.</div>` : '');
+}
+async function cargarPedidosMirar() {
+  const params = { select: '*', order: 'created_at.desc' };
+  if (oficinaVer !== 'todos') params['local_id'] = 'ilike.' + oficinaVer;
+  try { pedidosMirar = await supaGet('pedidos', params); }
+  catch(e) { pedidosMirar = []; toast('❌ No se pudieron cargar los pedidos de ' + (NOMBRE_LOCAL[oficinaVer] || oficinaVer)); }
+}
+async function setOficinaVer(v) {
+  oficinaVer = v;
+  renderOficinaVer();
+  if (mirandoOtroLocal()) {
+    document.getElementById('pedidos-list').innerHTML = '<div class="loading"><span class="spinner"></span> Cargando...</div>';
+    await cargarPedidosMirar();
+  } else {
+    pedidosMirar = [];
+  }
+  renderAlertas();
+  renderPedidos();
 }
 
 function refreshAll() {
@@ -3916,7 +4047,7 @@ function updateAlertBadge() {
     if (tabAl) { tabAl.classList.remove('has-alert'); tabAl.title = 'Pedidos'; }
   }
   // (4-nov-2026) el número rojo del ícono de la ventana suma también las charlas de WhatsApp para atender
-  badgeIcono(total + wabConvs.filter(c => c.atender).length);
+  badgeIcono(total + wabConvs.filter(c => c.atender && puedeOperarLocal(c.local_id)).length);   // (12-nov) la Oficina: solo las suyas
 }
 
 // (26-oct, JP) Número rojo sobre el ícono de la ventana/pestaña y de la barra de tareas, como en el celular.
@@ -4889,6 +5020,9 @@ function renderHoyCardViejo(p) {
 function renderPedidos() {
   const el = document.getElementById('pedidos-list');
   const now = new Date();
+  // (12-nov-2026) Oficina mirando otro local: esos pedidos, sin botones
+  const mirando = mirandoOtroLocal();
+  const fuente = mirando ? pedidosMirar : pedidosCache;
 
   // Mostrar/ocultar el toggle "Mis pedidos" según si es vendedora con nombre
   const mineRow = document.getElementById('mine-row');
@@ -4900,7 +5034,7 @@ function renderPedidos() {
   const vSelect = document.getElementById('vendedora-select');
   const vRow = document.getElementById('vendedora-filter-row');
   if (vSelect) {
-    const vendedoras = [...new Set(pedidosCache.map(p => p.vendedora).filter(Boolean))].sort();
+    const vendedoras = [...new Set(fuente.map(p => p.vendedora).filter(Boolean))].sort();
     if (vendedoras.length > 0) {
       vSelect.innerHTML = '<option value="todas">Todas</option>' +
         vendedoras.map(v => `<option value="${escHtml(v)}"${v === currentVendedoraFilter ? ' selected' : ''}>${escHtml(v)}</option>`).join('');
@@ -4915,7 +5049,7 @@ function renderPedidos() {
   document.querySelectorAll('.filter-chip').forEach(chip => {
     const f = chip.dataset.f;
     if (!f) return;
-    let base = pedidosCache;
+    let base = fuente;
     if (!session.isAdmin && session.nombre && currentMyOnlyMode) base = base.filter(p => p.vendedora === session.nombre);
     if (currentVendedoraFilter !== 'todas') base = base.filter(p => p.vendedora === currentVendedoraFilter);
     const count = f === 'todos' ? base.length : base.filter(p => p.estado === f).length;
@@ -4940,7 +5074,7 @@ function renderPedidos() {
   }
 
   // ── Filtering ───────────────────────────────────────────
-  let items = pedidosCache;
+  let items = fuente;
   // Filtro "mis pedidos" si es vendedora y está en modo personal
   if (!session.isAdmin && session.nombre && currentMyOnlyMode) {
     items = items.filter(p => p.vendedora === session.nombre);
@@ -4960,7 +5094,7 @@ function renderPedidos() {
   }
 
   // (4-nov-2026, JP) los que tienen una alerta ya están arriba en Alertas: acá van "los demás pedidos"
-  const enAlertas = _pedidosEnAlertas();
+  const enAlertas = mirando ? new Set() : _pedidosEnAlertas();
   const arriba = items.filter(p => enAlertas.has(p.id)).length;
   items = items.filter(p => !enAlertas.has(p.id));
   const notaArriba = arriba ? `<div class="ped-nota-arriba">${arriba === 1 ? '1 pedido de este filtro está' : arriba + ' pedidos de este filtro están'} arriba, en Alertas.</div>` : '';
@@ -4978,7 +5112,8 @@ function renderPedidos() {
   el.innerHTML = notaArriba + items.map(p => {
     const estadoKey = p.estado === 'Listo para avisar' ? 'Listo' : (p.estado || 'Pendiente');
     const fecha = formatDate(p.created_at);
-    const actions = pedidoActions(p);
+    const soloMirar = mirando || !puedeOperarLocal(p.local_id);
+    const actions = soloMirar ? '' : pedidoActions(p);
     const skuDisplay = p.sku_resuelto || p.sku || '—';
     const skuOrig = (p.sku_resuelto && p.sku && p.sku_resuelto !== p.sku) ? `<span class="sku-orig" title="SKU vendedora">${escHtml(p.sku)}</span>` : '';
     // Age indicator
@@ -4991,17 +5126,17 @@ function renderPedidos() {
         <span class="pedido-sku">${escHtml(skuDisplay)}${skuOrig}</span>
         <div class="pedido-info">
           <div class="pedido-client">${escHtml(p.nombre_cliente||'Sin nombre')}${dragonBadge(p.dni)}${p.motivo ? ' <span class="motivo-tag">' + escHtml(p.motivo) + '</span>' : ''}</div>
-          <div class="pedido-desc">${escHtml(p.descripcion_sku||p.sku_resuelto||p.sku||'')}${p.cantidad > 1 ? ' <strong>x'+p.cantidad+'</strong>' : ''} · ${escHtml(p.celular||'')}</div>
+          <div class="pedido-desc">${escHtml(p.descripcion_sku||p.sku_resuelto||p.sku||'')}${p.cantidad > 1 ? ' <strong>x'+p.cantidad+'</strong>' : ''} · ${escHtml(p.celular||'')}${mirando ? ' · <strong>' + escHtml(NOMBRE_LOCAL[(p.local_id || '').toLowerCase()] || p.local_id || '') + '</strong>' : ''}</div>
         </div>
         <span class="estado-badge estado-${escHtml(estadoKey)}">${escHtml(p.estado||'')}</span>
       </div>
       ${p.compra_id ? `<div style="padding:0 14px 6px"><span class="pedido-vendido-badge"><span class="check">✓</span> VENDIDO ${p.factura_monto ? Number(p.factura_monto).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : ''}${p.factura_fecha ? ' · '+formatDate(p.factura_fecha).split(' ')[0] : ''}</span></div>` : ''}
       ${p.notas ? `<div class="pedido-notas">📝 ${escHtml(p.notas)}</div>` : ''}
-      ${renderWaHilo(p)}
+      ${soloMirar ? (p.wa_respuesta ? `<div class="pedido-wa-resp" title="Último mensaje del cliente por WhatsApp">💬 ${escHtml(p.wa_respuesta)}</div>` : '') : renderWaHilo(p)}
       <div class="pedido-footer">
         <span class="pedido-date">📅 ${fecha}${p.vendedora ? ' · ' + escHtml(p.vendedora) : ''} ${waAcuses(p)}</span>
         ${actions}
-        <button class="act" onclick="openEditModal(${p.id})" title="Editar el pedido" aria-label="Editar">${ICO.lapiz}</button>
+        ${soloMirar ? '' : `<button class="act" onclick="openEditModal(${p.id})" title="Editar el pedido" aria-label="Editar">${ICO.lapiz}</button>`}
       </div>
     </div>`;
   }).join('');
@@ -5233,6 +5368,8 @@ function renderAlertas() {
   const el = document.getElementById('alertas-list');
   const caja = document.getElementById('ped-alertas'), resto = document.getElementById('ped-resto-tit');
   if (!el) return;
+  // (12-nov-2026) Oficina mirando otro local: las alertas son de la Oficina, se esconden mientras mira
+  if (mirandoOtroLocal()) { if (caja) caja.style.display = 'none'; if (resto) resto.style.display = 'none'; return; }
   const listos = pedidosCache.filter(p => p.estado === 'Listo para avisar');
   const vencidos = pedidosVencidos60();
   const mensajes = pedidosConMensajeSinResponder();
@@ -5344,7 +5481,10 @@ let sugerenciasCache = [];
 let sugAbierta = null;
 async function loadSugerenciasCliente() {
   try {
-    sugerenciasCache = await supaGet('clientes_sugerencias', { select: '*', estado: 'eq.pendiente', order: 'creado_at.desc', limit: '100' });
+    const params = { select: '*', estado: 'eq.pendiente', order: 'creado_at.desc', limit: '100' };
+    // (12-nov-2026) la Oficina lee las de todos los locales, pero acá (alertas, para resolver) van solo las suyas
+    if (!session.isAdmin && session.local_id) params.local_id = 'ilike.' + session.local_id;
+    sugerenciasCache = await supaGet('clientes_sugerencias', params);
   } catch (e) { sugerenciasCache = []; }
 }
 function _sugCampo(v, etiqueta) { return v ? escHtml(v) : `<span class="falta">falta ${etiqueta}</span>`; }
@@ -5882,7 +6022,7 @@ function exportClientes() {
 // Exportar lista de pedidos visibles (respeta filtros activos)
 function exportPedidos() {
   // Reaplicar la lógica de filtros como en renderPedidos
-  let items = pedidosCache;
+  let items = mirandoOtroLocal() ? pedidosMirar : pedidosCache;
   if (!session.isAdmin && session.nombre && currentMyOnlyMode) {
     items = items.filter(p => p.vendedora === session.nombre);
   }
@@ -6329,7 +6469,8 @@ async function loadClientesVendedora(q) {
       limit: '100',
     };
     // FILTRO CLAVE: solo clientes cuya sucursal_favorita = local de la vendedora
-    if (session && session.local_id) {
+    // (12-nov-2026) la Oficina ve los clientes de todos los locales
+    if (session && session.local_id && !esOficina()) {
       params['sucursal_favorita'] = 'eq.' + session.local_id;
     }
     if (q) {
@@ -8087,6 +8228,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=45"></script>
+<script src="manual.js?v=46"></script>
 </body>
 </html>

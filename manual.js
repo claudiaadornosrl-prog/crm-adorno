@@ -25,6 +25,20 @@ function _manualSecciones() {
       ],
     },
     {
+      icon: '🏢', titulo: 'La Oficina',
+      desc: 'La Oficina entra con cualquiera de sus dos cuentas y puede mirar lo de todos los locales, pero solo opera como Oficina.',
+      pasos: [
+        'Para entrar: elegí Oficina, tocá tu cuenta (administracion@ en la PC de Marisa, claudiaadorno@ en la de Analía) y poné la contraseña. La PC se acuerda de la cuenta para la próxima vez.',
+        'Desde la Oficina se VE todo: los pedidos, la satisfacción, los clientes y el WhatsApp de Unicenter y de Alcorta.',
+        'Lo que NO se hace desde la Oficina es operar en nombre de un local: no se cargan ni se cambian pedidos de un local y no se les responde a sus clientes. Eso lo hacen las chicas de cada local. El sistema lo frena aunque se intente.',
+        'Como Oficina sí se opera: los pedidos de la Oficina (venta online) se cargan, se avisan y se cambian como siempre.',
+        'En Pedidos, arriba aparece "Pedidos de: Oficina · Unicenter · Alcorta · Todos los locales". En Oficina están los tuyos, con sus botones y sus alertas. Si elegís otro local ves sus pedidos sin botones (dice "Solo para mirar"); para volver a operar, tocá Oficina.',
+        'En WhatsApp ves las charlas de todos los locales (arriba elegís cuál). Abajo de la charla de un local dice "desde la Oficina se mira, no se responde", y abrirla no la marca como leída para las chicas del local. El número verde de la pestaña y los avisos son solo de lo que le toca a la Oficina.',
+        'En Clientes ves los clientes de todos los locales, no solo los que compran en la Oficina. Satisfacción muestra las encuestas de todos los locales.',
+        'La pestaña Admin sigue siendo solo de los administradores.',
+      ],
+    },
+    {
       icon: '🧭', titulo: 'Cómo se navega',
       desc: 'La barra de arriba tiene, en orden, Nuevo pedido, Pedidos (con las Alertas arriba de todo) y WhatsApp (y Satisfacción).',
       pasos: [
@@ -89,7 +103,7 @@ function _manualSecciones() {
         'Si la clienta manda varios mensajes seguidos (por ejemplo "hola", "estoy en Neuquén", "hacen envíos?"), Clodi espera unos segundos a que termine de escribir y le contesta una sola vez a todo junto. Por eso a veces la respuesta tarda unos 10 segundos más.',
         'Las fotos que manda la clienta se ven en la charla (tocala para agrandarla). Los audios, videos y archivos se abren al tocarlos. WhatsApp guarda esos archivos unos 30 días.',
         'Si la clienta reacciona a un mensaje con un emoji (👍, ❤️), el emoji aparece abajo de ese mensaje, como en WhatsApp, y en la lista dice "Reaccionó 👍". Una reacción sola no deja la charla "para atender" ni suma como mensaje sin leer.',
-        'Al abrir una charla queda leída para todo el local. Si la abre alguien de la oficina, para ustedes sigue como nueva.',
+        'Al abrir una charla queda leída para todo el local. Si la abre alguien de la oficina, para ustedes sigue como nueva. Desde la Oficina se pueden mirar las charlas de los locales, pero no responderlas: eso lo hacen ustedes.',
         'Si tu local todavía usa el número +1 del sistema, acá están solo esas charlas; las del celular del local siguen en el WhatsApp de siempre. Cuando el local conecta su número de siempre (lo hace un administrador desde Admin › Bot WhatsApp), acá aparecen también las charlas del celular de los últimos 6 meses (sin los grupos), y lo que contestes desde el celular queda en la charla.',
         'Con el número de siempre conectado, el celular sigue funcionando igual. Si le contestás a una clienta desde el celular, Clodi se corre de esa charla durante 12 horas, igual que si le escribís desde acá. En la compu usá WhatsApp Web en el navegador: WhatsApp para Windows deja de andar con ese número.',
       ],
