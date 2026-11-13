@@ -1999,7 +1999,7 @@ html.dark .wab-vacio { background: #111b21; }
 <!-- (6-nov-2026) Código del celular (doble factor) como en los demás módulos: supabase-js solo para el paso del código -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js" integrity="sha384-UagCvVPT5XXA0Hx+nJYUAGBFseHT9zBgpJMSebsAxl9lciTwbT+39j5VfRjdP5Tp" crossorigin="anonymous"></script>
 <script src="/hub/seguridad.js?v=1"></script>
-<script src="/hub/caras.js?v=2" defer></script>   <!-- (13-nov-2026) ¿quién responde? por la cara -->
+<script src="/hub/caras.js?v=3" defer></script>   <!-- (13-nov-2026) ¿quién responde? por la cara -->
 <script>
 'use strict';
 
@@ -8198,7 +8198,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v113-banner-mouse';
+const CRM_VERSION = 'crm-adorno-v114-caras-llave';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
