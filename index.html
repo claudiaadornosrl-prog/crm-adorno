@@ -840,6 +840,20 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 }
 .btn-delete:hover { background: var(--danger); color: white; }
 .btn-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+/* (13-nov-2026) Ventana "usuario superior" para autorizar el borrado de un pedido */
+.sup-fondo { position: fixed; inset: 0; z-index: 99990; background: rgba(28,22,18,.55); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+.sup-caja { background: white; color: var(--text); border-radius: 28px; max-width: 400px; width: 100%; padding: 22px 20px 18px; box-sizing: border-box; box-shadow: 0 24px 60px -20px rgba(0,0,0,.5); }
+.sup-caja h3 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }
+.sup-caja .sup-txt { font-size: 12.5px; line-height: 1.45; color: var(--muted); margin: 0 0 10px; }
+.sup-caja .sup-ped { font-size: 13px; background: #fef2f2; color: #991b1b; border-radius: 18px; padding: 9px 14px; margin-bottom: 12px; line-height: 1.4; }
+.sup-caja input { width: 100%; box-sizing: border-box; border: 1.5px solid var(--border); border-radius: 999px; padding: 10px 16px; font-size: 14px; margin-bottom: 8px; outline: none; background: #fafafa; }
+.sup-caja input:focus { border-color: var(--accent); background: white; }
+.sup-caja .sup-err { color: #dc2626; font-size: 12.5px; min-height: 16px; margin: 2px 4px 8px; }
+.sup-caja .sup-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.sup-caja .sup-b { border-radius: 999px; padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: transparent; color: var(--text); }
+.sup-caja .sup-b.peligro { border-color: var(--danger); background: var(--danger); color: white; }
+.sup-caja .sup-b:disabled { opacity: .5; cursor: not-allowed; }
+html.dark .sup-caja { background: #1e2434; }
 
 /* Audit log — historial de cambios en el modal de edición */
 .audit-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
@@ -7686,9 +7700,11 @@ function openEditModal(id) {
   }
   const delBtn = document.getElementById('edit-delete-btn');
   if (delBtn) {
-    delBtn.style.display = (session && session.isAdmin) ? 'block' : 'none';
+    // (13-nov-2026, JP) lo ve quien opera el pedido; si no es admin, el borrado lo autoriza la encargada o un admin
+    delBtn.style.display = (session && puedeOperarLocal(p.local_id)) ? 'block' : 'none';
     delBtn.disabled = false;
     delBtn.textContent = '🗑 Eliminar pedido';
+    delBtn.title = session && session.isAdmin ? 'Borra el pedido definitivamente' : 'Borrar el pedido: lo autoriza la encargada del local o un administrador';
   }
   document.getElementById('edit-modal').style.display = 'block';
 }
@@ -7785,33 +7801,124 @@ function selectEditSku(sku, desc) {
 }
 
 // ═══════════════════════════════════════════════════════
-//  Eliminar pedido (solo admin)
+//  Eliminar pedido
+//  (13-nov-2026, JP) Lo autoriza la encargada del local o un admin con el "usuario superior": su usuario personal en un
+//  cliente aparte (persistSession: false, no toca la sesión de la cuenta del local) y el DELETE sale con ESE cliente.
+//  La base lo frena igual: pedidos_delete = crm_es_admin() or (rrhh_is_encargada() and local del pedido = el suyo).
+//  El admin logueado como admin borra directo, como antes.
 // ═══════════════════════════════════════════════════════
 async function deletePedido() {
   if (!editingId) return;
-  if (!session || !session.isAdmin) { toast('❌ Solo el administrador puede eliminar pedidos'); return; }
   const p = pedidosCache.find(x => x.id === editingId) || {};
+  if (!session || !puedeOperarLocal(p.local_id)) { toast('❌ Este pedido no es de tu local'); return; }
   const resumen = `${p.nombre_cliente || 'Sin nombre'} — SKU ${p.sku || '—'} (${p.estado || ''})`;
+  const id = editingId;
+  if (!session.isAdmin) {
+    const aut = await _pedirSuperiorBorrado(p, resumen);
+    if (!aut) return;   // canceló
+    _pedidoEliminadoUI(id, aut.nombre);
+    return;
+  }
   if (!confirm(`⚠️ ELIMINAR DEFINITIVAMENTE este pedido?\n\n${resumen}\n\nEsta acción no se puede deshacer.`)) return;
   if (!confirm('Confirmá una vez más: vas a borrar el pedido permanentemente.')) return;
   const btn = document.getElementById('edit-delete-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Eliminando…'; }
   try {
-    await logPedidoChange(editingId, 'eliminar', null, resumen, 'eliminado');
-    const r = await fetch(`${SUPA_URL}/rest/v1/pedidos?id=eq.${editingId}`, { method: 'DELETE', headers: supaHeaders() });
+    await logPedidoChange(id, 'eliminar', null, resumen, 'eliminado');
+    const r = await fetch(`${SUPA_URL}/rest/v1/pedidos?id=eq.${id}`, { method: 'DELETE', headers: supaHeaders() });
     if (!r.ok) throw new Error(`DELETE ${r.status}: ${await r.text()}`);
-    pedidosCache = pedidosCache.filter(x => x.id !== editingId);
-    const idEliminado = editingId;
-    closeEditModal();
-    updateAlertBadge();
-    renderPedidos();
-    renderAlertas();
-    if (session.isAdmin) renderAdmin();
-    toast(`🗑 Pedido #${idEliminado} eliminado`);
+    _pedidoEliminadoUI(id, null);
   } catch(e) {
     toast('❌ Error al eliminar: ' + e.message);
     if (btn) { btn.disabled = false; btn.textContent = '🗑 Eliminar pedido'; }
   }
+}
+function _pedidoEliminadoUI(id, autorizo) {
+  pedidosCache = pedidosCache.filter(x => x.id !== id);
+  closeEditModal();
+  updateAlertBadge();
+  renderPedidos();
+  renderAlertas();
+  if (session.isAdmin) renderAdmin();
+  toast(`🗑 Pedido #${id} eliminado${autorizo ? ' · autorizó ' + autorizo : ''}`);
+}
+function _nombreLindo(n) {   // 'DONZELLI, SORAYA' → 'Soraya Donzelli'
+  const t = String(n || '').trim();
+  if (!t.includes(',') || t.includes('@')) return t;
+  const [ap, no] = t.split(',');
+  return (no.trim() + ' ' + ap.trim()).toLowerCase().replace(/(^|\s)\S/g, x => x.toUpperCase());
+}
+// Ventana de usuario superior. Devuelve { email, nombre } si se borró, o null si canceló.
+function _pedirSuperiorBorrado(p, resumen) {
+  return new Promise(listo => {
+    const local = NOMBRE_LOCAL[String(p.local_id || '').toLowerCase()] || p.local_id || 'el local';
+    const f = document.createElement('div');
+    f.className = 'sup-fondo';
+    f.setAttribute('data-adorno-superior', '1');   // para /hub/equipo.js: acá va el usuario personal, no el del equipo
+    f.innerHTML = `<div class="sup-caja" role="dialog" aria-modal="true">
+      <h3>Autorizar el borrado</h3>
+      <p class="sup-txt">Borrar un pedido lo autoriza <b>la encargada de ${escHtml(local)}</b> o <b>un administrador</b>, con su
+        usuario personal (el mismo mail y clave de RRHH). La cuenta del local o de la oficina no alcanza. La sesión se cierra
+        sola al terminar.</p>
+      <div class="sup-ped">🗑 ${escHtml(resumen)}<br><small>Se borra definitivamente: no se puede deshacer.</small></div>
+      <input type="email" id="sup-email" placeholder="mail de la encargada o del administrador" autocomplete="username" data-no-upper>
+      <input type="password" id="sup-pass" placeholder="su contraseña" autocomplete="current-password">
+      <div class="sup-err" id="sup-err"></div>
+      <div class="sup-btns">
+        <button type="button" class="sup-b" id="sup-cancel">Cancelar</button>
+        <button type="button" class="sup-b peligro" id="sup-ok">Autorizar y borrar</button>
+      </div></div>`;
+    document.body.appendChild(f);
+    const $ = s => f.querySelector(s);
+    const cerrar = (r) => { f.remove(); listo(r); };
+    $('#sup-cancel').onclick = () => cerrar(null);
+    f.addEventListener('keydown', e => { if (e.key === 'Escape') cerrar(null); });
+    $('#sup-pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#sup-ok').click(); });
+    $('#sup-ok').onclick = async () => {
+      const email = ($('#sup-email').value || '').trim().toLowerCase();
+      const pass = $('#sup-pass').value || '';
+      const err = $('#sup-err'), btn = $('#sup-ok');
+      err.textContent = '';
+      if (!email || !pass) { err.textContent = 'Completá el mail y la contraseña.'; return; }
+      if (email === String(session.email || '').toLowerCase() || OFICINA_EMAILS.includes(email) || Object.values(LOCAL_EMAILS).includes(email)) {
+        err.textContent = 'Tiene que ser el usuario personal de la encargada o de un administrador, no la cuenta del local.'; return;
+      }
+      if (!window.supabase) { err.textContent = 'No se pudo abrir el ingreso: recargá la página.'; return; }
+      btn.disabled = true; $('#sup-cancel').disabled = true; btn.textContent = 'Autorizando…';
+      const cli = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'adorno-clientes-superior' }
+      });
+      const salir = async () => { try { await cli.auth.signOut({ scope: 'local' }); } catch (_) {} };
+      let logueado = false;   // el historial se escribe antes del borrado (pedidos_log queda con pedido_id null)
+      try {
+        const { error } = await cli.auth.signInWithPassword({ email, password: pass });
+        if (error) throw new Error('Mail o contraseña incorrectos.');
+        // código del celular, si esa cuenta lo tiene activado
+        if (window.ADORNO_MFA && ADORNO_MFA.pedirCodigo && !(await ADORNO_MFA.pedirCodigo(cli))) {
+          throw new Error('Sin el código del celular no se puede autorizar.');
+        }
+        const [ra, re, rl, rv] = await Promise.all([cli.rpc('crm_es_admin'), cli.rpc('rrhh_is_encargada'), cli.rpc('crm_mi_local'), cli.rpc('hub_puede_ver', { p_que: 'borrar_pedido' })]);
+        const esAdm = !!ra.data, esEnc = !!re.data, suLocal = String(rl.data || '').toLowerCase();
+        const nombre = _nombreLindo((rv.data && rv.data.nombre) || email);
+        if (!esAdm && !(esEnc && suLocal === String(p.local_id || '').toLowerCase())) {
+          throw new Error(esEnc ? `${nombre} es encargada de otro local: el pedido es de ${local}.` : `${nombre} no puede autorizar borrados: tiene que ser la encargada de ${local} o un administrador.`);
+        }
+        await logPedidoChange(p.id, 'eliminar', null, `${resumen} · autorizó ${nombre} (${email})`, 'eliminado');
+        logueado = true;
+        const { data, error: ed } = await cli.from('pedidos').delete().eq('id', p.id).select('id');
+        if (ed) throw new Error(ed.message);
+        if (!data || !data.length) throw new Error('La base no dejó borrar el pedido con ese usuario.');
+        await salir();
+        cerrar({ email, nombre });
+      } catch (e) {
+        if (logueado) logPedidoChange(p.id, 'eliminar', null, 'no se borró: ' + (e.message || 'error'), 'sigue');
+        await salir();
+        err.textContent = e.message || 'No se pudo autorizar.';
+        btn.disabled = false; $('#sup-cancel').disabled = false; btn.textContent = 'Autorizar y borrar';
+      }
+    };
+    setTimeout(() => $('#sup-email').focus(), 50);
+  });
 }
 
 async function saveEdit() {
@@ -8198,7 +8305,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v114-caras-llave';
+const CRM_VERSION = 'crm-adorno-v115-borrar-con-superior';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8336,6 +8443,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=46"></script>
+<script src="manual.js?v=47"></script>
 </body>
 </html>
