@@ -1999,6 +1999,7 @@ html.dark .wab-vacio { background: #111b21; }
 <!-- (6-nov-2026) Código del celular (doble factor) como en los demás módulos: supabase-js solo para el paso del código -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js" integrity="sha384-UagCvVPT5XXA0Hx+nJYUAGBFseHT9zBgpJMSebsAxl9lciTwbT+39j5VfRjdP5Tp" crossorigin="anonymous"></script>
 <script src="/hub/seguridad.js?v=1"></script>
+<script src="/hub/caras.js?v=2" defer></script>   <!-- (13-nov-2026) ¿quién responde? por la cara -->
 <script>
 'use strict';
 
@@ -3664,7 +3665,7 @@ function _wabBotChip(c) {
   }
   const l = escHtml(c.local_id), cel = escHtml(c.celular);
   if (c.bot_estado === 'derivado') return `<span class="wa-bot-chip derivado" title="${escHtml(c.derivado_motivo || 'El bot la pasó al local')}">${ICO.robot} pasada al local ${_act('', `waBandejaBot('${l}', '${cel}', true)`, 'Devolverle la charla al bot', ICO.check)}</span>`;
-  if (c.bot_estado === 'humano') return `<span class="wa-bot-chip pausa" title="La sigue ${escHtml(String(c.humano_por || '').replace(/@.*$/, ''))}">${ICO.robot} bot en pausa ${_act('', `waBandejaBot('${l}', '${cel}', true)`, 'Devolverle la charla al bot', ICO.check)}</span>`;
+  if (c.bot_estado === 'humano') return `<span class="wa-bot-chip pausa" title="La sigue ${escHtml(_wabQuien(c.humano_por))}">${ICO.robot} bot en pausa ${_act('', `waBandejaBot('${l}', '${cel}', true)`, 'Devolverle la charla al bot', ICO.check)}</span>`;
   return `<span class="wa-bot-chip" title="El bot ${modo === 'auto' ? 'contesta solo' : 'sugiere respuestas y vos las aprobás'}">${ICO.robot} bot ${modo === 'auto' ? 'automático' : 'sugiere'} ${_act('', `waBandejaBot('${l}', '${cel}', false)`, 'Pausar el bot en esta charla (la seguís vos)', ICO.cruz)}</span>`;
 }
 function _wabBurbujas() {
@@ -3691,7 +3692,7 @@ function _wabBurbujas() {
     const emojis = r ? [r.in, r.out].filter(Boolean) : [];
     const badge = emojis.length ? `<span class="wa-reac" title="${escHtml(r.in ? 'Reacción de la clienta' : 'Reacción del local')}">${escHtml(emojis.join(' '))}</span>` : '';
     const bot = x.direccion === 'out' && /^bot/i.test(x.enviado_por || '');
-    const quien = x.direccion === 'in' ? '' : bot ? '🤖 Clodi' : (x.bot_estado === 'aprobado' || x.bot_estado === 'editado' ? '🤖→ ' : '') + String(x.enviado_por || 'local').replace(/@.*$/, '').replace(/^sistema.*$/, 'sistema');
+    const quien = x.direccion === 'in' ? '' : bot ? '🤖 Clodi' : (x.bot_estado === 'aprobado' || x.bot_estado === 'editado' ? '🤖→ ' : '') + _wabQuien(x.enviado_por);
     const hora = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
     const fallo = (x.estado === 'failed' || x.bot_estado === 'error') ? ' failed' : '';
     return sep + `<div class="wa-msg ${x.direccion}${bot ? ' bot' : ''}${fallo}${badge ? ' con-reac' : ''}" title="${escHtml(x.error || x.motivo || '')}">${_wabContenido(x)}<span class="wa-msg-meta">${escHtml([quien, hora].filter(Boolean).join(' · '))} ${_waEstadoTxt(x)}</span>${badge}</div>`;
@@ -3764,7 +3765,7 @@ function waBandejaRenderPie() {
   const sug = [...wabMsgs].reverse().find(x => x.bot_estado === 'sugerido') || null;
   const ultIn = [...wabMsgs].reverse().find(x => x.direccion === 'in');
   const dentro = !!ultIn && (Date.now() - new Date(ultIn.creado_at).getTime()) < WA_VENTANA_H * 3600 * 1000;
-  const firma = `${k}|${sug ? sug.id : 0}|${dentro}|${wabEdit[k] || 0}|${ultIn ? ultIn.id : 0}`;
+  const firma = `${k}|${sug ? sug.id : 0}|${dentro}|${wabEdit[k] || 0}|${ultIn ? ultIn.id : 0}|${_wabAtiendeVigente() ? wabAtiende.nombre : ''}|${(wabConvs.find(c => _wabKey(c.local_id, c.celular) === k) || {}).bot_estado || ''}`;
   if (firma === wabPieFirma) return;
   wabPieFirma = firma;
   // (12-nov-2026, JP) La Oficina mira las charlas de los locales pero no les responde a sus clientes (wa-enviar también
@@ -3789,7 +3790,19 @@ function waBandejaRenderPie() {
   }
   // (4-nov-2026, JP) Nuevo pedido sin salir de la charla, con los datos de la clienta ya cargados
   const btnPedido = _act('wab-btn-pedido', 'waBandejaNuevoPedido()', 'Nuevo pedido para esta clienta (con sus datos ya cargados)', WAB_ICO_PEDIDO);
-  el.innerHTML = sugHtml + (dentro
+  // (13-nov-2026, JP) Clodi pasó la consulta al local y todavía nadie la tomó: primero "Tomar la consulta" (pregunta
+  // quién sos: cara o lista; manda solo el saludo "estás hablando con …"). Después aparece el cuadro para escribir.
+  const conv = wabConvs.find(c => _wabKey(c.local_id, c.celular) === k);
+  if (conv && conv.bot_estado === 'derivado' && dentro) {
+    el.innerHTML = sugHtml + `<div class="wa-sug" style="border-color:#f59e0b"><div class="wa-sug-t">${ICO.robot} Clodi pasó esta consulta al local${conv.derivado_motivo ? ` · <span style="font-weight:400">${escHtml(conv.derivado_motivo)}</span>` : ''}</div>
+      <div class="wa-sug-motivo">Al tomarla, el sistema te pregunta quién sos (por la cara o eligiendo tu nombre) y le manda a la clienta un saludo diciéndole que está hablando con vos.</div>
+      <div class="wa-sug-acts" style="align-items:center;gap:10px">${btnPedido}<button type="button" class="btn-pastilla wab-tomar" onclick="waBandejaTomar()" style="border-radius:999px;padding:8px 18px;background:#128c7e;color:#fff;border:0;font:inherit;font-weight:600;cursor:pointer">🙋 Tomar la consulta${_wabAtiendeVigente() ? ` como ${escHtml(wabAtiende.nombre)}` : ''}</button></div></div>`;
+    return;
+  }
+  const firmaHtml = _wabAtiendeVigente()
+    ? `<div class="wa-reply-nota" style="margin-top:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">👤 Respondés como <b>${escHtml(wabAtiende.nombre)}</b> <span style="color:var(--muted)">(${_wabAtiendeMinutos()} min más)</span> <a href="#" onclick="waQuienAtiende({ forzar: true }).then(() => { wabPieFirma = ''; waBandejaRenderPie(); }); return false" style="color:#128c7e;font-weight:600">Cambiar</a></div>`
+    : '';
+  el.innerHTML = sugHtml + firmaHtml + (dentro
     ? `<div class="wa-reply">${btnPedido}<textarea id="wab-txt" data-no-upper rows="1" placeholder="Escribí un mensaje (Enter manda · Shift+Enter, otra línea)" oninput="wabBorr['${k}'] = this.value" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); waBandejaEnviar(); }">${escHtml(wabBorr[k] || '')}</textarea>${_act('primary wa', 'waBandejaEnviar()', 'Mandar el mensaje por WhatsApp (Enter)', ICO.enviar)}</div>`
     : `<div style="display:flex;gap:6px;align-items:center">${btnPedido}<div class="wa-reply-nota" style="margin-top:0;flex:1">${ultIn ? `Pasaron más de ${WA_VENTANA_H} h desde el último mensaje del cliente: WhatsApp no deja escribirle texto libre hasta que vuelva a escribir.` : 'El cliente todavía no escribió en esta charla.'}</div></div>`);
 }
@@ -3869,9 +3882,12 @@ async function waBandejaEnviar(sugerenciaId) {
   if (!texto.trim()) { toast('⚠️ Escribí el mensaje primero'); return; }
   // si el cuadro tiene una sugerencia del bot corregida, viaja su id: queda "editado" y el bot sigue activo
   const sugId = sugerenciaId || wabEdit[k] || undefined;
+  // (13-nov-2026) ¿Quién responde? (cara o lista; se recuerda 10 min). Si cancela, no se manda nada.
+  const quien = await waQuienAtiende();
+  if (!quien) return;
   if (ta && !sugerenciaId) ta.disabled = true;
   try {
-    await _waEnviarFetch({ local_id: s.local_id, celular: s.celular, texto, sugerencia_id: sugId });
+    await _waEnviarFetch({ local_id: s.local_id, celular: s.celular, texto, sugerencia_id: sugId, atiende: quien.nombre });
     if (!sugerenciaId || wabEdit[k] === sugerenciaId) delete wabBorr[k];
     delete wabEdit[k];
     wabPieFirma = '';
@@ -3911,9 +3927,101 @@ async function waBandejaSugDescartar(id) {
     await waBandejaCargarChat(true);
   } catch(e) { toast('❌ ' + e.message); }
 }
+// ── (13-nov-2026, JP) ¿Quién responde? ───────────────────────────────────────────────────────────────────
+// Las compus de los locales entran con el usuario genérico del local, así que al responder un WhatsApp el sistema
+// pregunta quién es: (1) la cámara lee la cara y la busca entre las grabadas en el Hub (RPC wa_quien_atiende, solo
+// gente activa de ESE local); (2) si no la reconoce, no hay cámara o la persona lo prefiere, elige su nombre de la
+// lista del equipo (RPC wa_equipo_local, primero las que están ahora según fichadas/turnos). Queda 10 minutos en esta
+// pestaña (sessionStorage) y se muestra "Respondés como …". Los mensajes salen firmados "Nombre · mail del local".
+// Cuando Clodi derivó la consulta, "Tomar la consulta" pregunta quién sos y manda SOLO el saludo WA_SALUDO_ATIENDE.
+const WA_ATIENDE_MIN = 10;
+const WA_SALUDO_ATIENDE = '¡Hola! Soy {nombre}, de Claudia Adorno {local}. Ya vi tu consulta y te sigo yo por acá 🙂';
+let wabAtiende = null;   // { empleado_id, nombre, hasta, modo: 'cara'|'lista' }
+try { wabAtiende = JSON.parse(sessionStorage.getItem('wab-atiende') || 'null'); } catch (_) { wabAtiende = null; }
+function _wabAtiendeVigente() { return !!(wabAtiende && wabAtiende.nombre && Date.now() < wabAtiende.hasta); }
+function _wabAtiendeMinutos() { return _wabAtiendeVigente() ? Math.max(1, Math.ceil((wabAtiende.hasta - Date.now()) / 60000)) : 0; }
+function _wabQuien(f) {   // "Nombre · mail" → "Nombre"; "mail@…" → "mail"; "sistema (…)" → "sistema"
+  const s = String(f || 'local');
+  return s.includes(' · ') ? s.split(' · ')[0] : s.replace(/@.*$/, '').replace(/^sistema.*$/, 'sistema');
+}
+// "DONZELLI, SORAYA BEATRIZ" → "Soraya Donzelli"
+function _wabNombreCorto(n) {
+  const t = String(n || '').trim(); if (!t) return '';
+  const tit = s => s.toLowerCase().replace(/(^|[\s'-])\S/g, x => x.toUpperCase());
+  if (!t.includes(',')) return tit(t.split(/\s+/).slice(0, 2).join(' '));
+  const [ape, nom] = t.split(',').map(x => x.trim());
+  return tit(((nom || '').split(/\s+/)[0] || '') + ' ' + ((ape || '').split(/\s+/)[0] || '')).trim();
+}
+function _wabAtiendeSet(d, modo) {
+  wabAtiende = { empleado_id: d.empleado_id, nombre: _wabNombreCorto(d.nombre), hasta: Date.now() + WA_ATIENDE_MIN * 60000, modo };
+  try { sessionStorage.setItem('wab-atiende', JSON.stringify(wabAtiende)); } catch (_) {}
+  return wabAtiende;
+}
+const _wabCli = { rpc: async (n, b) => { try { return { data: await _rpcBot(n, b) }; } catch (e) { return { error: e }; } } };
+// Devuelve { empleado_id, nombre } o null si canceló. Primero la cara, después la lista.
+async function waQuienAtiende(o) {
+  o = o || {};
+  if (!o.forzar && _wabAtiendeVigente()) { wabAtiende.hasta = Date.now() + WA_ATIENDE_MIN * 60000; return wabAtiende; }
+  const local = (wabSel && wabSel.local_id) || session.local_id;
+  if (!local) { toast('⚠️ Elegí una charla primero'); return null; }
+  let irALista = true;
+  if (window.ADORNO_CARAS && ADORNO_CARAS.quien) {
+    const r = await ADORNO_CARAS.quien({ cli: _wabCli, rpc: 'wa_quien_atiende', params: { p_local: local }, titulo: '¿Quién responde?',
+      nota: 'Mirá a la cámara: te reconozco por la cara y seguimos. Si no te reconozco, elegís tu nombre de la lista. Queda ' + WA_ATIENDE_MIN + ' minutos.' });
+    if (r.ok) { const a = _wabAtiendeSet(r.data, 'cara'); toast('👤 Hola ' + a.nombre.split(' ')[0] + '! Respondés vos los próximos ' + WA_ATIENDE_MIN + ' min'); return a; }
+    if (r.motivo === 'cancel') return null;
+    if (r.motivo === 'camara') toast('📷 ' + (r.error || 'No pude usar la cámara') + ' · Elegí tu nombre');
+  }
+  if (!irALista) return null;
+  return await _wabElegirDeLista(local);
+}
+async function _wabElegirDeLista(local) {
+  let equipo = [];
+  try { equipo = await _rpcBot('wa_equipo_local', { p_local: local }) || []; } catch (e) { toast('❌ ' + e.message); return null; }
+  if (!equipo.length) { toast('⚠️ No hay gente activa cargada en ' + _wabLocalNom(local)); return null; }
+  return new Promise(listo => {
+    const f = document.createElement('div');
+    f.style.cssText = 'position:fixed;inset:0;z-index:99995;background:rgba(28,22,18,.55);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box';
+    f.setAttribute('data-adorno-superior', '1');
+    const presentes = equipo.filter(e => e.presente), resto = equipo.filter(e => !e.presente);
+    const btn = e => `<button type="button" data-id="${e.empleado_id}" style="border:1px solid var(--border,#D6CCBA);background:#fff;border-radius:999px;padding:9px 16px;font:inherit;font-size:14px;cursor:pointer;text-align:left;display:flex;gap:8px;align-items:center">${e.presente ? '<span style="width:8px;height:8px;border-radius:50%;background:#16a34a;flex:none"></span>' : '<span style="width:8px;flex:none"></span>'}${escHtml(_wabNombreCorto(e.nombre))}</button>`;
+    f.innerHTML = `<div role="dialog" aria-modal="true" style="background:#fff;color:#1C1612;border-radius:28px;max-width:420px;width:100%;max-height:calc(100vh - 32px);overflow:auto;padding:22px 20px 18px;box-sizing:border-box;box-shadow:0 24px 60px -20px rgba(0,0,0,.5)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><h3 style="margin:0;font-size:18px;font-weight:500;flex:1">¿Quién responde?</h3><button type="button" class="wab-x" aria-label="Cerrar" style="border:0;background:transparent;font-size:18px;cursor:pointer;padding:4px 8px">✕</button></div>
+      <p style="font-size:12.5px;line-height:1.45;color:#685B51;margin:0 0 12px">Elegí tu nombre: la clienta va a saber que habla con vos y los mensajes salen a tu nombre durante ${WA_ATIENDE_MIN} minutos.${presentes.length ? ' El puntito verde: están en el local ahora.' : ''}</p>
+      <div style="display:flex;flex-direction:column;gap:6px">${presentes.map(btn).join('')}${presentes.length && resto.length ? '<div style="font-size:11px;color:#685B51;margin:6px 0 0">Resto del equipo</div>' : ''}${resto.map(btn).join('')}</div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px"><button type="button" class="wab-x" style="border:1px solid #D6CCBA;background:transparent;border-radius:999px;padding:8px 16px;font:inherit;cursor:pointer">Cancelar</button></div></div>`;
+    document.body.appendChild(f);
+    f.querySelectorAll('.wab-x').forEach(b => { b.onclick = () => { f.remove(); listo(null); }; });
+    f.querySelectorAll('[data-id]').forEach(b => { b.onclick = () => {
+      const e = equipo.find(x => String(x.empleado_id) === b.dataset.id); f.remove();
+      const a = _wabAtiendeSet(e, 'lista'); toast('👤 Hola ' + a.nombre.split(' ')[0] + '! Respondés vos los próximos ' + WA_ATIENDE_MIN + ' min'); listo(a);
+    }; });
+  });
+}
+// Tomar una consulta que Clodi derivó: quién sos → saludo automático a la clienta → la charla queda en "humano"
+async function waBandejaTomar() {
+  if (!wabSel) return;
+  const s = { ...wabSel };
+  const quien = await waQuienAtiende();
+  if (!quien) return;
+  const saludo = WA_SALUDO_ATIENDE.replace('{nombre}', quien.nombre.split(' ')[0]).replace('{local}', _wabLocalNom(s.local_id));
+  const b = document.querySelector('.wab-tomar'); if (b) b.disabled = true;
+  try {
+    await _waEnviarFetch({ local_id: s.local_id, celular: s.celular, texto: saludo, atiende: quien.nombre });
+    toast('✅ Saludaste a la clienta como ' + quien.nombre.split(' ')[0] + '. Ahora escribile vos.');
+    wabPieFirma = '';
+    await waBandejaCargar();
+    await waBandejaCargarChat(true);
+    loadWaMensajes().then(() => { renderPedidos(); renderAlertas(); updateAlertBadge(); });
+    document.getElementById('wab-txt')?.focus();
+  } catch (e) { toast('❌ No se pudo mandar el saludo: ' + e.message); if (b) b.disabled = false; }
+}
+
 async function waBandejaBot(local, celular, on) {
   try {
-    await _waEnviarFetch({ accion: on ? 'bot_on' : 'bot_off', local_id: local, celular });
+    let quien = null;
+    if (!on) { quien = await waQuienAtiende(); if (!quien) return; }   // (13-nov-2026) la sigue alguien con nombre
+    await _waEnviarFetch({ accion: on ? 'bot_on' : 'bot_off', local_id: local, celular, atiende: quien ? quien.nombre : undefined });
     toast(on ? '🤖 El bot vuelve a atender esta charla' : '⏸ Bot en pausa: la charla la seguís vos');
     await waBandejaCargar();
     waBandejaRenderChat();
@@ -8090,7 +8198,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v111-oficina-ve-todo';
+const CRM_VERSION = 'crm-adorno-v112-quien-atiende';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
