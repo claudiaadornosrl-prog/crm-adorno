@@ -2188,6 +2188,7 @@ const CRM_FUNC = {
   'crm.datos_sugeridos': 'Aceptar o rechazar datos sacados de los chats', 'crm.satisfaccion': 'Ver las encuestas de satisfacción',
   'crm.ver_otros_locales': 'Ver pedidos y charlas de los otros locales', 'crm.operar_otros_locales': 'Operar en nombre de otro local',
   'crm.admin': 'Panel Admin', 'crm.wa_numeros': 'Administrar los números de WhatsApp', 'crm.wa_alta': 'Conectar un número de WhatsApp',
+  'crm.chats_analizar': 'Subir chats exportados y analizarlos con IA', 'crm.informe_generar': 'Generar el informe mensual de WhatsApp en el momento',   // (14-nov) gastan IA
 };
 let PERM = null;            // id → 'h' | 'a' | 'o'. null = no se pudo leer del Hub: se usa lo de antes (la base frena igual)
 let misLocalesHub = [];     // hub_mis_locales() (afuera de session: _guardarSesion la rearma en cada renovación)
@@ -2199,7 +2200,7 @@ function _permBase(f) {
   if (!session || session.isAdmin) return 'h';
   if (PERM && PERM[f]) return PERM[f];
   const ofi = _locMin(session.local_id) === 'oficina';   // sin el Hub: como era antes del 14-nov
-  if (['crm.admin', 'crm.wa_bot', 'crm.wa_numeros', 'crm.wa_alta', 'crm.operar_otros_locales'].includes(f)) return 'o';
+  if (['crm.admin', 'crm.wa_bot', 'crm.wa_numeros', 'crm.wa_alta', 'crm.chats_analizar', 'crm.informe_generar', 'crm.operar_otros_locales'].includes(f)) return 'o';
   if (f === 'crm.ver_otros_locales') return ofi ? 'h' : 'o';
   if (f === 'crm.wa_responder') return ofi ? 'o' : 'h';
   if (f === 'crm.pedido_borrar') return 'a';
@@ -6058,7 +6059,7 @@ async function _waAnalizarFetch(body) {
   await _ensureFreshToken();
   const r = await fetch(`${SUPA_URL}/functions/v1/wa-analizar`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (_supTok || authToken || SUPA_KEY) },   // (14-nov) _supTok: «Pide permiso»
     body: JSON.stringify(body),
   });
   const j = await r.json().catch(() => ({}));
@@ -6197,7 +6198,7 @@ async function loadChatsAdmin() {
     const fmtD = d => d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';  // fechas sin hora (no correr un día por UTC)
     const locOpts = ['unicenter', 'alcorta', 'oficina'].map(l => `<option value="${l}"${(adminLocalFilter || '').toLowerCase() === l ? ' selected' : ''}>${l[0].toUpperCase() + l.slice(1)}</option>`).join('');
     el.innerHTML = `
-      <div class="card"><div class="card-header"><span class="card-title">📤 Subir chats exportados del celular</span></div>
+      ${permVe('crm.chats_analizar') ? `<div class="card"><div class="card-header"><span class="card-title">📤 Subir chats exportados del celular</span></div>
         <div style="padding:14px 16px">
           <div class="chats-help">Sirve para analizar las charlas que ya están en el WhatsApp del local. Se exporta de a un chat:
             <ul><li><b>Android:</b> abrir el chat › ⋮ › Más › Exportar chat › <b>Sin archivos</b> (sale un .txt).</li>
@@ -6210,9 +6211,9 @@ async function loadChatsAdmin() {
           </div>
           <div class="chats-log" id="chats-subida-log"></div>
         </div>
-      </div>
+      </div>` : ''}
       <div class="card"><div class="card-header"><span class="card-title">📋 Informe mensual ${inf ? `· ${fmtD(inf.desde)} al ${fmtD(inf.hasta)}` : ''}</span>
-          <button class="export-btn export-btn-sm" id="btn-informe" onclick="generarInformeAhora()" title="Arma el informe del mes en curso, del 1 a hoy (≈ 2 centavos de dólar)">Generar ahora</button></div>
+          ${permVe('crm.informe_generar') ? `<button class="export-btn export-btn-sm" id="btn-informe" onclick="generarInformeAhora()" title="Arma el informe del mes en curso, del 1 a hoy (≈ 2 centavos de dólar)">Generar ahora</button>` : ''}</div>
         <div style="padding:6px 16px 14px" class="inf-body">${inf ? _infHtml(inf.texto) + `<div style="font-size:11px;color:var(--muted);margin-top:10px">${inf.metricas && inf.metricas.conversaciones != null ? inf.metricas.conversaciones + ' conversaciones · ' : ''}se arma solo el día 1 de cada mes, con el mes anterior</div>` : '<div style="color:var(--muted);padding:8px 0">Todavía no hay informes. Se arma solo el día 1 de cada mes con el mes anterior, o tocá "Generar ahora" para ver el mes en curso.</div>'}</div>
       </div>
       <div class="card"><div class="card-header"><span class="card-title">🗂 Conversaciones analizadas (${ana.length})</span><span style="font-size:11px;color:var(--muted)">IA este mes: US$ ${costoMes.toFixed(3)}</span></div>
@@ -6247,10 +6248,21 @@ async function loadChatsAdmin() {
     el.innerHTML = `<div class="empty"><p>No se pudo cargar: ${escHtml(e.message)}</p></div>`;
   }
 }
+// (14-nov-2026, JP vía Infra) «Analizar» y «Generar ahora» gastan IA: tienen su propio permiso en el Hub (crm.chats_analizar y
+// crm.informe_generar, antes caían en crm.admin) y anotan quién lo hizo antes de llamar a la IA. (wa-analizar v5, que lo controla
+// también del lado del servidor, quedó armada y SIN publicar: el control automático frenó el deploy; falta el OK de JP.)
 async function subirChatsExportados() {
   const local = document.getElementById('chats-local').value;
   const files = [...(document.getElementById('chats-archivos').files || [])];
   if (!files.length) { toast('Elegí uno o más archivos (.txt o .zip)'); return; }
+  const fin = await _permEmpezar('crm.chats_analizar', local);
+  if (!fin) return;
+  try {
+    if (!(await registraQuien('crm.chats_analizar', local, { que: 'analizar chats exportados', archivos: files.length }))) return;   // 📷
+    await _subirChatsExportados(local, files);
+  } finally { fin(); }
+}
+async function _subirChatsExportados(local, files) {
   const log = document.getElementById('chats-subida-log');
   log.innerHTML = '';
   let ok = 0;
@@ -6286,6 +6298,15 @@ async function subirChatsExportados() {
   if (nuevo) nuevo.innerHTML = keep;
 }
 async function generarInformeAhora() {
+  const fin = await _permEmpezar('crm.informe_generar', null);
+  if (!fin) return;
+  try {
+    const hoy = new Date();
+    if (!(await registraQuien('crm.informe_generar', null, { que: 'informe del mes en curso', mes: `${hoy.getMonth() + 1}/${hoy.getFullYear()}` }))) return;   // 📷
+    await _generarInformeAhora();
+  } finally { fin(); }
+}
+async function _generarInformeAhora() {
   const b = document.getElementById('btn-informe');
   if (b) { b.disabled = true; b.textContent = 'Armando…'; }
   try {
@@ -8710,7 +8731,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v119-permisos-hub';
+const CRM_VERSION = 'crm-adorno-v120-permisos-ia-chats';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8848,6 +8869,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=51"></script>
+<script src="manual.js?v=52"></script>
 </body>
 </html>
