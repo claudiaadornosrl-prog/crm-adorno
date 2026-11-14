@@ -3012,7 +3012,7 @@ async function waEnviarTexto(id, sugerenciaId) {
   if (!texto) { toast('⚠️ Escribí el mensaje primero'); return; }
   // Si el cuadro tiene una sugerencia del bot corregida, viaja su id: queda "editado" y el bot sigue activo
   const sugId = sugerenciaId || waEditando[id] || undefined;
-  if (!(await registraQuien('crm.wa_responder', p.local_id, { pedido: id, cliente: p.nombre_cliente || null, que: sugerenciaId ? 'sugerencia del bot' : 'mensaje' }))) return;   // (14-nov) 📷
+  if (!(await _wabRegistra('crm.wa_responder', p.local_id, { pedido: id, cliente: p.nombre_cliente || null, que: 'responder', sugerencia_bot: !!sugerenciaId }, 'pedido:' + id))) return;   // (14-nov) 📷
   toast('📤 Enviando por WhatsApp...');
   try {
     await _waEnviarFetch({ pedido_id: id, texto, sugerencia_id: sugId });
@@ -3039,7 +3039,7 @@ function waSugerenciaCancelarEdicion(id) {
 }
 async function waSugerenciaDescartar(id, sugerenciaId) {
   const p = pedidosCache.find(x => x.id === id) || {};
-  if (!(await registraQuien('crm.wa_responder', p.local_id, { pedido: id, que: 'descartar sugerencia del bot' }))) return;   // (14-nov) 📷
+  if (!(await _wabRegistra('crm.wa_responder', p.local_id, { pedido: id, que: 'descartar sugerencia del bot' }, 'pedido:' + id))) return;   // (14-nov) 📷
   delete waEditando[id];
   try {
     await _waEnviarFetch({ accion: 'descartar', sugerencia_id: sugerenciaId });
@@ -3409,7 +3409,7 @@ async function guardarBotConfig(local) {
 async function waBotToggle(id, on) {
   try {
     const p = pedidosCache.find(x => x.id === id) || {};
-    if (!(await registraQuien('crm.wa_responder', p.local_id, { pedido: id, que: on ? 'volver a prender el bot' : 'pausar el bot' }))) return;   // (14-nov) 📷
+    if (!(await _wabRegistra('crm.wa_responder', p.local_id, { pedido: id, que: on ? 'volver a prender el bot' : 'pausar el bot' }, 'pedido:' + id))) return;   // (14-nov) 📷
     await _waEnviarFetch({ accion: on ? 'bot_on' : 'bot_off', pedido_id: id });
     waHiloAbierto.add(id);
     await _waRefrescar();
@@ -3910,7 +3910,7 @@ async function waBandejaEnviar(sugerenciaId) {
   const quien = await waQuienAtiende();
   if (!quien) return;
   // (14-nov) 📷 Registra quién: ya se sabe quién responde, no se le vuelve a preguntar
-  if (!(await registraQuienYa('crm.wa_responder', s.local_id, quien.empleado_id, { celular: s.celular, que: sugerenciaId ? 'sugerencia del bot' : 'mensaje' }))) return;
+  if (!(await _wabRegistra('crm.wa_responder', s.local_id, { celular: s.celular, que: 'responder', sugerencia_bot: !!sugerenciaId }, 'charla:' + s.celular))) return;
   if (ta && !sugerenciaId) ta.disabled = true;
   try {
     await _waEnviarFetch({ local_id: s.local_id, celular: s.celular, texto, sugerencia_id: sugId, atiende: quien.nombre });
@@ -3944,7 +3944,7 @@ function waBandejaSugCancelar() {
 }
 async function waBandejaSugDescartar(id) {
   if (!wabSel) return;
-  if (!(await _wabRegistra(wabSel.local_id, { celular: wabSel.celular, que: 'descartar sugerencia del bot' }))) return;   // (14-nov) 📷
+  if (!(await _wabRegistra('crm.wa_responder', wabSel.local_id, { celular: wabSel.celular, que: 'descartar sugerencia del bot' }, 'charla:' + wabSel.celular))) return;   // (14-nov) 📷
   delete wabEdit[_wabKey(wabSel.local_id, wabSel.celular)];
   try {
     await _waEnviarFetch({ accion: 'descartar', sugerencia_id: id });
@@ -3979,9 +3979,13 @@ function _wabNombreCorto(n) {
   const [ape, nom] = t.split(',').map(x => x.trim());
   return tit(((nom || '').split(/\s+/)[0] || '') + ' ' + ((ape || '').split(/\s+/)[0] || '')).trim();
 }
-function _wabAtiendeSet(d, modo) {
+// (14-nov) la lectura de la cara (128 números) de quien responde: SOLO en memoria, nunca en el navegador. Va a
+// hub_registrar para que la base verifique que es esa persona y el registro quede «📷 por la cara».
+let _wabAtiendeDescriptor = null;
+function _wabAtiendeSet(d, modo, descriptor) {
   wabAtiende = { empleado_id: d.empleado_id, nombre: _wabNombreCorto(d.nombre), hasta: Date.now() + WA_ATIENDE_MIN * 60000, modo };
   try { sessionStorage.setItem('wab-atiende', JSON.stringify(wabAtiende)); } catch (_) {}
+  _wabAtiendeDescriptor = (modo === 'cara' && descriptor && descriptor.length) ? Array.from(descriptor) : null;
   return wabAtiende;
 }
 const _wabCli = { rpc: async (n, b) => { try { return { data: await _rpcBot(n, b) }; } catch (e) { return { error: e }; } } };
@@ -4009,19 +4013,42 @@ async function registraQuien(funcion, local, detalle) {
   } catch (e) { toast('❌ No se pudo anotar quién lo hace (' + e.message + '): no se grabó nada'); }
   return null;
 }
-// El «¿Quién responde?» del WhatsApp ya sabe quién es: se anota esa persona sin volver a preguntarle
-async function registraQuienYa(funcion, local, empleadoId, detalle) {
+// (14-nov, Infra) La misma acción sobre lo mismo (la misma charla o el mismo pedido) por la misma persona se anota una
+// vez cada 10 minutos, como en Obra: no un registro por cada mensaje de la misma charla.
+const _regHechos = {};
+function _regClave(funcion, loc, detalle, sobre, emp) {
+  return sobre ? [funcion, loc || '', (detalle && detalle.que) || '', sobre, emp || ''].join('|') : null;
+}
+function _regRepetido(clave) { return !!clave && Date.now() - (_regHechos[clave] || 0) < WA_ATIENDE_MIN * 60000; }
+// El «¿Quién responde?» del WhatsApp ya sabe quién es: se anota esa persona sin volver a preguntarle.
+// o.sobre: la charla o el pedido (para no repetir) · o.descriptor: la lectura de la cara, solo si la reconoció la cámara
+async function registraQuienYa(funcion, local, empleadoId, detalle, o) {
+  o = o || {};
+  const loc = local ? String(local).toLowerCase() : null;
+  const clave = _regClave(funcion, loc, detalle, o.sobre, empleadoId);
+  if (_regRepetido(clave)) return { ok: true, repetido: true };
   try {
     const d = await _rpcBot('hub_registra_quien', { p_funcion: funcion }) || {};
     if (!d.registra) return { ok: true, omitido: true };
-    const a = await _rpcBot('hub_registrar', { p_funcion: funcion, p_local: local ? String(local).toLowerCase() : null, p_empleado_id: empleadoId || null, p_detalle: detalle || null });
+    const body = { p_funcion: funcion, p_local: loc, p_empleado_id: empleadoId || null, p_detalle: detalle || null };
+    if (o.descriptor) body.p_descriptor = o.descriptor;   // la base verifica la cara; si no coincide queda «lista»
+    const a = await _rpcBot('hub_registrar', body);
+    if (clave) _regHechos[clave] = Date.now();
     return { ok: true, ...(a || {}) };
-  } catch (e) { toast('❌ No se pudo anotar quién responde (' + e.message + '): no se mandó nada'); return null; }
+  } catch (e) { toast('❌ No se pudo anotar quién lo hace (' + e.message + '): no se grabó nada'); return null; }
 }
-// En la bandeja: si hay alguien vigente en «¿Quién responde?», es esa persona; si no, se pregunta como siempre
-function _wabRegistra(local, detalle) {
-  return _wabAtiendeVigente() ? registraQuienYa('crm.wa_responder', local, wabAtiende.empleado_id, detalle)
-    : registraQuien('crm.wa_responder', local, detalle);
+// Lo que se hace en el WhatsApp (o desde una charla): si hay alguien vigente en «¿Quién responde?», es esa persona (con
+// la lectura de la cara si la reconoció así). Si no, se pregunta como siempre y la persona elegida queda como «¿Quién
+// responde?» los 10 minutos, así no se le vuelve a preguntar.
+async function _wabRegistra(funcion, local, detalle, sobre) {
+  if (_wabAtiendeVigente()) return registraQuienYa(funcion, local, wabAtiende.empleado_id, detalle, { sobre, descriptor: _wabAtiendeDescriptor });
+  const r = await registraQuien(funcion, local, detalle);
+  if (r && r.empleado_id && (r.modo === 'lista' || r.modo === 'cara')) {
+    _wabAtiendeSet({ empleado_id: r.empleado_id, nombre: r.nombre }, r.modo);
+    const clave = _regClave(funcion, local ? String(local).toLowerCase() : null, detalle, sobre, r.empleado_id);
+    if (clave) _regHechos[clave] = Date.now();
+  }
+  return r;
 }
 // Devuelve { empleado_id, nombre } o null si canceló. Primero la cara, después la lista.
 async function waQuienAtiende(o) {
@@ -4033,7 +4060,7 @@ async function waQuienAtiende(o) {
   if (window.ADORNO_CARAS && ADORNO_CARAS.quien) {
     const r = await ADORNO_CARAS.quien({ cli: _wabCli, rpc: 'wa_quien_atiende', params: { p_local: local }, titulo: '¿Quién responde?',
       nota: 'Mirá a la cámara: te reconozco por la cara y seguimos. Si no te reconozco, elegís tu nombre de la lista. Queda ' + WA_ATIENDE_MIN + ' minutos.' });
-    if (r.ok) { const a = _wabAtiendeSet(r.data, 'cara'); toast('👤 Hola ' + a.nombre.split(' ')[0] + '! Respondés vos los próximos ' + WA_ATIENDE_MIN + ' min'); return a; }
+    if (r.ok) { const a = _wabAtiendeSet(r.data, 'cara', r.descriptor); toast('👤 Hola ' + a.nombre.split(' ')[0] + '! Respondés vos los próximos ' + WA_ATIENDE_MIN + ' min'); return a; }
     if (r.motivo === 'cancel') return null;
     if (r.motivo === 'camara') toast('📷 ' + (r.error || 'No pude usar la cámara') + ' · Elegí tu nombre');
   }
@@ -4069,7 +4096,7 @@ async function waBandejaTomar() {
   const s = { ...wabSel };
   const quien = await waQuienAtiende();
   if (!quien) return;
-  if (!(await registraQuienYa('crm.wa_responder', s.local_id, quien.empleado_id, { celular: s.celular, que: 'tomar la consulta' }))) return;   // (14-nov) 📷
+  if (!(await _wabRegistra('crm.wa_responder', s.local_id, { celular: s.celular, que: 'tomar la consulta' }, 'charla:' + s.celular))) return;   // (14-nov) 📷
   const saludo = WA_SALUDO_ATIENDE.replace('{nombre}', quien.nombre.split(' ')[0]).replace('{local}', _wabLocalNom(s.local_id));
   const b = document.querySelector('.wab-tomar'); if (b) b.disabled = true;
   try {
@@ -4088,7 +4115,7 @@ async function waBandejaBot(local, celular, on) {
     let quien = null;
     if (!on) { quien = await waQuienAtiende(); if (!quien) return; }   // (13-nov-2026) la sigue alguien con nombre
     const det = { celular, que: on ? 'volver a prender el bot' : 'pausar el bot' };   // (14-nov) 📷 Registra quién
-    if (!(await (quien ? registraQuienYa('crm.wa_responder', local, quien.empleado_id, det) : _wabRegistra(local, det)))) return;
+    if (!(await _wabRegistra('crm.wa_responder', local, det, 'charla:' + celular))) return;
     await _waEnviarFetch({ accion: on ? 'bot_on' : 'bot_off', local_id: local, celular, atiende: quien ? quien.nombre : undefined });
     toast(on ? '🤖 El bot vuelve a atender esta charla' : '⏸ Bot en pausa: la charla la seguís vos');
     await waBandejaCargar();
@@ -4736,7 +4763,9 @@ async function submitPedido() {
   btn.innerHTML = '<span class="spinner"></span> Guardando...';
   // (14-nov) 📷 Registra quién: si la persona cancela, no se carga nada
   const localPedido = (wabPedidoCtx && wabPedidoCtx.local_id) || session.local_id;
-  if (!(await registraQuien('crm.pedido_cargar', localPedido, { cliente: nombre, dni, articulos: validLines.map(l => l.sku), vendedora }))) {
+  const detPedido = { cliente: nombre, dni, articulos: validLines.map(l => l.sku), vendedora, ...(wabPedidoCtx ? { desde: 'charla de WhatsApp' } : {}) };
+  // desde una charla: si ya se sabe quién responde, es esa persona (no se le vuelve a preguntar)
+  if (!(await (wabPedidoCtx ? _wabRegistra('crm.pedido_cargar', localPedido, detPedido, null) : registraQuien('crm.pedido_cargar', localPedido, detPedido)))) {
     btn.disabled = false; btn.innerHTML = '<span>💾</span> Guardar pedido'; return;
   }
 
@@ -8380,7 +8409,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v116-registra-quien';
+const CRM_VERSION = 'crm-adorno-v117-registra-quien-whatsapp';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8518,6 +8547,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=48"></script>
+<script src="manual.js?v=49"></script>
 </body>
 </html>
