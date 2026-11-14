@@ -3133,6 +3133,11 @@ async function coexRetorno() {
 if (/[?&](code|error)=/.test(location.search)) setTimeout(coexRetorno, 300);
 async function coexEnviar(local, code, datos, redirectUri) {
   const el = document.getElementById('coex-estado');
+  // (14-nov) 📷 Registra quién, justo antes de canjear el código (el admin entra con su usuario: se anota solo)
+  if (!(await registraQuien('crm.wa_alta', local, { que: 'conectar el número de siempre' }))) {
+    toast('No se conectó el número: falta anotar quién lo hace. Volvé a empezar el alta.');
+    return;
+  }
   if (el) el.innerHTML = `<div class="loading"><span class="spinner"></span> Conectando el número y pidiendo el historial...</div>`;
   try {
     await _ensureFreshToken();
@@ -5912,6 +5917,8 @@ async function registrarNumero() {
   const btn = document.getElementById('num-registrar');
   btn.disabled = true; btn.textContent = 'Registrando...';
   try {
+    // (14-nov) 📷 Registra quién (el PIN nunca va al registro)
+    if (!(await registraQuien('crm.wa_numeros', numAbierto.local_id, { que: 'aplicar el nombre nuevo', numero: numAbierto.numero || null, nombre_nuevo: numAbierto.nombre_nuevo || null }))) return;
     const j = await _waNumerosFetch({ accion: 'registrar', local_id: numAbierto.local_id, pin });
     const nombre = numAbierto.nombre_nuevo;
     cerrarNumModal();
@@ -8409,7 +8416,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v117-registra-quien-whatsapp';
+const CRM_VERSION = 'crm-adorno-v118-registra-quien-admin';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8547,6 +8554,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=49"></script>
+<script src="manual.js?v=50"></script>
 </body>
 </html>
