@@ -2013,7 +2013,7 @@ html.dark .wab-vacio { background: #111b21; }
 <!-- (6-nov-2026) Código del celular (doble factor) como en los demás módulos: supabase-js solo para el paso del código -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js" integrity="sha384-UagCvVPT5XXA0Hx+nJYUAGBFseHT9zBgpJMSebsAxl9lciTwbT+39j5VfRjdP5Tp" crossorigin="anonymous"></script>
 <script src="/hub/seguridad.js?v=1"></script>
-<script src="/hub/caras.js?v=3" defer></script>   <!-- (13-nov-2026) ¿quién responde? por la cara -->
+<script src="/hub/caras.js?v=4" defer></script>   <!-- (13-nov-2026) ¿quién responde? por la cara · (14-nov) 📷 Registra quién -->
 <script>
 'use strict';
 
@@ -2820,6 +2820,7 @@ async function enviarAvisoApi(id, plantilla) {
   }
   const ok = confirm(`${meta.titulo}\n\nSe manda por WhatsApp desde el número del local a:\n${p.nombre_cliente || ''} · ${p.celular}\n\n¿Enviar?`);
   if (!ok) return;
+  if (!(await registraQuien('crm.pedido_gestionar', p.local_id, { pedido: id, cliente: p.nombre_cliente || null, aviso: plantilla }))) return;   // (14-nov) 📷
   toast('📤 Enviando por WhatsApp...');
   try {
     await _ensureFreshToken();
@@ -3011,6 +3012,7 @@ async function waEnviarTexto(id, sugerenciaId) {
   if (!texto) { toast('⚠️ Escribí el mensaje primero'); return; }
   // Si el cuadro tiene una sugerencia del bot corregida, viaja su id: queda "editado" y el bot sigue activo
   const sugId = sugerenciaId || waEditando[id] || undefined;
+  if (!(await registraQuien('crm.wa_responder', p.local_id, { pedido: id, cliente: p.nombre_cliente || null, que: sugerenciaId ? 'sugerencia del bot' : 'mensaje' }))) return;   // (14-nov) 📷
   toast('📤 Enviando por WhatsApp...');
   try {
     await _waEnviarFetch({ pedido_id: id, texto, sugerencia_id: sugId });
@@ -3036,6 +3038,8 @@ function waSugerenciaCancelarEdicion(id) {
   renderPedidos(); renderAlertas();
 }
 async function waSugerenciaDescartar(id, sugerenciaId) {
+  const p = pedidosCache.find(x => x.id === id) || {};
+  if (!(await registraQuien('crm.wa_responder', p.local_id, { pedido: id, que: 'descartar sugerencia del bot' }))) return;   // (14-nov) 📷
   delete waEditando[id];
   try {
     await _waEnviarFetch({ accion: 'descartar', sugerencia_id: sugerenciaId });
@@ -3305,6 +3309,7 @@ async function guardarBotWeb() {
   const sel = document.querySelector('input[name="bot-web-fuente"]:checked');
   if (!sel) return;
   if (sel.value === 'atelier' && !confirm('El bot va a pasar links de la tienda del Atelier.\n\n¿La tienda ya está abierta al público (sin contraseña)?')) return;
+  if (!(await registraQuien('crm.wa_bot', null, { que: 'web del bot', fuente: sel.value }))) return;   // (14-nov) 📷
   try {
     const r = await _rpcBot('crm_wa_bot_web', { p_fuente: sel.value });
     toast(`✅ El bot usa ${String((r && r.portada) || '').replace(/^https?:\/\//, '')}`);
@@ -3314,6 +3319,7 @@ async function guardarBotWeb() {
 async function guardarBotTextos() {
   const estilo = (document.getElementById('bot-estilo') || {}).value || '';
   const faq = (document.getElementById('bot-faq') || {}).value || '';
+  if (!(await registraQuien('crm.wa_bot', null, { que: 'textos del bot' }))) return;   // (14-nov) 📷
   try {
     await _ensureFreshToken();
     const r = await fetch(`${SUPA_URL}/rest/v1/rpc/crm_wa_bot_textos_guardar`, {
@@ -3373,6 +3379,7 @@ async function loadBotCorrecciones() {
   } catch(e) { el.innerHTML = `<div class="wa-reply-nota">No se pudieron cargar las correcciones: ${escHtml(e.message)}</div>`; }
 }
 async function botEjemplo(id, usar) {
+  if (!(await registraQuien('crm.wa_bot', null, { que: usar ? 'volver a usar una corrección' : 'sacar una corrección', mensaje: id }))) return;   // (14-nov) 📷
   try {
     await _ensureFreshToken();
     const r = await fetch(`${SUPA_URL}/rest/v1/rpc/crm_wa_bot_ejemplo`, { method: 'POST', headers: supaHeaders(), body: JSON.stringify({ p_id: id, p_usar: usar }) });
@@ -3385,6 +3392,7 @@ async function guardarBotConfig(local) {
   const modo = sel ? sel.value : 'off';
   const solo = (document.getElementById('bot-solo-' + local) || {}).value || '';
   if (modo === 'auto' && !solo.trim() && !confirm('Sin celulares cargados, el bot va a contestar solo a TODOS los clientes que escriban a este número.\n\n¿Seguro?')) return;
+  if (!(await registraQuien('crm.wa_bot', local, { que: 'modo del bot', modo }))) return;   // (14-nov) 📷
   try {
     await _ensureFreshToken();
     const r = await fetch(`${SUPA_URL}/rest/v1/rpc/crm_wa_bot_config`, {
@@ -3400,6 +3408,8 @@ async function guardarBotConfig(local) {
 
 async function waBotToggle(id, on) {
   try {
+    const p = pedidosCache.find(x => x.id === id) || {};
+    if (!(await registraQuien('crm.wa_responder', p.local_id, { pedido: id, que: on ? 'volver a prender el bot' : 'pausar el bot' }))) return;   // (14-nov) 📷
     await _waEnviarFetch({ accion: on ? 'bot_on' : 'bot_off', pedido_id: id });
     waHiloAbierto.add(id);
     await _waRefrescar();
@@ -3899,6 +3909,8 @@ async function waBandejaEnviar(sugerenciaId) {
   // (13-nov-2026) ¿Quién responde? (cara o lista; se recuerda 10 min). Si cancela, no se manda nada.
   const quien = await waQuienAtiende();
   if (!quien) return;
+  // (14-nov) 📷 Registra quién: ya se sabe quién responde, no se le vuelve a preguntar
+  if (!(await registraQuienYa('crm.wa_responder', s.local_id, quien.empleado_id, { celular: s.celular, que: sugerenciaId ? 'sugerencia del bot' : 'mensaje' }))) return;
   if (ta && !sugerenciaId) ta.disabled = true;
   try {
     await _waEnviarFetch({ local_id: s.local_id, celular: s.celular, texto, sugerencia_id: sugId, atiende: quien.nombre });
@@ -3932,6 +3944,7 @@ function waBandejaSugCancelar() {
 }
 async function waBandejaSugDescartar(id) {
   if (!wabSel) return;
+  if (!(await _wabRegistra(wabSel.local_id, { celular: wabSel.celular, que: 'descartar sugerencia del bot' }))) return;   // (14-nov) 📷
   delete wabEdit[_wabKey(wabSel.local_id, wabSel.celular)];
   try {
     await _waEnviarFetch({ accion: 'descartar', sugerencia_id: id });
@@ -3972,6 +3985,44 @@ function _wabAtiendeSet(d, modo) {
   return wabAtiende;
 }
 const _wabCli = { rpc: async (n, b) => { try { return { data: await _rpcBot(n, b) }; } catch (e) { return { error: e }; } } };
+
+// ── (14-nov-2026, JP desde Infra) 📷 Registra quién ───────────────────────────────────────────────────────────
+// Si JP marcó la función con «📷 Registra quién» en el Hub (Permisos → Perfiles → Clientes), antes de grabar se anota
+// en hub_registros quién lo hace: con usuario personal, esa persona sin preguntar; con la cuenta del local, la cara (si
+// la llave de caras está prendida) o tocando su nombre en la lista. Si la función no está marcada no se ve nada.
+// Devuelve el registro ({ omitido } o { id, nombre, modo }) o null si la persona canceló o no se pudo anotar: en ese
+// caso la operación NO se hace. Va con la sesión de quien usa el módulo, nunca con la del usuario superior.
+async function registraQuien(funcion, local, detalle) {
+  const loc = local ? String(local).toLowerCase() : null;
+  if (window.ADORNO_CARAS && ADORNO_CARAS.registrar) {
+    const r = await ADORNO_CARAS.registrar({ cli: _wabCli, funcion, local: loc, detalle: detalle || null });
+    if (r && r.ok) return r;
+    if (r && r.motivo === 'error') toast('❌ No se pudo anotar quién lo hace (' + (r.error || 'error') + '): no se grabó nada');
+    return null;
+  }
+  // caras.js no cargó: si la función no está marcada se sigue normal; si está marcada, sin anotar no se hace
+  try {
+    const d = await _rpcBot('hub_registra_quien', { p_funcion: funcion }) || {};
+    if (!d.registra) return { ok: true, omitido: true };
+    if (d.yo) return { ok: true, ...(await _rpcBot('hub_registrar', { p_funcion: funcion, p_local: loc, p_detalle: detalle || null }) || {}) };
+    toast('❌ No cargó el registro de quién lo hace: recargá la página (no se grabó nada)');
+  } catch (e) { toast('❌ No se pudo anotar quién lo hace (' + e.message + '): no se grabó nada'); }
+  return null;
+}
+// El «¿Quién responde?» del WhatsApp ya sabe quién es: se anota esa persona sin volver a preguntarle
+async function registraQuienYa(funcion, local, empleadoId, detalle) {
+  try {
+    const d = await _rpcBot('hub_registra_quien', { p_funcion: funcion }) || {};
+    if (!d.registra) return { ok: true, omitido: true };
+    const a = await _rpcBot('hub_registrar', { p_funcion: funcion, p_local: local ? String(local).toLowerCase() : null, p_empleado_id: empleadoId || null, p_detalle: detalle || null });
+    return { ok: true, ...(a || {}) };
+  } catch (e) { toast('❌ No se pudo anotar quién responde (' + e.message + '): no se mandó nada'); return null; }
+}
+// En la bandeja: si hay alguien vigente en «¿Quién responde?», es esa persona; si no, se pregunta como siempre
+function _wabRegistra(local, detalle) {
+  return _wabAtiendeVigente() ? registraQuienYa('crm.wa_responder', local, wabAtiende.empleado_id, detalle)
+    : registraQuien('crm.wa_responder', local, detalle);
+}
 // Devuelve { empleado_id, nombre } o null si canceló. Primero la cara, después la lista.
 async function waQuienAtiende(o) {
   o = o || {};
@@ -4018,6 +4069,7 @@ async function waBandejaTomar() {
   const s = { ...wabSel };
   const quien = await waQuienAtiende();
   if (!quien) return;
+  if (!(await registraQuienYa('crm.wa_responder', s.local_id, quien.empleado_id, { celular: s.celular, que: 'tomar la consulta' }))) return;   // (14-nov) 📷
   const saludo = WA_SALUDO_ATIENDE.replace('{nombre}', quien.nombre.split(' ')[0]).replace('{local}', _wabLocalNom(s.local_id));
   const b = document.querySelector('.wab-tomar'); if (b) b.disabled = true;
   try {
@@ -4035,6 +4087,8 @@ async function waBandejaBot(local, celular, on) {
   try {
     let quien = null;
     if (!on) { quien = await waQuienAtiende(); if (!quien) return; }   // (13-nov-2026) la sigue alguien con nombre
+    const det = { celular, que: on ? 'volver a prender el bot' : 'pausar el bot' };   // (14-nov) 📷 Registra quién
+    if (!(await (quien ? registraQuienYa('crm.wa_responder', local, quien.empleado_id, det) : _wabRegistra(local, det)))) return;
     await _waEnviarFetch({ accion: on ? 'bot_on' : 'bot_off', local_id: local, celular, atiende: quien ? quien.nombre : undefined });
     toast(on ? '🤖 El bot vuelve a atender esta charla' : '⏸ Bot en pausa: la charla la seguís vos');
     await waBandejaCargar();
@@ -4660,9 +4714,8 @@ async function submitPedido() {
           const cliCompleto = await supaGet('clientes', { select: '*', globalid: 'eq.' + cli.globalid, limit: '1' });
           if (cliCompleto.length) renderClienteDetectado(cliCompleto[0]);
           toast('📋 Datos del cliente existente cargados. Revisá y volvé a tocar Guardar.');
-          // Restaurar botón y abortar el submit (que la vendedora confirme con un nuevo click)
-          btn.disabled = false;
-          btn.innerHTML = '<span>💾</span> Guardar pedido';
+          // Abortar el submit (que la vendedora confirme con un nuevo click). (14-nov) El botón todavía no se tocó:
+          // antes acá se usaba `btn` antes de declararlo, saltaba al catch y el pedido se guardaba igual con los datos del form.
           return;
         }
         // Si cancela, sigue con los datos modificados (decisión consciente)
@@ -4681,6 +4734,11 @@ async function submitPedido() {
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Guardando...';
+  // (14-nov) 📷 Registra quién: si la persona cancela, no se carga nada
+  const localPedido = (wabPedidoCtx && wabPedidoCtx.local_id) || session.local_id;
+  if (!(await registraQuien('crm.pedido_cargar', localPedido, { cliente: nombre, dni, articulos: validLines.map(l => l.sku), vendedora }))) {
+    btn.disabled = false; btn.innerHTML = '<span>💾</span> Guardar pedido'; return;
+  }
 
   try {
     // Create one pedido per SKU line
@@ -5666,6 +5724,7 @@ async function guardarSugerencia() {
   if (nombreDeRelleno(datos.nombre) || nombreDeRelleno(datos.apellido)) { toast('⚠ El nombre o el apellido parece de relleno: escribí el real'); return; }
   const btn = document.getElementById('sug-guardar');
   btn.disabled = true;
+  if (!(await registraQuien('crm.datos_sugeridos', sugAbierta.local_id || session.local_id, { sugerencia: sugAbierta.id, que: 'aceptar', cliente: (datos.nombre + ' ' + datos.apellido).trim(), dni: datos.dni }))) { btn.disabled = false; return; }   // (14-nov) 📷
   try {
     const r = await _rpcBot('crm_sugerencia_resolver', { p_id: sugAbierta.id, p_aceptar: true, p_datos: datos });
     cerrarSugModal();
@@ -5677,6 +5736,8 @@ async function guardarSugerencia() {
 }
 async function descartarSugerencia(id) {
   if (!confirm('¿Descartar estos datos? No se cargan en ningún lado.')) return;
+  const sg = (sugerenciasCache || []).find(x => x.id === id) || {};
+  if (!(await registraQuien('crm.datos_sugeridos', sg.local_id || session.local_id, { sugerencia: id, que: 'rechazar' }))) return;   // (14-nov) 📷
   try {
     await _rpcBot('crm_sugerencia_resolver', { p_id: id, p_aceptar: false });
     await loadSugerenciasCliente();
@@ -6519,6 +6580,7 @@ async function addTagCliente(globalid, tag) {
   const tags = [...(clienteDetailCache.c.tags || [])];
   if (tags.includes(tag)) return;
   tags.push(tag);
+  if (!(await registraQuien('crm.clientes_editar', session.local_id, { cliente: clienteDetailCache.c.nombre_completo || globalid, globalid, que: 'agregar etiqueta', etiqueta: tag }))) return;   // (14-nov) 📷
   try {
     await fetch(`${SUPA_URL}/rest/v1/clientes?globalid=eq.${encodeURIComponent(globalid)}`, {
       method: 'PATCH',
@@ -6538,6 +6600,7 @@ async function addTagCliente(globalid, tag) {
 async function removeTagCliente(globalid, tag) {
   if (!clienteDetailCache || clienteDetailCache.c.globalid !== globalid) return;
   const tags = (clienteDetailCache.c.tags || []).filter(t => t !== tag);
+  if (!(await registraQuien('crm.clientes_editar', session.local_id, { cliente: clienteDetailCache.c.nombre_completo || globalid, globalid, que: 'sacar etiqueta', etiqueta: tag }))) return;   // (14-nov) 📷
   try {
     await fetch(`${SUPA_URL}/rest/v1/clientes?globalid=eq.${encodeURIComponent(globalid)}`, {
       method: 'PATCH',
@@ -6801,8 +6864,9 @@ async function abrirWaSinCelular(globalid) {
   const digits = String(tel).replace(/\D/g,'');
   if (digits.length < 8) { toast('Número inválido'); return; }
   const nombre = (clienteDetailCache?.c?.nombre_completo) || '';
-  // Guardar en la ficha (mejor cache que perder el dato)
-  try {
+  // Guardar en la ficha (mejor cache que perder el dato). (14-nov) 📷 si cancela quién lo hace, no se guarda pero el chat se abre igual
+  const rq = await registraQuien('crm.clientes_editar', session.local_id, { cliente: nombre || globalid, globalid, que: 'cargar celular' });
+  if (rq) try {
     await fetch(`${SUPA_URL}/rest/v1/clientes?globalid=eq.${encodeURIComponent(globalid)}`, {
       method: 'PATCH', headers: supaHeaders(),
       body: JSON.stringify({ celular: digits }),
@@ -7619,6 +7683,8 @@ async function markEstado(id, estado) {
       vendedoraSeguimiento = await _pedirVendedora(p?.local_id, '¿Qué vendedora avisó al cliente?');
       if (!vendedoraSeguimiento) return;  // canceló
     }
+    const pq = pedidosCache.find(x => x.id === id) || {};
+    if (!(await registraQuien('crm.pedido_gestionar', pq.local_id, { pedido: id, cliente: pq.nombre_cliente || null, estado: (pq.estado || '') + ' → ' + estado }))) return;   // (14-nov) 📷
     const data = { estado };
     if (estado === 'Avisado') data.fecha_aviso = new Date().toISOString();
     if (estado === 'Completado') data.fecha_completado = new Date().toISOString();
@@ -7814,13 +7880,14 @@ async function deletePedido() {
   const resumen = `${p.nombre_cliente || 'Sin nombre'} — SKU ${p.sku || '—'} (${p.estado || ''})`;
   const id = editingId;
   if (!session.isAdmin) {
-    const aut = await _pedirSuperiorBorrado(p, resumen);
+    const aut = await _pedirSuperiorBorrado(p, resumen);   // adentro, después de autorizar, se anota quién lo hace (📷)
     if (!aut) return;   // canceló
     _pedidoEliminadoUI(id, aut.nombre);
     return;
   }
   if (!confirm(`⚠️ ELIMINAR DEFINITIVAMENTE este pedido?\n\n${resumen}\n\nEsta acción no se puede deshacer.`)) return;
   if (!confirm('Confirmá una vez más: vas a borrar el pedido permanentemente.')) return;
+  if (!(await registraQuien('crm.pedido_borrar', p.local_id, { pedido: id, cliente: p.nombre_cliente || null, sku: p.sku || null }))) return;   // (14-nov) 📷
   const btn = document.getElementById('edit-delete-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Eliminando…'; }
   try {
@@ -7903,6 +7970,10 @@ function _pedirSuperiorBorrado(p, resumen) {
         if (!esAdm && !(esEnc && suLocal === String(p.local_id || '').toLowerCase())) {
           throw new Error(esEnc ? `${nombre} es encargada de otro local: el pedido es de ${local}.` : `${nombre} no puede autorizar borrados: tiene que ser la encargada de ${local} o un administrador.`);
         }
+        // (14-nov) 📷 Registra quién: ya autorizado, se anota quién lo está haciendo (con la sesión del módulo, no la del superior)
+        if (!(await registraQuien('crm.pedido_borrar', p.local_id, { pedido: p.id, cliente: p.nombre_cliente || null, sku: p.sku || null, autorizo: nombre }))) {
+          throw new Error('No se borró: falta anotar quién lo está haciendo.');
+        }
         await logPedidoChange(p.id, 'eliminar', null, `${resumen} · autorizó ${nombre} (${email})`, 'eliminado');
         logueado = true;
         const { data, error: ed } = await cli.from('pedidos').delete().eq('id', p.id).select('id');
@@ -7941,6 +8012,7 @@ async function saveEdit() {
     // Capturar estado anterior para audit log
     const idxBefore = pedidosCache.findIndex(p => p.id === editingId);
     const antes = idxBefore >= 0 ? { ...pedidosCache[idxBefore] } : {};
+    if (!(await registraQuien('crm.pedido_gestionar', antes.local_id, { pedido: editingId, cliente: nombre, que: 'editar el pedido' }))) return;   // (14-nov) 📷 (el finally deja el botón como estaba)
 
     const nuevoData = {
       nombre_cliente:  nombre,
@@ -7980,6 +8052,8 @@ async function markListo(id) {
   try {
     const idxBefore = pedidosCache.findIndex(p => p.id === id);
     const estadoAnterior = idxBefore >= 0 ? pedidosCache[idxBefore].estado : null;
+    const pq = idxBefore >= 0 ? pedidosCache[idxBefore] : {};
+    if (!(await registraQuien('crm.pedido_gestionar', pq.local_id || session.local_id, { pedido: id, cliente: pq.nombre_cliente || null, estado: (estadoAnterior || '') + ' → Listo para avisar' }))) return;   // (14-nov) 📷
     await supaPatch('pedidos', id, {
       estado: 'Listo para avisar',
       stock_ingreso_local: session.local_id,
@@ -8130,6 +8204,7 @@ async function sendWaTemplate(templateId) {
     vendRecontacto = await _pedirVendedora(p.local_id, '¿Qué vendedora re-contacta al cliente?');
     if (!vendRecontacto) return;  // canceló
   }
+  if (!(await registraQuien('crm.pedido_gestionar', p.local_id, { pedido: p.id, cliente: p.nombre_cliente || null, aviso: templateId }))) return;   // (14-nov) 📷
 
   // Reconstruir el URL de WA con el texto del template
   const phone = waCelular(p.celular);
@@ -8305,7 +8380,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v115-borrar-con-superior';
+const CRM_VERSION = 'crm-adorno-v116-registra-quien';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8443,6 +8518,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=47"></script>
+<script src="manual.js?v=48"></script>
 </body>
 </html>

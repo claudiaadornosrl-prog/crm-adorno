@@ -39,6 +39,19 @@ function _manualSecciones() {
       ],
     },
     {
+      icon: '📷', titulo: 'Registra quién lo hizo',
+      desc: 'Desde el 14-nov-2026 JP puede marcar en el Hub qué funciones de Clientes anotan quién las hizo.',
+      pasos: [
+        'Si JP marcó una función con 📷 Registra quién en el Hub, al usarla se pide quién la está haciendo (por la cara, o tocando tu nombre en la lista); con usuario personal se anota solo.',
+        'Hoy, mientras el reconocimiento por cara está apagado, con la cuenta del local aparece la lista con los nombres de la gente del local: tocás el tuyo y sigue. Si venís de otro local, tocá «Ver todos los locales».',
+        'Si cerrás esa ventana o tocás Cancelar, la operación no se hace: no se carga, no se cambia y no se manda nada.',
+        'Puede pasar en: cargar un pedido; cambiar su estado, marcarlo listo, avisar a la clienta (por el número del local o con un mensaje armado), editarlo y borrarlo; responder por WhatsApp, descartar una sugerencia del bot o pausarlo; corregir la ficha de una clienta (etiquetas, celular); aceptar o rechazar los datos sacados de los chats; y, en Admin, configurar el bot.',
+        'En WhatsApp no se pregunta dos veces: queda anotada la persona que eligió en «¿Quién responde?».',
+        'Al borrar un pedido, primero autoriza la encargada o un administrador y después se anota quién lo está borrando.',
+        'La foto nunca se guarda: queda solo quién fue, cuándo, con qué cuenta y qué hizo. JP lo ve en el Hub → Permisos → Registro.',
+      ],
+    },
+    {
       icon: '🧭', titulo: 'Cómo se navega',
       desc: 'La barra de arriba tiene, en orden, Nuevo pedido, Pedidos (con las Alertas arriba de todo) y WhatsApp (y Satisfacción).',
       pasos: [
