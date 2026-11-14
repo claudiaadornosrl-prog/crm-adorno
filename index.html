@@ -852,6 +852,12 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .sup-caja .sup-btns { display: flex; justify-content: flex-end; gap: 8px; }
 .sup-caja .sup-b { border-radius: 999px; padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: transparent; color: var(--text); }
 .sup-caja .sup-b.peligro { border-color: var(--danger); background: var(--danger); color: white; }
+.sup-caja .sup-b.ok { border-color: var(--accent); background: var(--accent); color: white; }   /* (14-nov) «Pide permiso» del Hub */
+.sup-caja .sup-ped.neutro { background: #f3f4f6; color: var(--text); }
+/* (14-nov) elegir en qué local trabaja (persona con varios locales en el Hub) */
+.loc-elegir { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 6px 0 4px; }
+.loc-elegir button { border-radius: 999px; padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: transparent; color: var(--text); }
+.loc-elegir button.on { border-color: var(--accent); background: var(--accent); color: white; }
 .sup-caja .sup-b:disabled { opacity: .5; cursor: not-allowed; }
 html.dark .sup-caja { background: #1e2434; }
 
@@ -2168,8 +2174,166 @@ const LOCAL_EMAILS = {
 // (crm_ve_todo) pero solo operan como Oficina.
 const OFICINA_EMAILS = ['administracion@claudiaadorno.com', 'claudiaadorno@claudiaadorno.com'];
 function esOficina() { return !!session && !session.isAdmin && String(session.local_id || '').toLowerCase() === 'oficina'; }
+// ═══ (14-nov-2026, JP vía Infra: «Sí, aplicalos») Permisos por función desde el Hub (Hub → 👤 → Permisos) ═══
+// hub_puedo con la sesión del módulo: 'h' habilitada · 'a' se ve, pero al usarla pide el usuario personal de alguien que la
+// tenga habilitada (hub_autoriza con SU sesión, en un cliente aparte) y la operación sale con ESA sesión · 'o' oculta.
+// La base controla lo mismo (crm_puede y las políticas con hub_puedo; wa-enviar v15 también). Admin: todo habilitado.
+// Locales: hub_mis_locales(); con varios, al entrar se elige en cuál trabaja. Panel Admin (crm.admin, wa_bot, wa_numeros,
+// wa_alta): sigue siendo solo de los admins.
+const CRM_FUNC = {
+  'crm.pedido_cargar': 'Cargar un pedido', 'crm.pedidos_ver': 'Ver los pedidos y las alertas',
+  'crm.pedido_gestionar': 'Cambiar el estado, avisar a la clienta o editar un pedido', 'crm.pedido_borrar': 'Borrar un pedido',
+  'crm.wa_ver': 'Ver las charlas de WhatsApp', 'crm.wa_responder': 'Responder por WhatsApp', 'crm.wa_bot': 'Configurar el bot',
+  'crm.clientes_ver': 'Buscar clientas y ver la ficha', 'crm.clientes_editar': 'Corregir la ficha (celular, etiquetas)',
+  'crm.datos_sugeridos': 'Aceptar o rechazar datos sacados de los chats', 'crm.satisfaccion': 'Ver las encuestas de satisfacción',
+  'crm.ver_otros_locales': 'Ver pedidos y charlas de los otros locales', 'crm.operar_otros_locales': 'Operar en nombre de otro local',
+  'crm.admin': 'Panel Admin', 'crm.wa_numeros': 'Administrar los números de WhatsApp', 'crm.wa_alta': 'Conectar un número de WhatsApp',
+};
+let PERM = null;            // id → 'h' | 'a' | 'o'. null = no se pudo leer del Hub: se usa lo de antes (la base frena igual)
+let misLocalesHub = [];     // hub_mis_locales() (afuera de session: _guardarSesion la rearma en cada renovación)
+let _supTok = null;         // token del usuario superior mientras dura una operación autorizada ('a')
+const _verAut = {};         // 'a' en algo de mirar: queda autorizado hasta que se sale de esa pestaña o de ese local
+function _locMin(l) { return String(l || '').toLowerCase(); }
+function misLocales() { const m = _locMin(session && session.local_id); return m && !misLocalesHub.includes(m) ? misLocalesHub.concat(m) : misLocalesHub.slice(); }
+function _permBase(f) {
+  if (!session || session.isAdmin) return 'h';
+  if (PERM && PERM[f]) return PERM[f];
+  const ofi = _locMin(session.local_id) === 'oficina';   // sin el Hub: como era antes del 14-nov
+  if (['crm.admin', 'crm.wa_bot', 'crm.wa_numeros', 'crm.wa_alta', 'crm.operar_otros_locales'].includes(f)) return 'o';
+  if (f === 'crm.ver_otros_locales') return ofi ? 'h' : 'o';
+  if (f === 'crm.wa_responder') return ofi ? 'o' : 'h';
+  if (f === 'crm.pedido_borrar') return 'a';
+  return 'h';
+}
+// Permiso para una función sobre un local: si el local no es suyo, cuenta también «operar en nombre de otro local» (el más cerrado)
+function perm(f, local) {
+  if (!session || session.isAdmin) return 'h';
+  let v = _permBase(f);
+  const l = _locMin(local);
+  if (l && !misLocales().includes(l)) {
+    const o = _permBase('crm.operar_otros_locales');
+    v = (v === 'o' || o === 'o') ? 'o' : (v === 'h' && o === 'h') ? 'h' : 'a';
+  }
+  return v;
+}
+function permVe(f, local) { return perm(f, local) !== 'o'; }
 // ¿Puede cargar, cambiar o responder en nombre de ese local? (la base lo frena igual: esto es para no mostrar botones)
-function puedeOperarLocal(l) { return !!session && (session.isAdmin || String(l || '').toLowerCase() === String(session.local_id || '').toLowerCase()); }
+function puedeOperarLocal(l) { return !!session && (session.isAdmin || misLocales().includes(_locMin(l)) || _permBase('crm.operar_otros_locales') !== 'o'); }
+// ¿Ve los pedidos y charlas de los otros locales? 'h' directo; 'a' pide permiso al elegir otro local (setOficinaVer)
+function veOtrosLocales() { return !!session && !session.isAdmin && permVe('crm.ver_otros_locales'); }
+async function cargarPermisos() {
+  PERM = null; misLocalesHub = [];
+  if (!session || session.isAdmin || !authToken) return;
+  try {
+    await _ensureFreshToken();
+    const tok = authToken;   // siempre la sesión del módulo (nunca la de un usuario superior)
+    const call = (n, b) => fetch(`${SUPA_URL}/rest/v1/rpc/${n}`, { method: 'POST', cache: 'no-store',
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
+    const ids = Object.keys(CRM_FUNC);
+    const [locs, ...vals] = await Promise.all([call('hub_mis_locales'), ...ids.map(id => call('hub_puedo', { p_funcion: id }))]);
+    const p = {};
+    ids.forEach((id, i) => { p[id] = ['h', 'a', 'o'].includes(vals[i]) ? vals[i] : 'o'; });
+    PERM = p;
+    misLocalesHub = (Array.isArray(locs) ? locs : []).map(_locMin).filter(Boolean);
+  } catch (e) {
+    console.warn('[permisos] no se pudieron leer del Hub; se usa lo de antes:', e);
+    PERM = null;
+  }
+}
+// «Pide permiso»: ventana de usuario superior (como el Reporte de Ventas y el borrado de pedidos). Cliente aparte que no guarda
+// sesión; autoriza quien, con SU sesión, tiene hub_autoriza(función, local) = true (admin, o usuario personal con legajo, la
+// función Habilitada y ese local entre los suyos). Las cuentas de local u oficina nunca autorizan.
+// Devuelve { token, email, nombre, salir } o null si canceló.
+function _pedirSuperior(f, local, opts) {
+  opts = opts || {};
+  return new Promise(listo => {
+    const nomLocal = local ? (NOMBRE_LOCAL[_locMin(local)] || local) : '';
+    const fondo = document.createElement('div');
+    fondo.className = 'sup-fondo';
+    fondo.setAttribute('data-adorno-superior', '1');   // para /hub/equipo.js: acá va el usuario personal, no el del equipo
+    fondo.innerHTML = `<div class="sup-caja" role="dialog" aria-modal="true">
+      <h3>Pedir permiso</h3>
+      <p class="sup-txt"><b>${escHtml(CRM_FUNC[f] || f)}</b>${nomLocal ? ` en <b>${escHtml(nomLocal)}</b>` : ''} lo autoriza alguien que lo tenga
+        habilitado en el Hub, con su usuario personal (el mismo mail y clave de RRHH). La cuenta del local o de la oficina no
+        alcanza. ${opts.solo_mirar ? 'Es solo para mirar: la sesión se cierra enseguida.' : 'La operación queda hecha con su usuario y la sesión se cierra sola al terminar.'}</p>
+      ${opts.resumen ? `<div class="sup-ped neutro">${escHtml(opts.resumen)}</div>` : ''}
+      <input type="email" id="sup-email" placeholder="mail de quien autoriza" autocomplete="username" data-no-upper>
+      <input type="password" id="sup-pass" placeholder="su contraseña" autocomplete="current-password">
+      <div class="sup-err" id="sup-err"></div>
+      <div class="sup-btns">
+        <button type="button" class="sup-b" id="sup-cancel">Cancelar</button>
+        <button type="button" class="sup-b ok" id="sup-ok">Autorizar</button>
+      </div></div>`;
+    document.body.appendChild(fondo);
+    const $ = s => fondo.querySelector(s);
+    const cerrar = r => { fondo.remove(); listo(r); };
+    $('#sup-cancel').onclick = () => cerrar(null);
+    fondo.addEventListener('keydown', e => { if (e.key === 'Escape') cerrar(null); });
+    $('#sup-pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#sup-ok').click(); });
+    $('#sup-ok').onclick = async () => {
+      const email = ($('#sup-email').value || '').trim().toLowerCase();
+      const pass = $('#sup-pass').value || '';
+      const err = $('#sup-err'), btn = $('#sup-ok');
+      err.textContent = '';
+      if (!email || !pass) { err.textContent = 'Completá el mail y la contraseña.'; return; }
+      if (email === _locMin(session.email) || OFICINA_EMAILS.includes(email) || Object.values(LOCAL_EMAILS).includes(email)) {
+        err.textContent = 'Tiene que ser el usuario personal de quien autoriza, no la cuenta del local o de la oficina.'; return;
+      }
+      if (!window.supabase) { err.textContent = 'No se pudo abrir el ingreso: recargá la página.'; return; }
+      btn.disabled = true; $('#sup-cancel').disabled = true; btn.textContent = 'Autorizando…';
+      const cli = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'adorno-clientes-superior' }
+      });
+      const salir = async () => { try { await cli.auth.signOut({ scope: 'local' }); } catch (_) {} };
+      try {
+        const { error } = await cli.auth.signInWithPassword({ email, password: pass });
+        if (error) throw new Error('Mail o contraseña incorrectos.');
+        if (window.ADORNO_MFA && ADORNO_MFA.pedirCodigo && !(await ADORNO_MFA.pedirCodigo(cli))) {
+          throw new Error('Sin el código del celular no se puede autorizar.');
+        }
+        const [ra, rv] = await Promise.all([cli.rpc('hub_autoriza', { p_funcion: f, p_local: local ? _locMin(local) : null }), cli.rpc('hub_puede_ver', { p_que: f })]);
+        const nombre = _nombreLindo((rv.data && rv.data.nombre) || email);
+        if (ra.error) throw new Error('No se pudo verificar el permiso: ' + ra.error.message);
+        if (ra.data !== true) throw new Error(`${nombre} no puede autorizar «${CRM_FUNC[f] || f}»${nomLocal ? ' en ' + nomLocal : ''}: tiene que tenerlo habilitado en el Hub y entrar con su usuario personal.`);
+        const s = (await cli.auth.getSession()).data.session;
+        if (!s || !s.access_token) throw new Error('No se pudo abrir la sesión de quien autoriza.');
+        toast('✅ Autorizó ' + nombre);
+        cerrar({ token: s.access_token, email, nombre, salir });
+      } catch (e) {
+        await salir();
+        err.textContent = e.message || 'No se pudo autorizar.';
+        btn.disabled = false; $('#sup-cancel').disabled = false; btn.textContent = 'Autorizar';
+      }
+    };
+    setTimeout(() => $('#sup-email').focus(), 50);
+  });
+}
+// Antes de grabar: 'h' sigue; 'o' avisa y no hace nada; 'a' pide permiso y, mientras dura, todo lo que se graba sale con la
+// sesión de quien autorizó (supaHeaders y wa-enviar usan _supTok). Devuelve la función que cierra la autorización, o null.
+async function _permEmpezar(f, local) {
+  if (!session || session.isAdmin || _supTok) return () => {};
+  const pm = perm(f, local);
+  if (pm === 'h') return () => {};
+  if (pm === 'o') { toast('🔒 No tenés permiso para esto: ' + (CRM_FUNC[f] || f) + ' (Hub → Permisos)'); return null; }
+  const sup = await _pedirSuperior(f, local);
+  if (!sup) return null;
+  _supTok = sup.token;
+  let cerrado = false;
+  return () => { if (cerrado) return; cerrado = true; _supTok = null; sup.salir(); };
+}
+async function _conPermiso(f, local, correr) {
+  const fin = await _permEmpezar(f, local);
+  if (!fin) return;
+  try { return await correr(); } finally { fin(); }
+}
+// 'a' en algo de mirar (una pestaña, otro local): autoriza y se cierra enseguida la sesión de quien autorizó
+async function _autorizarVer(f, local) {
+  const sup = await _pedirSuperior(f, local, { solo_mirar: true });
+  if (!sup) return false;
+  await sup.salir();
+  return true;
+}
 const ADMIN_EMAIL = 'juanpsimonelli@gmail.com';
 // Admins del CRM (coincide con crm_usuarios.es_admin en la base).
 const ADMIN_EMAILS = ['juanpsimonelli@gmail.com', 'clau@claudiaadorno.com'];
@@ -2179,7 +2343,7 @@ const MODO_SIMPLE_EMAILS = ['clau@claudiaadorno.com'];
 function supaHeaders() {
   return {
     'apikey': SUPA_KEY,
-    'Authorization': 'Bearer ' + (authToken || SUPA_KEY),
+    'Authorization': 'Bearer ' + (_supTok || authToken || SUPA_KEY),   // (14-nov) _supTok: «Pide permiso» del Hub
     'Content-Type': 'application/json',
     'Prefer': 'return=representation',
   };
@@ -2512,6 +2676,8 @@ async function logout() {
   } catch(e) {}
 
   localStorage.removeItem('ca_session');
+  try { sessionStorage.removeItem('crm_local_elegido'); } catch(_) {}   // (14-nov) local elegido (varios locales en el Hub)
+  PERM = null; misLocalesHub = [];
   session = { local_id: null, nombre: null, isAdmin: false };
   authToken = authRefreshToken = null;
   pedidosCache = [];
@@ -2526,7 +2692,33 @@ async function logout() {
   showScreen('setup-screen');
 }
 
-function enterApp() {
+// (14-nov-2026) Persona con varios locales en el Hub (hub_mis_locales): elige en cuál está trabajando. Se recuerda en esta
+// pestaña del navegador; tocando el nombre del local arriba se cambia.
+async function elegirLocalSiVarios(forzar) {
+  if (!session || session.isAdmin) return;
+  const locs = misLocales();
+  if (locs.length < 2) return;
+  let ya = null;
+  try { ya = sessionStorage.getItem('crm_local_elegido'); } catch(_) {}
+  if (!forzar && ya && locs.includes(ya)) { session.local_id = ya; return; }
+  const elegido = await new Promise(listo => {
+    const f = document.createElement('div');
+    f.className = 'sup-fondo';
+    f.innerHTML = `<div class="sup-caja" role="dialog" aria-modal="true"><h3>¿En qué local estás trabajando?</h3>
+      <p class="sup-txt">Tu usuario tiene varios locales en el Hub. Elegí en cuál estás ahora: los pedidos que cargues y las charlas
+        que respondas quedan de ese local. Después lo cambiás tocando el nombre del local, arriba.</p>
+      <div class="loc-elegir">${locs.map(l => `<button type="button" data-l="${escHtml(l)}" class="${l === _locMin(session.local_id) ? 'on' : ''}">${escHtml(NOMBRE_LOCAL[l] || l)}</button>`).join('')}</div></div>`;
+    document.body.appendChild(f);
+    f.querySelectorAll('[data-l]').forEach(b => { b.onclick = () => { f.remove(); listo(b.dataset.l); }; });
+  });
+  session.local_id = elegido;
+  try { sessionStorage.setItem('crm_local_elegido', elegido); localStorage.setItem('ca_session', JSON.stringify(session)); } catch(_) {}
+}
+
+async function enterApp() {
+  // (14-nov-2026) Permisos por función del Hub y locales de la persona (con varios, elige en cuál trabaja)
+  await cargarPermisos();
+  await elegirLocalSiVarios();
   // Populate vendedora dropdown
   const sel = document.getElementById('f-vendedora');
   const lista = (session.local_id && VENDEDORAS[session.local_id]) ? VENDEDORAS[session.local_id] : VENDEDORAS_TODAS;
@@ -2564,7 +2756,7 @@ function enterApp() {
   // (4-nov-2026) Bandeja de WhatsApp: admin (todos los locales) y cada local (el suyo)
   document.getElementById('tab-whatsapp').style.display = (session.isAdmin || session.local_id) ? 'flex' : 'none';
   // (12-nov-2026) Oficina: arranca mirando lo suyo; puede elegir mirar los otros locales (sin botones)
-  oficinaVer = 'oficina'; pedidosMirar = [];
+  oficinaVer = _locMin(session.local_id) || 'oficina'; pedidosMirar = []; delete _verAut['crm.ver_otros_locales'];
   if (esOficina()) wabLocal = '';   // la Oficina no tiene número del sistema: en WhatsApp arranca viendo todos los locales
   renderOficinaVer();
 
@@ -2575,6 +2767,17 @@ function enterApp() {
     if (b) b.style.display = esModoSimple ? 'none' : '';
   });
   if (esModoSimple) setTimeout(() => switchTab('satisfaccion'), 0);
+  // (14-nov-2026) Permisos del Hub: no se muestran las pestañas de lo que está «Oculta» para esta cuenta
+  if (!session.isAdmin) {
+    Object.keys(TAB_FUNC).forEach(t => {
+      const b = document.querySelector(`.tab-btn[data-tab="${t}"]`);
+      if (b && !permVe(TAB_FUNC[t])) b.style.display = 'none';
+    });
+    const varios = misLocales().length > 1;
+    badge.onclick = varios ? async () => { await elegirLocalSiVarios(true); enterApp(); } : null;
+    badge.style.cursor = varios ? 'pointer' : '';
+    badge.title = varios ? 'Cambiar de local' : '';
+  }
 
   // Default mode: vendedora con nombre → mis pedidos; admin → todo
   currentMyOnlyMode = !!(session.nombre && !session.isAdmin);
@@ -2645,12 +2848,33 @@ function showScreen(id) {
   if (id === 'setup-screen') aplicarKioscoLocal();
 }
 
+// (14-nov-2026) Pestaña → función del Hub. «Oculta»: no se ve. «Pide permiso» en las de mirar: se autoriza al entrar y vale
+// hasta que se cambia de pestaña. En Nuevo, el permiso se pide recién al guardar el pedido.
+const TAB_FUNC = { nuevo: 'crm.pedido_cargar', pedidos: 'crm.pedidos_ver', whatsapp: 'crm.wa_ver', satisfaccion: 'crm.satisfaccion', clientes: 'crm.clientes_ver' };
+const TAB_MIRAR = ['pedidos', 'whatsapp', 'satisfaccion', 'clientes'];
+function _tabVisible(t) { const b = document.querySelector(`.tab-btn[data-tab="${t}"]`); return !!b && b.style.display !== 'none' && (session.isAdmin || !TAB_FUNC[t] || permVe(TAB_FUNC[t])); }
+function _primeraPestana() { return ['nuevo', 'pedidos', 'whatsapp', 'clientes', 'satisfaccion', 'admin'].find(_tabVisible) || null; }
+
 function switchTab(tab) {
   // (10-ago) Modo simple (Clau): las tabs ocultas redirigen a Satisfacción
   const _simple = session?.isAdmin && MODO_SIMPLE_EMAILS.includes((session.email || '').toLowerCase());
   if (_simple && ['nuevo', 'pedidos', 'alertas', 'clientes', 'whatsapp'].includes(tab)) tab = 'satisfaccion';
   if (tab === 'hoy') tab = 'nuevo';   // (26-oct) la pestaña Hoy se eliminó
   if (tab === 'alertas') tab = 'pedidos';   // (4-nov) las Alertas están arriba de todo en Pedidos
+  // (14-nov-2026) Permisos del Hub
+  if (session && !session.isAdmin && TAB_FUNC[tab]) {
+    const f = TAB_FUNC[tab], pm = perm(f);
+    if (pm === 'o') {
+      const otra = _primeraPestana();
+      if (!otra) { toast('🔒 Esta cuenta no tiene nada habilitado en Clientes (Hub → Permisos)'); return; }
+      return switchTab(otra);
+    }
+    if (pm === 'a' && TAB_MIRAR.includes(tab) && !_verAut[f]) {
+      _autorizarVer(f, session.local_id).then(ok => { if (ok) { _verAut[f] = true; switchTab(tab); } });
+      return;
+    }
+  }
+  Object.keys(_verAut).forEach(k => { if (k !== TAB_FUNC[tab] && k !== 'crm.ver_otros_locales') delete _verAut[k]; });
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
   if (tab === 'pedidos') { renderAlertas(); renderPedidos(); }
@@ -2796,7 +3020,7 @@ async function enviarConfirmacionApi(pedido, nombre, celular, lineas) {
     await _ensureFreshToken();
     const r = await fetch(`${SUPA_URL}/functions/v1/wa-enviar`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (_supTok || authToken || SUPA_KEY) },
       body: JSON.stringify({ pedido_id: pedido.id, plantilla: 'pedido_confirmado', producto }),
     });
     const j = await r.json().catch(() => ({}));
@@ -2826,7 +3050,7 @@ async function enviarAvisoApi(id, plantilla) {
     await _ensureFreshToken();
     const r = await fetch(`${SUPA_URL}/functions/v1/wa-enviar`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) },
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (_supTok || authToken || SUPA_KEY) },
       body: JSON.stringify({ pedido_id: id, plantilla, vendedora }),
     });
     const j = await r.json().catch(() => ({}));
@@ -2962,10 +3186,16 @@ function renderWaHilo(p) {
   }
 
   const borrador = waBorradores[p.id] || '';
-  const reply = !api ? ''
+  let reply = !api ? ''
     : dentro ? `<div class="wa-reply"><textarea id="wa-txt-${p.id}" data-no-upper placeholder="Escribile al cliente desde el número del local…" oninput="waBorradores[${p.id}] = this.value" onclick="event.stopPropagation()" onkeydown="if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { waEnviarTexto(${p.id}); }">${escHtml(borrador)}</textarea>${_act('primary wa', `waEnviarTexto(${p.id}); event.stopPropagation()`, 'Enviar el mensaje por WhatsApp (Ctrl+Enter)', ICO.enviar)}</div>`
     : `<div class="wa-reply-nota">Pasaron más de ${WA_VENTANA_H} h desde el último mensaje del cliente: Meta solo permite una plantilla (botón de recontacto).</div>`;
 
+  // (14-nov-2026) Hub: sin «Responder por WhatsApp» la charla se ve, sin botones
+  if (!permVe('crm.wa_responder', p.local_id)) {
+    sugHtml = '';
+    if (botChip) botChip = `<span class="wa-bot-chip">${ICO.robot} bot ${modo === 'auto' ? 'automático' : 'sugiere'}${conv && conv.bot_estado === 'humano' ? ' · en pausa' : conv && conv.bot_estado === 'derivado' ? ' · derivado' : ''}</span>`;
+    reply = api ? `<div class="wa-reply-nota">🔒 Esta cuenta mira la charla pero no responde (Hub → Permisos: «Responder por WhatsApp»).</div>` : '';
+  }
   return `<div class="wa-hilo${abierto ? ' abierto' : ''}" id="wa-hilo-${p.id}">
     <div class="wa-hilo-head" onclick="toggleWaHilo(${p.id})" title="Ver la conversación de WhatsApp">
       <span class="wa-hilo-chev">${ICO.chevron}</span>
@@ -2987,7 +3217,7 @@ async function _waEnviarFetch(body, extraHeaders) {
   await _ensureFreshToken();
   const r = await fetch(`${SUPA_URL}/functions/v1/wa-enviar`, {
     method: 'POST',
-    headers: Object.assign({ 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY) }, extraHeaders || {}),
+    headers: Object.assign({ 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (_supTok || authToken || SUPA_KEY) }, extraHeaders || {}),
     body: JSON.stringify(body),
   });
   const j = await r.json().catch(() => ({}));
@@ -3287,9 +3517,11 @@ async function loadBotTextos() {
 }
 // (27-oct-2026) Qué web usa el bot para pasar links de productos: la oficial hoy, la del Atelier cuando esté activa.
 // Los catálogos los copia todas las mañanas el módulo Marketing; acá solo se elige cuál usa el bot.
-async function _rpcBot(nombre, body) {
+async function _rpcBot(nombre, body, tok) {   // (14-nov) tok: forzar un token (el registro de quién usa siempre el del módulo)
   await _ensureFreshToken();
-  const r = await fetch(`${SUPA_URL}/rest/v1/rpc/${nombre}`, { method: 'POST', headers: supaHeaders(), body: JSON.stringify(body || {}) });
+  const h = supaHeaders();
+  if (tok) h['Authorization'] = 'Bearer ' + tok;
+  const r = await fetch(`${SUPA_URL}/rest/v1/rpc/${nombre}`, { method: 'POST', headers: h, body: JSON.stringify(body || {}) });
   const t = await r.text();
   if (!r.ok) throw new Error((t.match(/"message":"([^"]+)"/) || [])[1] || `HTTP ${r.status}`);
   try { return JSON.parse(t); } catch(_) { return null; }
@@ -3482,9 +3714,11 @@ function _wabLinkify(t) { return escHtml(t).replace(/https?:\/\/[^\s<]+/g, u => 
 
 async function waBandejaCargar() {
   if (!session || (!session.isAdmin && !session.local_id)) return;
+  if (!session.isAdmin && !permVe('crm.wa_ver')) return;   // (14-nov) Hub: sin «Ver las charlas» no se traen ni se avisan
   try {
     // (12-nov-2026) la Oficina, como el admin, trae las charlas de todos los locales (para mirar)
-    wabConvs = await _rpcBot('crm_wa_bandeja', { p_local: (session.isAdmin || esOficina()) ? null : session.local_id, p_dias: 60 }) || [];
+    // (14-nov) Hub: todos los locales si tiene «Ver otros locales» habilitado; si no, el suyo
+    wabConvs = await _rpcBot('crm_wa_bandeja', { p_local: (session.isAdmin || perm('crm.ver_otros_locales') === 'h') ? null : session.local_id, p_dias: 60 }) || [];
   } catch(e) {
     console.warn('crm_wa_bandeja:', e);
     const el = document.getElementById('wab-items');
@@ -3567,7 +3801,7 @@ async function waBandejaEntrar() {
 function waBandejaRenderLista() {
   const el = document.getElementById('wab-lista');
   if (!el) return;
-  const varios = !!session.isAdmin || esOficina();   // (12-nov) la Oficina elige qué local mirar
+  const varios = !!session.isAdmin || perm('crm.ver_otros_locales') === 'h';   // (12-nov) la Oficina elige qué local mirar · (14-nov) sale del Hub
   if (!document.getElementById('wab-items')) {
     el.innerHTML = `<div class="wab-lista-top">
         <div class="wab-filtros" id="wab-filtros"></div>
@@ -3655,7 +3889,7 @@ function waBandejaRenderHead() {
   if (!h || !wabSel) return;
   const c = _wabConvSel() || { local_id: wabSel.local_id, celular: wabSel.celular, nombre: '', bot_estado: 'activo', bot_modo: waBotModo[wabSel.local_id] || 'off' };
   const ped = c.pedido_id ? (pedidosCache || []).find(p => p.id === c.pedido_id) : null;
-  const sub = [_wabFmtCel(c.celular), (session.isAdmin || esOficina()) ? _wabLocalNom(c.local_id) : '', ped ? `pedido: ${String(ped.descripcion_sku || ped.sku || '').toLowerCase()} (${ped.estado})` : ''].filter(Boolean).join(' · ');
+  const sub = [_wabFmtCel(c.celular), (session.isAdmin || perm('crm.ver_otros_locales') === 'h') ? _wabLocalNom(c.local_id) : '', ped ? `pedido: ${String(ped.descripcion_sku || ped.sku || '').toLowerCase()} (${ped.estado})` : ''].filter(Boolean).join(' · ');
   const html = `${_act('wab-volver', 'waBandejaVolver()', 'Volver a la lista', WAB_ICO_VOLVER)}
     <div class="wab-av">${escHtml(_wabInicial(c))}</div>
     <div class="wab-chat-tit"><b>${escHtml(_wabNombre(c))}</b><span>${escHtml(sub)}</span></div>
@@ -3688,7 +3922,7 @@ function _wabBotChip(c) {
   const modo = c.bot_modo || waBotModo[c.local_id] || 'off';
   if (modo === 'off') return '';
   // (12-nov-2026) Oficina mirando la charla de un local: se ve qué hace el bot, sin botones para pausarlo o devolverlo
-  if (!puedeOperarLocal(c.local_id)) {
+  if (!puedeOperarLocal(c.local_id) || !permVe('crm.wa_responder', c.local_id)) {   // (14-nov) o sin «Responder» en el Hub
     const t = c.bot_estado === 'derivado' ? 'pasada al local' : c.bot_estado === 'humano' ? 'bot en pausa' : `bot ${modo === 'auto' ? 'automático' : 'sugiere'}`;
     return `<span class="wa-bot-chip${c.bot_estado === 'derivado' ? ' derivado' : c.bot_estado === 'humano' ? ' pausa' : ''}">${ICO.robot} ${t}</span>`;
   }
@@ -3800,7 +4034,12 @@ function waBandejaRenderPie() {
   // (12-nov-2026, JP) La Oficina mira las charlas de los locales pero no les responde a sus clientes (wa-enviar también
   // lo frena): ni cuadro para escribir, ni sugerencias del bot para aprobar, ni pedido nuevo en nombre del local
   if (!puedeOperarLocal(wabSel.local_id)) {
-    el.innerHTML = `<div class="wa-reply-nota" style="margin-top:0">👁 Charla de ${escHtml(_wabLocalNom(wabSel.local_id))}: desde la Oficina se mira, no se responde. La atienden las chicas del local.</div>`;
+    el.innerHTML = `<div class="wa-reply-nota" style="margin-top:0">👁 Charla de ${escHtml(_wabLocalNom(wabSel.local_id))}: desde acá se mira, no se responde. La atienden las chicas del local.</div>`;
+    return;
+  }
+  // (14-nov-2026) Hub: «Responder por WhatsApp» oculto para esta cuenta → la charla se ve, sin cuadro ni sugerencias
+  if (!permVe('crm.wa_responder', wabSel.local_id)) {
+    el.innerHTML = `<div class="wa-reply-nota" style="margin-top:0">🔒 Esta cuenta mira las charlas pero no responde (Hub → Permisos: «Responder por WhatsApp»).</div>`;
     return;
   }
   let sugHtml = '';
@@ -3818,7 +4057,7 @@ function waBandejaRenderPie() {
       </div></div>`;
   }
   // (4-nov-2026, JP) Nuevo pedido sin salir de la charla, con los datos de la clienta ya cargados
-  const btnPedido = _act('wab-btn-pedido', 'waBandejaNuevoPedido()', 'Nuevo pedido para esta clienta (con sus datos ya cargados)', WAB_ICO_PEDIDO);
+  const btnPedido = permVe('crm.pedido_cargar', wabSel.local_id) ? _act('wab-btn-pedido', 'waBandejaNuevoPedido()', 'Nuevo pedido para esta clienta (con sus datos ya cargados)', WAB_ICO_PEDIDO) : '';   // (14-nov) Hub
   // (13-nov-2026, JP) Clodi pasó la consulta al local y todavía nadie la tomó: primero "Tomar la consulta" (pregunta
   // quién sos: cara o lista; manda solo el saludo "estás hablando con …"). Después aparece el cuadro para escribir.
   const conv = wabConvs.find(c => _wabKey(c.local_id, c.celular) === k);
@@ -3993,7 +4232,7 @@ function _wabAtiendeSet(d, modo, descriptor) {
   _wabAtiendeDescriptor = (modo === 'cara' && descriptor && descriptor.length) ? Array.from(descriptor) : null;
   return wabAtiende;
 }
-const _wabCli = { rpc: async (n, b) => { try { return { data: await _rpcBot(n, b) }; } catch (e) { return { error: e }; } } };
+const _wabCli = { rpc: async (n, b) => { try { return { data: await _rpcBot(n, b, authToken || SUPA_KEY) }; } catch (e) { return { error: e }; } } };   // (14-nov) nunca la sesión del superior
 
 // ── (14-nov-2026, JP desde Infra) 📷 Registra quién ───────────────────────────────────────────────────────────
 // Si JP marcó la función con «📷 Registra quién» en el Hub (Permisos → Perfiles → Clientes), antes de grabar se anota
@@ -4011,9 +4250,9 @@ async function registraQuien(funcion, local, detalle) {
   }
   // caras.js no cargó: si la función no está marcada se sigue normal; si está marcada, sin anotar no se hace
   try {
-    const d = await _rpcBot('hub_registra_quien', { p_funcion: funcion }) || {};
+    const d = await _rpcBot('hub_registra_quien', { p_funcion: funcion }, authToken || SUPA_KEY) || {};
     if (!d.registra) return { ok: true, omitido: true };
-    if (d.yo) return { ok: true, ...(await _rpcBot('hub_registrar', { p_funcion: funcion, p_local: loc, p_detalle: detalle || null }) || {}) };
+    if (d.yo) return { ok: true, ...(await _rpcBot('hub_registrar', { p_funcion: funcion, p_local: loc, p_detalle: detalle || null }, authToken || SUPA_KEY) || {}) };
     toast('❌ No cargó el registro de quién lo hace: recargá la página (no se grabó nada)');
   } catch (e) { toast('❌ No se pudo anotar quién lo hace (' + e.message + '): no se grabó nada'); }
   return null;
@@ -4033,11 +4272,11 @@ async function registraQuienYa(funcion, local, empleadoId, detalle, o) {
   const clave = _regClave(funcion, loc, detalle, o.sobre, empleadoId);
   if (_regRepetido(clave)) return { ok: true, repetido: true };
   try {
-    const d = await _rpcBot('hub_registra_quien', { p_funcion: funcion }) || {};
+    const d = await _rpcBot('hub_registra_quien', { p_funcion: funcion }, authToken || SUPA_KEY) || {};
     if (!d.registra) return { ok: true, omitido: true };
     const body = { p_funcion: funcion, p_local: loc, p_empleado_id: empleadoId || null, p_detalle: detalle || null };
     if (o.descriptor) body.p_descriptor = o.descriptor;   // la base verifica la cara; si no coincide queda «lista»
-    const a = await _rpcBot('hub_registrar', body);
+    const a = await _rpcBot('hub_registrar', body, authToken || SUPA_KEY);
     if (clave) _regHechos[clave] = Date.now();
     return { ok: true, ...(a || {}) };
   } catch (e) { toast('❌ No se pudo anotar quién lo hace (' + e.message + '): no se grabó nada'); return null; }
@@ -4175,15 +4414,18 @@ async function loadPedidos() {
 // pedidosCache sigue siendo solo lo de la Oficina (alertas, número de la pestaña y botones, como siempre). Si elige
 // mirar otro local, la lista de abajo muestra esos pedidos (pedidosMirar) sin botones. La base también lo frena:
 // pedidos_insert/update/delete siguen atados a crm_mi_local().
-function mirandoOtroLocal() { return esOficina() && oficinaVer !== 'oficina'; }
+// (14-nov-2026) El selector sale del Hub: lo tiene quien tenga «Ver pedidos y charlas de los otros locales» (hoy, la Oficina).
+// Con «Pide permiso», al elegir otro local se autoriza (vale hasta volver al local propio).
+function mirandoOtroLocal() { return veOtrosLocales() && oficinaVer !== _locMin(session.local_id); }
 function renderOficinaVer() {
   const el = document.getElementById('ofi-ver');
   if (!el) return;
-  if (!esOficina()) { el.style.display = 'none'; el.innerHTML = ''; return; }
-  const ops = [['oficina', 'Oficina'], ['unicenter', 'Unicenter'], ['alcorta', 'Alcorta'], ['todos', 'Todos los locales']];
+  if (!veOtrosLocales()) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const mio = _locMin(session.local_id);
+  const ops = [[mio, NOMBRE_LOCAL[mio] || mio], ...['oficina', 'unicenter', 'alcorta'].filter(l => l !== mio).map(l => [l, NOMBRE_LOCAL[l]]), ['todos', 'Todos los locales']];
   el.style.display = '';
   el.innerHTML = `<div class="ofi-ver-chips"><span class="ofi-ver-t">Pedidos de:</span>${ops.map(([v, t]) => `<button class="ofi-chip${oficinaVer === v ? ' on' : ''}" onclick="setOficinaVer('${v}')">${t}</button>`).join('')}</div>`
-    + (mirandoOtroLocal() ? `<div class="ofi-ver-nota">👁 Solo para mirar: los pedidos de los locales los manejan las chicas de cada local. Para cargar o cambiar, volvé a Oficina.</div>` : '');
+    + (mirandoOtroLocal() ? `<div class="ofi-ver-nota">👁 Solo para mirar: los pedidos de los otros locales los maneja cada local. Para cargar o cambiar, volvé a ${escHtml(NOMBRE_LOCAL[mio] || mio)}.</div>` : '');
 }
 async function cargarPedidosMirar() {
   const params = { select: '*', order: 'created_at.desc' };
@@ -4192,6 +4434,10 @@ async function cargarPedidosMirar() {
   catch(e) { pedidosMirar = []; toast('❌ No se pudieron cargar los pedidos de ' + (NOMBRE_LOCAL[oficinaVer] || oficinaVer)); }
 }
 async function setOficinaVer(v) {
+  // (14-nov) «Pide permiso» en ver otros locales: se autoriza al elegir otro local
+  const F = 'crm.ver_otros_locales';
+  if (v === _locMin(session.local_id)) delete _verAut[F];
+  else if (perm(F) === 'a' && !_verAut[F]) { if (!(await _autorizarVer(F))) return; _verAut[F] = true; }
   oficinaVer = v;
   renderOficinaVer();
   if (mirandoOtroLocal()) {
@@ -4768,10 +5014,13 @@ async function submitPedido() {
   btn.innerHTML = '<span class="spinner"></span> Guardando...';
   // (14-nov) 📷 Registra quién: si la persona cancela, no se carga nada
   const localPedido = (wabPedidoCtx && wabPedidoCtx.local_id) || session.local_id;
+  // (14-nov-2026) Permisos del Hub: «Pide permiso» → autoriza alguien con su usuario personal y el pedido sale con esa sesión
+  const _finPerm = await _permEmpezar('crm.pedido_cargar', localPedido);
+  if (!_finPerm) { btn.disabled = false; btn.innerHTML = '<span>💾</span> Guardar pedido'; return; }
   const detPedido = { cliente: nombre, dni, articulos: validLines.map(l => l.sku), vendedora, ...(wabPedidoCtx ? { desde: 'charla de WhatsApp' } : {}) };
   // desde una charla: si ya se sabe quién responde, es esa persona (no se le vuelve a preguntar)
   if (!(await (wabPedidoCtx ? _wabRegistra('crm.pedido_cargar', localPedido, detPedido, null) : registraQuien('crm.pedido_cargar', localPedido, detPedido)))) {
-    btn.disabled = false; btn.innerHTML = '<span>💾</span> Guardar pedido'; return;
+    _finPerm(); btn.disabled = false; btn.innerHTML = '<span>💾</span> Guardar pedido'; return;
   }
 
   try {
@@ -4882,6 +5131,7 @@ async function submitPedido() {
   } catch(e) {
     toast('❌ Error al guardar: ' + e.message);
   } finally {
+    _finPerm();   // (14-nov) cierra la sesión de quien autorizó, si hubo
     btn.disabled = false;
     btn.innerHTML = '<span>💾</span> Guardar pedido';
   }
@@ -5326,7 +5576,7 @@ function renderPedidos() {
   el.innerHTML = notaArriba + items.map(p => {
     const estadoKey = p.estado === 'Listo para avisar' ? 'Listo' : (p.estado || 'Pendiente');
     const fecha = formatDate(p.created_at);
-    const soloMirar = mirando || !puedeOperarLocal(p.local_id);
+    const soloMirar = mirando || !puedeOperarLocal(p.local_id) || !permVe('crm.pedido_gestionar', p.local_id);   // (14-nov) Hub
     const actions = soloMirar ? '' : pedidoActions(p);
     const skuDisplay = p.sku_resuelto || p.sku || '—';
     const skuOrig = (p.sku_resuelto && p.sku && p.sku_resuelto !== p.sku) ? `<span class="sku-orig" title="SKU vendedora">${escHtml(p.sku)}</span>` : '';
@@ -5346,7 +5596,7 @@ function renderPedidos() {
       </div>
       ${p.compra_id ? `<div style="padding:0 14px 6px"><span class="pedido-vendido-badge"><span class="check">✓</span> VENDIDO ${p.factura_monto ? Number(p.factura_monto).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}) : ''}${p.factura_fecha ? ' · '+formatDate(p.factura_fecha).split(' ')[0] : ''}</span></div>` : ''}
       ${p.notas ? `<div class="pedido-notas">📝 ${escHtml(p.notas)}</div>` : ''}
-      ${soloMirar ? (p.wa_respuesta ? `<div class="pedido-wa-resp" title="Último mensaje del cliente por WhatsApp">💬 ${escHtml(p.wa_respuesta)}</div>` : '') : renderWaHilo(p)}
+      ${(mirando || !puedeOperarLocal(p.local_id) || !permVe('crm.wa_ver', p.local_id)) ? (p.wa_respuesta ? `<div class="pedido-wa-resp" title="Último mensaje del cliente por WhatsApp">💬 ${escHtml(p.wa_respuesta)}</div>` : '') : renderWaHilo(p)}
       <div class="pedido-footer">
         <span class="pedido-date">📅 ${fecha}${p.vendedora ? ' · ' + escHtml(p.vendedora) : ''} ${waAcuses(p)}</span>
         ${actions}
@@ -5586,7 +5836,7 @@ function renderAlertas() {
   if (mirandoOtroLocal()) { if (caja) caja.style.display = 'none'; if (resto) resto.style.display = 'none'; return; }
   const listos = pedidosCache.filter(p => p.estado === 'Listo para avisar');
   const vencidos = pedidosVencidos60();
-  const mensajes = pedidosConMensajeSinResponder();
+  const mensajes = permVe('crm.wa_ver') ? pedidosConMensajeSinResponder() : [];   // (14-nov) Hub: sin «Ver las charlas», sin esta sección
   const total = listos.length + vencidos.length + mensajes.length + sugerenciasCache.length;
   if (caja) caja.style.display = total ? '' : 'none';
   if (resto) resto.style.display = total ? '' : 'none';
@@ -5614,11 +5864,11 @@ function renderAlertas() {
             <div class="alert-client-name">${escHtml(p.nombre_cliente||'Sin nombre')}</div>
             <div class="alert-client-cel">📱 ${escHtml(p.celular||'')} · ${escHtml(p.vendedora||'')}${p.notas ? ' · ' + escHtml(p.notas) : ''}</div>
           </div>
-          <div class="alert-actions">
+          ${permVe('crm.pedido_gestionar', p.local_id) ? `<div class="alert-actions">
             ${api ? _act('primary wa', `enviarAvisoApi(${p.id},'pedido_listo')`, 'Enviar el aviso por WhatsApp desde el número del local (marca Avisado)', ICO.enviar) : ''}
             ${waUrl ? _actLink(api ? 'wa' : 'primary wa', waUrl, `onWaClick(${p.id})`, api ? 'Abrir el chat en tu WhatsApp' : 'Avisar por WhatsApp (marca Avisado)', waSvg()) : ''}
             ${_act('', `markEstado(${p.id},'Avisado')`, 'Ya le avisé por otro medio: marcar Avisado', ICO.campana)}
-          </div>
+          </div>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -5646,11 +5896,11 @@ function renderAlertas() {
             <div class="alert-client-name">${escHtml(p.nombre_cliente||'Sin nombre')}</div>
             <div class="alert-client-cel">📱 ${escHtml(p.celular||'')} · ${escHtml(p.vendedora||'')}</div>
           </div>
-          <div class="alert-actions">
+          ${permVe('crm.pedido_gestionar', p.local_id) ? `<div class="alert-actions">
             ${_act('primary ok', `markEstado(${p.id},'Respondió')`, 'El cliente respondió', ICO.check)}
             ${_act('bad', `markEstado(${p.id},'No contestó')`, 'El cliente no contestó', ICO.cruz)}
             ${waUrl ? _actLink('wa', waUrl, `waAbierto(${p.id})`, 'Abrir el chat; al volver te pregunto si respondió', waSvg()) : ''}
-          </div>
+          </div>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -5723,10 +5973,10 @@ function renderSugerenciaCard(s) {
         </div>
         ${s.evidencia ? `<div class="sug-evidencia">“${escHtml(s.evidencia)}”</div>` : ''}
       </div>
-      <div class="alert-actions">
+      ${permVe('crm.datos_sugeridos', s.local_id) ? `<div class="alert-actions">
         ${_act('primary ok', `abrirSugerencia(${s.id})`, alta ? 'Revisar y dar de alta en Clientes y Dragonfish' : 'Revisar y completar la ficha del cliente', ICO.check)}
         ${_act('bad', `descartarSugerencia(${s.id})`, 'Descartar: los datos no son del cliente o están mal', ICO.cruz)}
-      </div>
+      </div>` : ''}
     </div>
   </div>`;
 }
@@ -6550,6 +6800,8 @@ function renderTagsListItem(tags) {
 
 function renderTagsModal(c) {
   const tags = c.tags || [];
+  // (14-nov) Hub: sin «Corregir la ficha» las etiquetas se ven pero no se cambian
+  if (!permVe('crm.clientes_editar')) return tags.length ? `<div class="cliente-tags-row modal" id="tags-row-modal">${tags.map(t => `<span class="tag-chip ${tagClass(t)}">${escHtml(t)}</span>`).join('')}</div>` : '';
   const chips = tags.map(t =>
     `<span class="tag-chip ${tagClass(t)}">
       ${escHtml(t)}
@@ -7803,11 +8055,14 @@ function openEditModal(id) {
   const delBtn = document.getElementById('edit-delete-btn');
   if (delBtn) {
     // (13-nov-2026, JP) lo ve quien opera el pedido; si no es admin, el borrado lo autoriza la encargada o un admin
-    delBtn.style.display = (session && puedeOperarLocal(p.local_id)) ? 'block' : 'none';
+    delBtn.style.display = (session && puedeOperarLocal(p.local_id) && permVe('crm.pedido_borrar', p.local_id)) ? 'block' : 'none';   // (14-nov) Hub
     delBtn.disabled = false;
     delBtn.textContent = '🗑 Eliminar pedido';
     delBtn.title = session && session.isAdmin ? 'Borra el pedido definitivamente' : 'Borrar el pedido: lo autoriza la encargada del local o un administrador';
   }
+  // (14-nov-2026) Hub: sin «Cambiar el estado, avisar o editar» el pedido se ve pero no se guarda
+  const saveBtn = document.getElementById('edit-save-btn');
+  if (saveBtn) saveBtn.style.display = permVe('crm.pedido_gestionar', p.local_id) ? '' : 'none';
   document.getElementById('edit-modal').style.display = 'block';
 }
 
@@ -7913,6 +8168,7 @@ async function deletePedido() {
   if (!editingId) return;
   const p = pedidosCache.find(x => x.id === editingId) || {};
   if (!session || !puedeOperarLocal(p.local_id)) { toast('❌ Este pedido no es de tu local'); return; }
+  if (perm('crm.pedido_borrar', p.local_id) === 'o') { toast('🔒 No tenés permiso para esto: Borrar un pedido (Hub → Permisos)'); return; }   // (14-nov)
   const resumen = `${p.nombre_cliente || 'Sin nombre'} — SKU ${p.sku || '—'} (${p.estado || ''})`;
   const id = editingId;
   if (!session.isAdmin) {
@@ -8000,12 +8256,15 @@ function _pedirSuperiorBorrado(p, resumen) {
         if (window.ADORNO_MFA && ADORNO_MFA.pedirCodigo && !(await ADORNO_MFA.pedirCodigo(cli))) {
           throw new Error('Sin el código del celular no se puede autorizar.');
         }
-        const [ra, re, rl, rv] = await Promise.all([cli.rpc('crm_es_admin'), cli.rpc('rrhh_is_encargada'), cli.rpc('crm_mi_local'), cli.rpc('hub_puede_ver', { p_que: 'borrar_pedido' })]);
+        // (14-nov-2026) + hub_autoriza: que tenga «Borrar un pedido» habilitado en el Hub y ese local entre los suyos
+        const [ra, re, rl, rv, rh] = await Promise.all([cli.rpc('crm_es_admin'), cli.rpc('rrhh_is_encargada'), cli.rpc('crm_mi_local'), cli.rpc('hub_puede_ver', { p_que: 'borrar_pedido' }),
+          cli.rpc('hub_autoriza', { p_funcion: 'crm.pedido_borrar', p_local: String(p.local_id || '').toLowerCase() || null })]);
         const esAdm = !!ra.data, esEnc = !!re.data, suLocal = String(rl.data || '').toLowerCase();
         const nombre = _nombreLindo((rv.data && rv.data.nombre) || email);
-        if (!esAdm && !(esEnc && suLocal === String(p.local_id || '').toLowerCase())) {
+        if (!esAdm && !(esEnc && (suLocal === String(p.local_id || '').toLowerCase() || rh.data === true))) {
           throw new Error(esEnc ? `${nombre} es encargada de otro local: el pedido es de ${local}.` : `${nombre} no puede autorizar borrados: tiene que ser la encargada de ${local} o un administrador.`);
         }
+        if (!esAdm && rh.data !== true) throw new Error(`${nombre} no tiene «Borrar un pedido» habilitado en el Hub (Permisos).`);
         // (14-nov) 📷 Registra quién: ya autorizado, se anota quién lo está haciendo (con la sesión del módulo, no la del superior)
         if (!(await registraQuien('crm.pedido_borrar', p.local_id, { pedido: p.id, cliente: p.nombre_cliente || null, sku: p.sku || null, autorizo: nombre }))) {
           throw new Error('No se borró: falta anotar quién lo está haciendo.');
@@ -8044,10 +8303,13 @@ async function saveEdit() {
   const btn = document.getElementById('edit-save-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Guardando…';
+  let _finPerm = null;
   try {
     // Capturar estado anterior para audit log
     const idxBefore = pedidosCache.findIndex(p => p.id === editingId);
     const antes = idxBefore >= 0 ? { ...pedidosCache[idxBefore] } : {};
+    _finPerm = await _permEmpezar('crm.pedido_gestionar', antes.local_id);   // (14-nov) Hub: «Pide permiso» → sale con quien autoriza
+    if (!_finPerm) return;
     if (!(await registraQuien('crm.pedido_gestionar', antes.local_id, { pedido: editingId, cliente: nombre, que: 'editar el pedido' }))) return;   // (14-nov) 📷 (el finally deja el botón como estaba)
 
     const nuevoData = {
@@ -8078,6 +8340,7 @@ async function saveEdit() {
   } catch(e) {
     toast('❌ Error: ' + e.message);
   } finally {
+    if (_finPerm) _finPerm();
     btn.disabled = false;
     btn.innerHTML = '<span>💾</span> Guardar cambios';
   }
@@ -8416,7 +8679,38 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-const CRM_VERSION = 'crm-adorno-v118-registra-quien-admin';
+// ═══ (14-nov-2026) Permisos del Hub antes de grabar (ver _permEmpezar): 'h' sigue, 'o' avisa, 'a' pide permiso y la operación
+// sale con la sesión de quien autorizó. Cargar y editar un pedido lo piden adentro (después de validar el formulario); borrar
+// tiene su propia ventana (encargada o admin, + hub_autoriza).
+(function () {
+  const _locPed = id => (pedidosCache.find(x => x.id === id) || {}).local_id || (session && session.local_id);
+  const _locWab = () => (wabSel && wabSel.local_id) || (session && session.local_id);
+  const ENVOLVER = [
+    ['markEstado', 'crm.pedido_gestionar', id => _locPed(id)],
+    ['markListo', 'crm.pedido_gestionar', id => _locPed(id)],
+    ['enviarAvisoApi', 'crm.pedido_gestionar', id => _locPed(id)],
+    ['sendWaTemplate', 'crm.pedido_gestionar', () => (waTemplatesPedidoActual && waTemplatesPedidoActual.local_id) || (session && session.local_id)],
+    ['waEnviarTexto', 'crm.wa_responder', id => _locPed(id)],
+    ['waSugerenciaDescartar', 'crm.wa_responder', id => _locPed(id)],
+    ['waBotToggle', 'crm.wa_responder', id => _locPed(id)],
+    ['waBandejaEnviar', 'crm.wa_responder', _locWab],
+    ['waBandejaSugDescartar', 'crm.wa_responder', _locWab],
+    ['waBandejaTomar', 'crm.wa_responder', _locWab],
+    ['waBandejaBot', 'crm.wa_responder', l => l || _locWab()],
+    ['addTagCliente', 'crm.clientes_editar', () => null],
+    ['removeTagCliente', 'crm.clientes_editar', () => null],
+    ['abrirWaSinCelular', 'crm.clientes_editar', () => null],
+    ['guardarSugerencia', 'crm.datos_sugeridos', () => (sugAbierta && sugAbierta.local_id) || (session && session.local_id)],
+    ['descartarSugerencia', 'crm.datos_sugeridos', id => ((sugerenciasCache.find(x => x.id === id) || {}).local_id) || (session && session.local_id)],
+  ];
+  ENVOLVER.forEach(([n, f, loc]) => {
+    const orig = window[n];
+    if (typeof orig !== 'function') { console.warn('[permisos] no encontré', n); return; }
+    window[n] = function (...a) { return _conPermiso(f, loc(...a), () => orig.apply(this, a)); };
+  });
+})();
+
+const CRM_VERSION = 'crm-adorno-v119-permisos-hub';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8554,6 +8848,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=50"></script>
+<script src="manual.js?v=51"></script>
 </body>
 </html>
