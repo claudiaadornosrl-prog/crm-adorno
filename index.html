@@ -6249,8 +6249,8 @@ async function loadChatsAdmin() {
   }
 }
 // (14-nov-2026, JP vía Infra) «Analizar» y «Generar ahora» gastan IA: tienen su propio permiso en el Hub (crm.chats_analizar y
-// crm.informe_generar, antes caían en crm.admin) y anotan quién lo hizo antes de llamar a la IA. (wa-analizar v5, que lo controla
-// también del lado del servidor, quedó armada y SIN publicar: el control automático frenó el deploy; falta el OK de JP.)
+// crm.informe_generar, antes caían en crm.admin) y anotan quién lo hizo antes de llamar a la IA. wa-analizar v5 (publicada el
+// 15-nov con el OK de JP) también lo controla del lado del servidor.
 async function subirChatsExportados() {
   const local = document.getElementById('chats-local').value;
   const files = [...(document.getElementById('chats-archivos').files || [])];
@@ -8731,7 +8731,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v120-permisos-ia-chats';
+const CRM_VERSION = 'crm-adorno-v121-ia-chats-servidor';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8869,6 +8869,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=52"></script>
+<script src="manual.js?v=53"></script>
 </body>
 </html>
