@@ -2019,7 +2019,8 @@ html.dark .wab-vacio { background: #111b21; }
 <!-- (6-nov-2026) Código del celular (doble factor) como en los demás módulos: supabase-js solo para el paso del código -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js" integrity="sha384-UagCvVPT5XXA0Hx+nJYUAGBFseHT9zBgpJMSebsAxl9lciTwbT+39j5VfRjdP5Tp" crossorigin="anonymous"></script>
 <script src="/hub/seguridad.js?v=1"></script>
-<script src="/hub/caras.js?v=4" defer></script>   <!-- (13-nov-2026) ¿quién responde? por la cara · (14-nov) 📷 Registra quién -->
+<script src="/hub/caras.js?v=7" defer></script>   <!-- (13-nov-2026) ¿quién responde? por la cara · (14-nov) 📷 Registra quién · (15-nov) v7: la cámara lee en segundo plano -->
+<script src="/hub/autorizar.js?v=5" defer></script>   <!-- (15-nov-2026) «Pide permiso»: cara (en segundo plano) → aviso al celu → usuario y clave; v5 usa la sesión de Clientes -->
 <script>
 'use strict';
 
@@ -2175,9 +2176,10 @@ const LOCAL_EMAILS = {
 const OFICINA_EMAILS = ['administracion@claudiaadorno.com', 'claudiaadorno@claudiaadorno.com'];
 function esOficina() { return !!session && !session.isAdmin && String(session.local_id || '').toLowerCase() === 'oficina'; }
 // ═══ (14-nov-2026, JP vía Infra: «Sí, aplicalos») Permisos por función desde el Hub (Hub → 👤 → Permisos) ═══
-// hub_puedo con la sesión del módulo: 'h' habilitada · 'a' se ve, pero al usarla pide el usuario personal de alguien que la
-// tenga habilitada (hub_autoriza con SU sesión, en un cliente aparte) y la operación sale con ESA sesión · 'o' oculta.
-// La base controla lo mismo (crm_puede y las políticas con hub_puedo; wa-enviar v15 también). Admin: todo habilitado.
+// hub_puedo con la sesión del módulo: 'h' habilitada · 'a' se ve, pero al usarla pide autorización con la ventana común del
+// Hub (/hub/autorizar.js, 15-nov: primero la cara, si no un aviso al celu de quien puede autorizar, si no su usuario y clave)
+// y la operación sigue con la sesión de esta cuenta, con un pase de un uso (crm_aut_tomar) · 'o' oculta.
+// La base controla lo mismo (crm_puede y las políticas con hub_puedo o el pase; wa-enviar y wa-analizar también). Admin: todo habilitado.
 // Locales: hub_mis_locales(); con varios, al entrar se elige en cuál trabaja. Panel Admin (crm.admin, wa_bot, wa_numeros,
 // wa_alta): sigue siendo solo de los admins.
 const CRM_FUNC = {
@@ -2192,7 +2194,8 @@ const CRM_FUNC = {
 };
 let PERM = null;            // id → 'h' | 'a' | 'o'. null = no se pudo leer del Hub: se usa lo de antes (la base frena igual)
 let misLocalesHub = [];     // hub_mis_locales() (afuera de session: _guardarSesion la rearma en cada renovación)
-let _supTok = null;         // token del usuario superior mientras dura una operación autorizada ('a')
+let _pases = [];            // (15-nov) «Pide permiso» en curso: [{ f, l, pase }] → van en el encabezado x-crm-pase
+function _paseHdr() { return _pases.length ? { 'x-crm-pase': _pases.map(x => x.pase).join(',') } : {}; }
 const _verAut = {};         // 'a' en algo de mirar: queda autorizado hasta que se sale de esa pestaña o de ese local
 function _locMin(l) { return String(l || '').toLowerCase(); }
 function misLocales() { const m = _locMin(session && session.local_id); return m && !misLocalesHub.includes(m) ? misLocalesHub.concat(m) : misLocalesHub.slice(); }
@@ -2242,97 +2245,98 @@ async function cargarPermisos() {
     PERM = null;
   }
 }
-// «Pide permiso»: ventana de usuario superior (como el Reporte de Ventas y el borrado de pedidos). Cliente aparte que no guarda
-// sesión; autoriza quien, con SU sesión, tiene hub_autoriza(función, local) = true (admin, o usuario personal con legajo, la
-// función Habilitada y ese local entre los suyos). Las cuentas de local u oficina nunca autorizan.
-// Devuelve { token, email, nombre, salir } o null si canceló.
-function _pedirSuperior(f, local, opts) {
+// «Pide permiso» (15-nov-2026, JP vía Infra: «en todas las funciones que tengan pedir permiso, primero la cara; si no, aviso al
+// celular de alguien autorizado; si no, mail y contraseña»): la ventana común del Hub (/hub/autorizar.js, ADORNO_AUTORIZAR.pedir).
+// Autoriza quien tiene esa función Habilitada en el Hub y ese local (las encargadas, con su legajo) o un dueño; nunca una cuenta
+// de local u oficina ni la misma persona. Se pide siempre para un local de esta cuenta: si la operación es sobre otro local, se
+// pide la función (si «operar en nombre de otro local» está habilitada) u «operar en nombre de otro local» (si la función lo está).
+// Reemplaza a la ventana de usuario superior del 14-nov (la operación salía con la sesión de quien autorizaba).
+// Devuelve { id, nombre, modo, f, l, fAut, lAut } o null si se canceló o no se pudo.
+function _sesionHubAjena() {   // autorizar.js v2 lee primero la sesión del Hub ('adorno-auth') y después la de Clientes
+  try {
+    const j = JSON.parse(localStorage.getItem((window.ADORNO_SSO && ADORNO_SSO.KEY) || 'adorno-auth') || 'null');
+    const s = j && (j.currentSession || j);
+    const e = s && s.user && String(s.user.email || '').toLowerCase();
+    return e && e !== _locMin(session && session.email) ? e : '';
+  } catch (_) { return ''; }
+}
+async function _autorizarHub(f, local, opts) {
   opts = opts || {};
-  return new Promise(listo => {
-    const nomLocal = local ? (NOMBRE_LOCAL[_locMin(local)] || local) : '';
-    const fondo = document.createElement('div');
-    fondo.className = 'sup-fondo';
-    fondo.setAttribute('data-adorno-superior', '1');   // para /hub/equipo.js: acá va el usuario personal, no el del equipo
-    fondo.innerHTML = `<div class="sup-caja" role="dialog" aria-modal="true">
-      <h3>Pedir permiso</h3>
-      <p class="sup-txt"><b>${escHtml(CRM_FUNC[f] || f)}</b>${nomLocal ? ` en <b>${escHtml(nomLocal)}</b>` : ''} lo autoriza alguien que lo tenga
-        habilitado en el Hub, con su usuario personal (el mismo mail y clave de RRHH). La cuenta del local o de la oficina no
-        alcanza. ${opts.solo_mirar ? 'Es solo para mirar: la sesión se cierra enseguida.' : 'La operación queda hecha con su usuario y la sesión se cierra sola al terminar.'}</p>
-      ${opts.resumen ? `<div class="sup-ped neutro">${escHtml(opts.resumen)}</div>` : ''}
-      <input type="email" id="sup-email" placeholder="mail de quien autoriza" autocomplete="username" data-no-upper>
-      <input type="password" id="sup-pass" placeholder="su contraseña" autocomplete="current-password">
-      <div class="sup-err" id="sup-err"></div>
-      <div class="sup-btns">
-        <button type="button" class="sup-b" id="sup-cancel">Cancelar</button>
-        <button type="button" class="sup-b ok" id="sup-ok">Autorizar</button>
-      </div></div>`;
-    document.body.appendChild(fondo);
-    const $ = s => fondo.querySelector(s);
-    const cerrar = r => { fondo.remove(); listo(r); };
-    $('#sup-cancel').onclick = () => cerrar(null);
-    fondo.addEventListener('keydown', e => { if (e.key === 'Escape') cerrar(null); });
-    $('#sup-pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#sup-ok').click(); });
-    $('#sup-ok').onclick = async () => {
-      const email = ($('#sup-email').value || '').trim().toLowerCase();
-      const pass = $('#sup-pass').value || '';
-      const err = $('#sup-err'), btn = $('#sup-ok');
-      err.textContent = '';
-      if (!email || !pass) { err.textContent = 'Completá el mail y la contraseña.'; return; }
-      if (email === _locMin(session.email) || OFICINA_EMAILS.includes(email) || Object.values(LOCAL_EMAILS).includes(email)) {
-        err.textContent = 'Tiene que ser el usuario personal de quien autoriza, no la cuenta del local o de la oficina.'; return;
-      }
-      if (!window.supabase) { err.textContent = 'No se pudo abrir el ingreso: recargá la página.'; return; }
-      btn.disabled = true; $('#sup-cancel').disabled = true; btn.textContent = 'Autorizando…';
-      const cli = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'adorno-clientes-superior' }
-      });
-      const salir = async () => { try { await cli.auth.signOut({ scope: 'local' }); } catch (_) {} };
-      try {
-        const { error } = await cli.auth.signInWithPassword({ email, password: pass });
-        if (error) throw new Error('Mail o contraseña incorrectos.');
-        if (window.ADORNO_MFA && ADORNO_MFA.pedirCodigo && !(await ADORNO_MFA.pedirCodigo(cli))) {
-          throw new Error('Sin el código del celular no se puede autorizar.');
-        }
-        const [ra, rv] = await Promise.all([cli.rpc('hub_autoriza', { p_funcion: f, p_local: local ? _locMin(local) : null }), cli.rpc('hub_puede_ver', { p_que: f })]);
-        const nombre = _nombreLindo((rv.data && rv.data.nombre) || email);
-        if (ra.error) throw new Error('No se pudo verificar el permiso: ' + ra.error.message);
-        if (ra.data !== true) throw new Error(`${nombre} no puede autorizar «${CRM_FUNC[f] || f}»${nomLocal ? ' en ' + nomLocal : ''}: tiene que tenerlo habilitado en el Hub y entrar con su usuario personal.`);
-        const s = (await cli.auth.getSession()).data.session;
-        if (!s || !s.access_token) throw new Error('No se pudo abrir la sesión de quien autoriza.');
-        toast('✅ Autorizó ' + nombre);
-        cerrar({ token: s.access_token, email, nombre, salir });
-      } catch (e) {
-        await salir();
-        err.textContent = e.message || 'No se pudo autorizar.';
-        btn.disabled = false; $('#sup-cancel').disabled = false; btn.textContent = 'Autorizar';
-      }
-    };
-    setTimeout(() => $('#sup-email').focus(), 50);
-  });
+  const l = _locMin(local), mio = _locMin(session && session.local_id);
+  let fAut = f, lAut = l || mio;
+  if (l && !misLocales().includes(l)) {
+    const base = _permBase(f), otros = _permBase('crm.operar_otros_locales');
+    if (base === 'a' && otros === 'a') { toast('🔒 Para esto hacen falta dos permisos (la función y operar en otro local): pedíselo a un administrador'); return null; }
+    fAut = base === 'a' ? f : 'crm.operar_otros_locales';
+    lAut = mio;
+  }
+  if (!lAut) { toast('🔒 Elegí primero en qué local trabajás'); return null; }
+  if (!window.ADORNO_AUTORIZAR || !ADORNO_AUTORIZAR.pedir) { toast('⚠️ No cargó la ventana de autorización del Hub: recargá la página'); return null; }
+  const ajena = ADORNO_AUTORIZAR.SESION ? '' : _sesionHubAjena();
+  if (ajena) { toast(`⚠️ En esta compu el Hub quedó abierto con otra cuenta (${ajena}): salí de esa cuenta en el Hub y probá de nuevo`); return null; }
+  await _ensureFreshToken();
+  const nomLocal = NOMBRE_LOCAL[l || lAut] || (l || lAut);
+  const que = String(CRM_FUNC[f] || f).replace(/^./, c => c.toLowerCase());
+  let a = null;
+  try {
+    a = await ADORNO_AUTORIZAR.pedir({
+      funcion: fAut, local: lAut, modulo: 'crm', que,
+      resumen: opts.resumen || `${CRM_FUNC[f] || f} · ${nomLocal}`,
+      detalle: Object.assign({ modulo: 'crm', operacion: f, local_operacion: l || lAut }, opts.detalle || {}),
+      sesion: { email: _locMin(session.email), token: authToken },   // la sesión de Clientes (si autorizar.js la acepta)
+    });
+  } catch (e) { toast('❌ ' + (e.message || 'No se pudo pedir la autorización')); return null; }
+  if (!a || !a.id || a.id < 0) return null;
+  return Object.assign({}, a, { f, l: l || lAut, fAut, lAut, nombre: _nombreLindo(a.nombre) });
 }
-// Antes de grabar: 'h' sigue; 'o' avisa y no hace nada; 'a' pide permiso y, mientras dura, todo lo que se graba sale con la
-// sesión de quien autorizó (supaHeaders y wa-enviar usan _supTok). Devuelve la función que cierra la autorización, o null.
-async function _permEmpezar(f, local) {
-  if (!session || session.isAdmin || _supTok) return () => {};
+// Antes de grabar: 'h' sigue; 'o' avisa y no hace nada; 'a' pide la autorización y la gasta (crm_aut_tomar). JP (15-nov): «Sí,
+// una sola» → cada autorización sirve para UNA operación: el pase queda atado a opts.objeto ('pedido:<id>', 'charla:<10 dígitos>',
+// 'cliente:<globalid>', 'sugerencia:<id>', 'botsug:<id>') o a una cantidad de usos ('alta' = los artículos del pedido nuevo,
+// 'lote:<uuid>' = los chats de esa subida, 'informe'). Mientras dura la operación, lo que se graba lleva el pase en x-crm-pase
+// (supaHeaders, wa-enviar y wa-analizar) y la base lo acepta solo para eso (5 minutos como mucho; al terminar se cierra).
+// Devuelve la función que cierra el pase (con .nombre = quién autorizó), o null.
+async function _permEmpezar(f, local, opts) {
+  opts = opts || {};
+  const nada = () => {};
+  if (!session || session.isAdmin) return nada;
   const pm = perm(f, local);
-  if (pm === 'h') return () => {};
+  if (pm === 'h') return nada;
   if (pm === 'o') { toast('🔒 No tenés permiso para esto: ' + (CRM_FUNC[f] || f) + ' (Hub → Permisos)'); return null; }
-  const sup = await _pedirSuperior(f, local);
-  if (!sup) return null;
-  _supTok = sup.token;
+  const l = _locMin(local), objeto = opts.objeto || '';
+  if (!objeto) { toast('⚠️ No se pudo pedir permiso para esto (falta qué operación es): avisale a JP'); return null; }
+  if (_pases.some(x => x.f === f && x.objeto === objeto && (!l || x.l === l))) return nada;   // ya autorizada esta misma operación
+  const a = await _autorizarHub(f, local, opts);
+  if (!a) return null;
+  let r = null;
+  try {
+    r = await _rpcBot('crm_aut_tomar', { p_aut: a.id, p_funcion: a.fAut, p_local: a.lAut, p_objeto: objeto, p_usos: opts.usos || null,
+      p_op_funcion: f, p_op_local: a.l, p_usado_en: opts.usado_en || ('Clientes: ' + (CRM_FUNC[f] || f) + ' (' + objeto + ')') }, authToken);
+  } catch (e) { toast('❌ No se pudo usar la autorización: ' + e.message); return null; }
+  if (!r || !r.pase) { toast('❌ No se pudo usar la autorización'); return null; }
+  const item = { f, l: a.l, objeto, pase: r.pase };
+  _pases.push(item);
   let cerrado = false;
-  return () => { if (cerrado) return; cerrado = true; _supTok = null; sup.salir(); };
+  const fin = () => {
+    if (cerrado) return;
+    cerrado = true;
+    _pases = _pases.filter(x => x !== item);
+    _rpcBot('crm_aut_cerrar', { p_pase: item.pase }, authToken).catch(() => {});   // si no llega, vence solo a los 5 min
+  };
+  fin.nombre = a.nombre; fin.modo = a.modo;
+  return fin;
 }
-async function _conPermiso(f, local, correr) {
-  const fin = await _permEmpezar(f, local);
+async function _conPermiso(f, local, correr, objeto) {
+  const fin = await _permEmpezar(f, local, { objeto });
   if (!fin) return;
   try { return await correr(); } finally { fin(); }
 }
-// 'a' en algo de mirar (una pestaña, otro local): autoriza y se cierra enseguida la sesión de quien autorizó
-async function _autorizarVer(f, local) {
-  const sup = await _pedirSuperior(f, local, { solo_mirar: true });
-  if (!sup) return false;
-  await sup.salir();
+// 'a' en algo de mirar (una pestaña, otro local): se autoriza y se gasta enseguida (queda anotado en el Hub quién autorizó)
+async function _autorizarVer(f, local, resumen) {
+  const a = await _autorizarHub(f, local || (session && session.local_id), { resumen });
+  if (!a) return false;
+  try {
+    await _rpcBot('hub_autorizacion_usar', { p_id: a.id, p_funcion: a.fAut, p_local: a.lAut, p_usado_en: 'Clientes: ' + (resumen || CRM_FUNC[f] || f) }, authToken);
+  } catch (e) { toast('❌ No se pudo usar la autorización: ' + e.message); return false; }
   return true;
 }
 const ADMIN_EMAIL = 'juanpsimonelli@gmail.com';
@@ -2344,9 +2348,10 @@ const MODO_SIMPLE_EMAILS = ['clau@claudiaadorno.com'];
 function supaHeaders() {
   return {
     'apikey': SUPA_KEY,
-    'Authorization': 'Bearer ' + (_supTok || authToken || SUPA_KEY),   // (14-nov) _supTok: «Pide permiso» del Hub
+    'Authorization': 'Bearer ' + (authToken || SUPA_KEY),
     'Content-Type': 'application/json',
     'Prefer': 'return=representation',
+    ..._paseHdr(),   // (15-nov) «Pide permiso»: el pase de la autorización mientras dura la operación
   };
 }
 
@@ -3021,7 +3026,7 @@ async function enviarConfirmacionApi(pedido, nombre, celular, lineas) {
     await _ensureFreshToken();
     const r = await fetch(`${SUPA_URL}/functions/v1/wa-enviar`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (_supTok || authToken || SUPA_KEY) },
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY), ..._paseHdr() },
       body: JSON.stringify({ pedido_id: pedido.id, plantilla: 'pedido_confirmado', producto }),
     });
     const j = await r.json().catch(() => ({}));
@@ -3051,7 +3056,7 @@ async function enviarAvisoApi(id, plantilla) {
     await _ensureFreshToken();
     const r = await fetch(`${SUPA_URL}/functions/v1/wa-enviar`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (_supTok || authToken || SUPA_KEY) },
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY), ..._paseHdr() },
       body: JSON.stringify({ pedido_id: id, plantilla, vendedora }),
     });
     const j = await r.json().catch(() => ({}));
@@ -3218,7 +3223,7 @@ async function _waEnviarFetch(body, extraHeaders) {
   await _ensureFreshToken();
   const r = await fetch(`${SUPA_URL}/functions/v1/wa-enviar`, {
     method: 'POST',
-    headers: Object.assign({ 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (_supTok || authToken || SUPA_KEY) }, extraHeaders || {}),
+    headers: Object.assign({ 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY), ..._paseHdr() }, extraHeaders || {}),
     body: JSON.stringify(body),
   });
   const j = await r.json().catch(() => ({}));
@@ -4303,7 +4308,10 @@ async function waQuienAtiende(o) {
   if (!local) { toast('⚠️ Elegí una charla primero'); return null; }
   let irALista = true;
   if (window.ADORNO_CARAS && ADORNO_CARAS.quien) {
+    // (15-nov-2026, JP vía Infra) caras.js v7: oculta = la cámara lee en segundo plano, sin ventana ni círculo (solo una pastilla
+    // «Un momento…» y «Responde: …»). Si en ~7 s no reconoce a nadie o no hay cámara, vuelve con motivo 'lista' → la lista.
     const r = await ADORNO_CARAS.quien({ cli: _wabCli, rpc: 'wa_quien_atiende', params: { p_local: local }, titulo: '¿Quién responde?',
+      oculta: true, textoOk: 'Responde',
       nota: 'Mirá a la cámara: te reconozco por la cara y seguimos. Si no te reconozco, elegís tu nombre de la lista. Queda ' + WA_ATIENDE_MIN + ' minutos.' });
     if (r.ok) { const a = _wabAtiendeSet(r.data, 'cara', r.descriptor); toast('👤 Hola ' + a.nombre.split(' ')[0] + '! Respondés vos los próximos ' + WA_ATIENDE_MIN + ' min'); return a; }
     if (r.motivo === 'cancel') return null;
@@ -4438,7 +4446,7 @@ async function setOficinaVer(v) {
   // (14-nov) «Pide permiso» en ver otros locales: se autoriza al elegir otro local
   const F = 'crm.ver_otros_locales';
   if (v === _locMin(session.local_id)) delete _verAut[F];
-  else if (perm(F) === 'a' && !_verAut[F]) { if (!(await _autorizarVer(F))) return; _verAut[F] = true; }
+  else if (perm(F) === 'a' && !_verAut[F]) { if (!(await _autorizarVer(F, null, 'Ver los pedidos de ' + (NOMBRE_LOCAL[v] || 'todos los locales')))) return; _verAut[F] = true; }
   oficinaVer = v;
   renderOficinaVer();
   if (mirandoOtroLocal()) {
@@ -5015,8 +5023,11 @@ async function submitPedido() {
   btn.innerHTML = '<span class="spinner"></span> Guardando...';
   // (14-nov) 📷 Registra quién: si la persona cancela, no se carga nada
   const localPedido = (wabPedidoCtx && wabPedidoCtx.local_id) || session.local_id;
-  // (14-nov-2026) Permisos del Hub: «Pide permiso» → autoriza alguien con su usuario personal y el pedido sale con esa sesión
-  const _finPerm = await _permEmpezar('crm.pedido_cargar', localPedido);
+  // (14-nov-2026) Permisos del Hub. (15-nov) «Pide permiso»: la ventana del Hub; la autorización sirve para ESTE pedido nuevo
+  // (un uso por artículo: 'alta') y su confirmación por WhatsApp
+  const _finPerm = await _permEmpezar('crm.pedido_cargar', localPedido, { objeto: 'alta', usos: validLines.length,
+    resumen: `Cargar un pedido de ${nombre || 'una clienta'}: ${validLines.length} artículo${validLines.length > 1 ? 's' : ''} (${validLines.map(l => l.sku).join(', ')})`,
+    detalle: { cliente: nombre || null, articulos: validLines.map(l => l.sku) } });
   if (!_finPerm) { btn.disabled = false; btn.innerHTML = '<span>💾</span> Guardar pedido'; return; }
   const detPedido = { cliente: nombre, dni, articulos: validLines.map(l => l.sku), vendedora, ...(wabPedidoCtx ? { desde: 'charla de WhatsApp' } : {}) };
   // desde una charla: si ya se sabe quién responde, es esa persona (no se le vuelve a preguntar)
@@ -6059,7 +6070,7 @@ async function _waAnalizarFetch(body) {
   await _ensureFreshToken();
   const r = await fetch(`${SUPA_URL}/functions/v1/wa-analizar`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (_supTok || authToken || SUPA_KEY) },   // (14-nov) _supTok: «Pide permiso»
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY), ..._paseHdr() },   // (15-nov) pase de «Pide permiso»
     body: JSON.stringify(body),
   });
   const j = await r.json().catch(() => ({}));
@@ -6250,19 +6261,20 @@ async function loadChatsAdmin() {
 }
 // (14-nov-2026, JP vía Infra) «Analizar» y «Generar ahora» gastan IA: tienen su propio permiso en el Hub (crm.chats_analizar y
 // crm.informe_generar, antes caían en crm.admin) y anotan quién lo hizo antes de llamar a la IA. wa-analizar v5 (publicada el
-// 15-nov con el OK de JP) también lo controla del lado del servidor.
+// 15-nov con el OK de JP) también lo controla del lado del servidor; v6 acepta el pase de «Pide permiso» (ventana del Hub).
 async function subirChatsExportados() {
   const local = document.getElementById('chats-local').value;
   const files = [...(document.getElementById('chats-archivos').files || [])];
   if (!files.length) { toast('Elegí uno o más archivos (.txt o .zip)'); return; }
-  const fin = await _permEmpezar('crm.chats_analizar', local);
+  const lote = (crypto.randomUUID ? crypto.randomUUID() : '10000000-1000-4000-8000-' + String(Date.now()).padStart(12, '0').slice(-12));   // (15-nov) esta subida
+  const fin = await _permEmpezar('crm.chats_analizar', local, { objeto: 'lote:' + lote, usos: files.length, resumen: `Analizar con IA ${files.length} chat${files.length > 1 ? 's' : ''} exportado${files.length > 1 ? 's' : ''} de ${NOMBRE_LOCAL[local] || local}` });
   if (!fin) return;
   try {
     if (!(await registraQuien('crm.chats_analizar', local, { que: 'analizar chats exportados', archivos: files.length }))) return;   // 📷
-    await _subirChatsExportados(local, files);
+    await _subirChatsExportados(local, files, lote);
   } finally { fin(); }
 }
-async function _subirChatsExportados(local, files) {
+async function _subirChatsExportados(local, files, lote) {
   const log = document.getElementById('chats-subida-log');
   log.innerHTML = '';
   let ok = 0;
@@ -6282,7 +6294,7 @@ async function _subirChatsExportados(local, files) {
         texto = await f.text();
       }
       if (texto.length > 300000) texto = texto.slice(-300000);  // los últimos ~300 KB alcanzan
-      const r = await _waAnalizarFetch({ modo: 'export', local_id: local, archivo: f.name, texto });
+      const r = await _waAnalizarFetch({ modo: 'export', local_id: local, archivo: f.name, texto, lote });   // (15-nov) lote: el pase de «Pide permiso» es de esta subida
       const sug = r.sugerencia && r.sugerencia.accion ? ` · 🪪 ${r.sugerencia.accion === 'alta' ? 'cliente nuevo para confirmar en Alertas' : 'datos para completar en Alertas'}` : '';
       linea.innerHTML = `✔ <b>${escHtml(r.contacto || f.name)}</b>: ${escHtml(r.resumen || '')}${sug}`;
       ok++;
@@ -6298,7 +6310,7 @@ async function _subirChatsExportados(local, files) {
   if (nuevo) nuevo.innerHTML = keep;
 }
 async function generarInformeAhora() {
-  const fin = await _permEmpezar('crm.informe_generar', null);
+  const fin = await _permEmpezar('crm.informe_generar', null, { objeto: 'informe', usos: 1, resumen: 'Generar ahora el informe de WhatsApp del mes' });
   if (!fin) return;
   try {
     const hoy = new Date();
@@ -8180,38 +8192,48 @@ function selectEditSku(sku, desc) {
 
 // ═══════════════════════════════════════════════════════
 //  Eliminar pedido
-//  (13-nov-2026, JP) Lo autoriza la encargada del local o un admin con el "usuario superior": su usuario personal en un
-//  cliente aparte (persistSession: false, no toca la sesión de la cuenta del local) y el DELETE sale con ESE cliente.
-//  La base lo frena igual: pedidos_delete = crm_es_admin() or (rrhh_is_encargada() and local del pedido = el suyo).
-//  El admin logueado como admin borra directo, como antes.
+//  (13-nov-2026, JP) Lo autoriza la encargada del local o un admin. (15-nov-2026, JP vía Infra) Con «Pide permiso» se usa la
+//  ventana común del Hub (cara → aviso al celu → usuario y clave, _permEmpezar): esa ventana es la confirmación y el DELETE
+//  sale con la sesión de la cuenta del local, con el pase de un uso. La base lo frena igual: pedidos_delete = admin, o la
+//  encargada con «Borrar un pedido» habilitado en su local, o el pase (crm_aut_tomar exige que haya autorizado la encargada
+//  o un admin). Con la función Habilitada (admin, o la encargada con su usuario): dos confirmaciones y borra.
 // ═══════════════════════════════════════════════════════
 async function deletePedido() {
   if (!editingId) return;
   const p = pedidosCache.find(x => x.id === editingId) || {};
   if (!session || !puedeOperarLocal(p.local_id)) { toast('❌ Este pedido no es de tu local'); return; }
-  if (perm('crm.pedido_borrar', p.local_id) === 'o') { toast('🔒 No tenés permiso para esto: Borrar un pedido (Hub → Permisos)'); return; }   // (14-nov)
+  const pm = perm('crm.pedido_borrar', p.local_id);
+  if (pm === 'o') { toast('🔒 No tenés permiso para esto: Borrar un pedido (Hub → Permisos)'); return; }   // (14-nov)
   const resumen = `${p.nombre_cliente || 'Sin nombre'} — SKU ${p.sku || '—'} (${p.estado || ''})`;
   const id = editingId;
-  if (!session.isAdmin) {
-    const aut = await _pedirSuperiorBorrado(p, resumen);   // adentro, después de autorizar, se anota quién lo hace (📷)
-    if (!aut) return;   // canceló
-    _pedidoEliminadoUI(id, aut.nombre);
-    return;
+  let fin = () => {}, autorizo = null;
+  if (pm === 'h') {
+    if (!confirm(`⚠️ ELIMINAR DEFINITIVAMENTE este pedido?\n\n${resumen}\n\nEsta acción no se puede deshacer.`)) return;
+    if (!confirm('Confirmá una vez más: vas a borrar el pedido permanentemente.')) return;
+  } else {
+    const f = await _permEmpezar('crm.pedido_borrar', p.local_id, { objeto: 'pedido:' + id,   // (15-nov) la autorización sirve solo para ESTE pedido
+      resumen: `🗑 Borrar el pedido de ${resumen}. Se borra definitivamente: no se puede deshacer.`,
+      usado_en: `Clientes: borrar el pedido #${id}`, detalle: { pedido: id, cliente: p.nombre_cliente || null, sku: p.sku || null } });
+    if (!f) return;   // canceló o no se pudo
+    fin = f; autorizo = f.nombre || null;
   }
-  if (!confirm(`⚠️ ELIMINAR DEFINITIVAMENTE este pedido?\n\n${resumen}\n\nEsta acción no se puede deshacer.`)) return;
-  if (!confirm('Confirmá una vez más: vas a borrar el pedido permanentemente.')) return;
-  if (!(await registraQuien('crm.pedido_borrar', p.local_id, { pedido: id, cliente: p.nombre_cliente || null, sku: p.sku || null }))) return;   // (14-nov) 📷
   const btn = document.getElementById('edit-delete-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Eliminando…'; }
+  let logueado = false;   // el historial se escribe antes del borrado (pedidos_log queda con pedido_id null)
   try {
-    await logPedidoChange(id, 'eliminar', null, resumen, 'eliminado');
+    if (!(await registraQuien('crm.pedido_borrar', p.local_id, { pedido: id, cliente: p.nombre_cliente || null, sku: p.sku || null, autorizo }))) return;   // (14-nov) 📷
+    if (btn) { btn.disabled = true; btn.textContent = 'Eliminando…'; }
+    await logPedidoChange(id, 'eliminar', null, resumen + (autorizo ? ` · autorizó ${autorizo}` : ''), 'eliminado');
+    logueado = true;
     const r = await fetch(`${SUPA_URL}/rest/v1/pedidos?id=eq.${id}`, { method: 'DELETE', headers: supaHeaders() });
     if (!r.ok) throw new Error(`DELETE ${r.status}: ${await r.text()}`);
-    _pedidoEliminadoUI(id, null);
+    const borrados = await r.json().catch(() => null);
+    if (Array.isArray(borrados) && !borrados.length) throw new Error('la base no dejó borrar el pedido');
+    _pedidoEliminadoUI(id, autorizo);
   } catch(e) {
+    if (logueado) logPedidoChange(id, 'eliminar', null, 'no se borró: ' + (e.message || 'error'), 'sigue');
     toast('❌ Error al eliminar: ' + e.message);
     if (btn) { btn.disabled = false; btn.textContent = '🗑 Eliminar pedido'; }
-  }
+  } finally { fin(); }
 }
 function _pedidoEliminadoUI(id, autorizo) {
   pedidosCache = pedidosCache.filter(x => x.id !== id);
@@ -8227,85 +8249,6 @@ function _nombreLindo(n) {   // 'DONZELLI, SORAYA' → 'Soraya Donzelli'
   if (!t.includes(',') || t.includes('@')) return t;
   const [ap, no] = t.split(',');
   return (no.trim() + ' ' + ap.trim()).toLowerCase().replace(/(^|\s)\S/g, x => x.toUpperCase());
-}
-// Ventana de usuario superior. Devuelve { email, nombre } si se borró, o null si canceló.
-function _pedirSuperiorBorrado(p, resumen) {
-  return new Promise(listo => {
-    const local = NOMBRE_LOCAL[String(p.local_id || '').toLowerCase()] || p.local_id || 'el local';
-    const f = document.createElement('div');
-    f.className = 'sup-fondo';
-    f.setAttribute('data-adorno-superior', '1');   // para /hub/equipo.js: acá va el usuario personal, no el del equipo
-    f.innerHTML = `<div class="sup-caja" role="dialog" aria-modal="true">
-      <h3>Autorizar el borrado</h3>
-      <p class="sup-txt">Borrar un pedido lo autoriza <b>la encargada de ${escHtml(local)}</b> o <b>un administrador</b>, con su
-        usuario personal (el mismo mail y clave de RRHH). La cuenta del local o de la oficina no alcanza. La sesión se cierra
-        sola al terminar.</p>
-      <div class="sup-ped">🗑 ${escHtml(resumen)}<br><small>Se borra definitivamente: no se puede deshacer.</small></div>
-      <input type="email" id="sup-email" placeholder="mail de la encargada o del administrador" autocomplete="username" data-no-upper>
-      <input type="password" id="sup-pass" placeholder="su contraseña" autocomplete="current-password">
-      <div class="sup-err" id="sup-err"></div>
-      <div class="sup-btns">
-        <button type="button" class="sup-b" id="sup-cancel">Cancelar</button>
-        <button type="button" class="sup-b peligro" id="sup-ok">Autorizar y borrar</button>
-      </div></div>`;
-    document.body.appendChild(f);
-    const $ = s => f.querySelector(s);
-    const cerrar = (r) => { f.remove(); listo(r); };
-    $('#sup-cancel').onclick = () => cerrar(null);
-    f.addEventListener('keydown', e => { if (e.key === 'Escape') cerrar(null); });
-    $('#sup-pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#sup-ok').click(); });
-    $('#sup-ok').onclick = async () => {
-      const email = ($('#sup-email').value || '').trim().toLowerCase();
-      const pass = $('#sup-pass').value || '';
-      const err = $('#sup-err'), btn = $('#sup-ok');
-      err.textContent = '';
-      if (!email || !pass) { err.textContent = 'Completá el mail y la contraseña.'; return; }
-      if (email === String(session.email || '').toLowerCase() || OFICINA_EMAILS.includes(email) || Object.values(LOCAL_EMAILS).includes(email)) {
-        err.textContent = 'Tiene que ser el usuario personal de la encargada o de un administrador, no la cuenta del local.'; return;
-      }
-      if (!window.supabase) { err.textContent = 'No se pudo abrir el ingreso: recargá la página.'; return; }
-      btn.disabled = true; $('#sup-cancel').disabled = true; btn.textContent = 'Autorizando…';
-      const cli = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'adorno-clientes-superior' }
-      });
-      const salir = async () => { try { await cli.auth.signOut({ scope: 'local' }); } catch (_) {} };
-      let logueado = false;   // el historial se escribe antes del borrado (pedidos_log queda con pedido_id null)
-      try {
-        const { error } = await cli.auth.signInWithPassword({ email, password: pass });
-        if (error) throw new Error('Mail o contraseña incorrectos.');
-        // código del celular, si esa cuenta lo tiene activado
-        if (window.ADORNO_MFA && ADORNO_MFA.pedirCodigo && !(await ADORNO_MFA.pedirCodigo(cli))) {
-          throw new Error('Sin el código del celular no se puede autorizar.');
-        }
-        // (14-nov-2026) + hub_autoriza: que tenga «Borrar un pedido» habilitado en el Hub y ese local entre los suyos
-        const [ra, re, rl, rv, rh] = await Promise.all([cli.rpc('crm_es_admin'), cli.rpc('rrhh_is_encargada'), cli.rpc('crm_mi_local'), cli.rpc('hub_puede_ver', { p_que: 'borrar_pedido' }),
-          cli.rpc('hub_autoriza', { p_funcion: 'crm.pedido_borrar', p_local: String(p.local_id || '').toLowerCase() || null })]);
-        const esAdm = !!ra.data, esEnc = !!re.data, suLocal = String(rl.data || '').toLowerCase();
-        const nombre = _nombreLindo((rv.data && rv.data.nombre) || email);
-        if (!esAdm && !(esEnc && (suLocal === String(p.local_id || '').toLowerCase() || rh.data === true))) {
-          throw new Error(esEnc ? `${nombre} es encargada de otro local: el pedido es de ${local}.` : `${nombre} no puede autorizar borrados: tiene que ser la encargada de ${local} o un administrador.`);
-        }
-        if (!esAdm && rh.data !== true) throw new Error(`${nombre} no tiene «Borrar un pedido» habilitado en el Hub (Permisos).`);
-        // (14-nov) 📷 Registra quién: ya autorizado, se anota quién lo está haciendo (con la sesión del módulo, no la del superior)
-        if (!(await registraQuien('crm.pedido_borrar', p.local_id, { pedido: p.id, cliente: p.nombre_cliente || null, sku: p.sku || null, autorizo: nombre }))) {
-          throw new Error('No se borró: falta anotar quién lo está haciendo.');
-        }
-        await logPedidoChange(p.id, 'eliminar', null, `${resumen} · autorizó ${nombre} (${email})`, 'eliminado');
-        logueado = true;
-        const { data, error: ed } = await cli.from('pedidos').delete().eq('id', p.id).select('id');
-        if (ed) throw new Error(ed.message);
-        if (!data || !data.length) throw new Error('La base no dejó borrar el pedido con ese usuario.');
-        await salir();
-        cerrar({ email, nombre });
-      } catch (e) {
-        if (logueado) logPedidoChange(p.id, 'eliminar', null, 'no se borró: ' + (e.message || 'error'), 'sigue');
-        await salir();
-        err.textContent = e.message || 'No se pudo autorizar.';
-        btn.disabled = false; $('#sup-cancel').disabled = false; btn.textContent = 'Autorizar y borrar';
-      }
-    };
-    setTimeout(() => $('#sup-email').focus(), 50);
-  });
 }
 
 async function saveEdit() {
@@ -8329,7 +8272,8 @@ async function saveEdit() {
     // Capturar estado anterior para audit log
     const idxBefore = pedidosCache.findIndex(p => p.id === editingId);
     const antes = idxBefore >= 0 ? { ...pedidosCache[idxBefore] } : {};
-    _finPerm = await _permEmpezar('crm.pedido_gestionar', antes.local_id);   // (14-nov) Hub: «Pide permiso» → sale con quien autoriza
+    _finPerm = await _permEmpezar('crm.pedido_gestionar', antes.local_id, { objeto: 'pedido:' + editingId,
+      resumen: `Editar el pedido de ${nombre || 'una clienta'} (#${editingId})` });   // (15-nov) «Pide permiso»: solo ESTE pedido
     if (!_finPerm) return;
     if (!(await registraQuien('crm.pedido_gestionar', antes.local_id, { pedido: editingId, cliente: nombre, que: 'editar el pedido' }))) return;   // (14-nov) 📷 (el finally deja el botón como estaba)
 
@@ -8700,38 +8644,42 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 //  tiene que ser igual a CACHE_VERSION de service-worker.js (se cambian las dos juntas al publicar). Cada 10 minutos
 //  (y al volver a la pestaña) se mira la publicada: si es más nueva, el número se pone amarillo y al tocarlo recarga.
 // ═══════════════════════════════════════════════════════
-// ═══ (14-nov-2026) Permisos del Hub antes de grabar (ver _permEmpezar): 'h' sigue, 'o' avisa, 'a' pide permiso y la operación
-// sale con la sesión de quien autorizó. Cargar y editar un pedido lo piden adentro (después de validar el formulario); borrar
-// tiene su propia ventana (encargada o admin, + hub_autoriza).
+// ═══ (14-nov-2026) Permisos del Hub antes de grabar (ver _permEmpezar): 'h' sigue, 'o' avisa, 'a' pide permiso con la ventana
+// común del Hub (15-nov: cara → celu → clave) y la operación lleva un pase atado a ESA operación (el 4.º dato: qué pedido, qué
+// charla, qué ficha, qué sugerencia). Cargar y editar un pedido lo piden adentro (después de validar el formulario); borrar, en
+// deletePedido (además tiene que autorizar la encargada o un admin).
 (function () {
   const _locPed = id => (pedidosCache.find(x => x.id === id) || {}).local_id || (session && session.local_id);
   const _locWab = () => (wabSel && wabSel.local_id) || (session && session.local_id);
+  const _charla = c => 'charla:' + String(c || '').replace(/\D/g, '').slice(-10);
+  const _ped = id => 'pedido:' + id;
   const ENVOLVER = [
-    ['markEstado', 'crm.pedido_gestionar', id => _locPed(id)],
-    ['markListo', 'crm.pedido_gestionar', id => _locPed(id)],
-    ['enviarAvisoApi', 'crm.pedido_gestionar', id => _locPed(id)],
-    ['sendWaTemplate', 'crm.pedido_gestionar', () => (waTemplatesPedidoActual && waTemplatesPedidoActual.local_id) || (session && session.local_id)],
-    ['waEnviarTexto', 'crm.wa_responder', id => _locPed(id)],
-    ['waSugerenciaDescartar', 'crm.wa_responder', id => _locPed(id)],
-    ['waBotToggle', 'crm.wa_responder', id => _locPed(id)],
-    ['waBandejaEnviar', 'crm.wa_responder', _locWab],
-    ['waBandejaSugDescartar', 'crm.wa_responder', _locWab],
-    ['waBandejaTomar', 'crm.wa_responder', _locWab],
-    ['waBandejaBot', 'crm.wa_responder', l => l || _locWab()],
-    ['addTagCliente', 'crm.clientes_editar', () => null],
-    ['removeTagCliente', 'crm.clientes_editar', () => null],
-    ['abrirWaSinCelular', 'crm.clientes_editar', () => null],
-    ['guardarSugerencia', 'crm.datos_sugeridos', () => (sugAbierta && sugAbierta.local_id) || (session && session.local_id)],
-    ['descartarSugerencia', 'crm.datos_sugeridos', id => ((sugerenciasCache.find(x => x.id === id) || {}).local_id) || (session && session.local_id)],
+    ['markEstado', 'crm.pedido_gestionar', id => _locPed(id), _ped],
+    ['markListo', 'crm.pedido_gestionar', id => _locPed(id), _ped],
+    ['enviarAvisoApi', 'crm.pedido_gestionar', id => _locPed(id), _ped],
+    ['sendWaTemplate', 'crm.pedido_gestionar', () => (waTemplatesPedidoActual && waTemplatesPedidoActual.local_id) || (session && session.local_id),
+      () => _ped(waTemplatesPedidoActual && waTemplatesPedidoActual.id)],
+    ['waEnviarTexto', 'crm.wa_responder', id => _locPed(id), _ped],
+    ['waSugerenciaDescartar', 'crm.wa_responder', id => _locPed(id), (id, sug) => 'botsug:' + sug],
+    ['waBotToggle', 'crm.wa_responder', id => _locPed(id), _ped],
+    ['waBandejaEnviar', 'crm.wa_responder', _locWab, () => _charla(wabSel && wabSel.celular)],
+    ['waBandejaSugDescartar', 'crm.wa_responder', _locWab, id => 'botsug:' + id],
+    ['waBandejaTomar', 'crm.wa_responder', _locWab, () => _charla(wabSel && wabSel.celular)],
+    ['waBandejaBot', 'crm.wa_responder', l => l || _locWab(), (l, cel) => _charla(cel || (wabSel && wabSel.celular))],
+    ['addTagCliente', 'crm.clientes_editar', () => null, gid => 'cliente:' + gid],
+    ['removeTagCliente', 'crm.clientes_editar', () => null, gid => 'cliente:' + gid],
+    ['abrirWaSinCelular', 'crm.clientes_editar', () => null, gid => 'cliente:' + gid],
+    ['guardarSugerencia', 'crm.datos_sugeridos', () => (sugAbierta && sugAbierta.local_id) || (session && session.local_id), () => 'sugerencia:' + (sugAbierta && sugAbierta.id)],
+    ['descartarSugerencia', 'crm.datos_sugeridos', id => ((sugerenciasCache.find(x => x.id === id) || {}).local_id) || (session && session.local_id), id => 'sugerencia:' + id],
   ];
-  ENVOLVER.forEach(([n, f, loc]) => {
+  ENVOLVER.forEach(([n, f, loc, obj]) => {
     const orig = window[n];
     if (typeof orig !== 'function') { console.warn('[permisos] no encontré', n); return; }
-    window[n] = function (...a) { return _conPermiso(f, loc(...a), () => orig.apply(this, a)); };
+    window[n] = function (...a) { return _conPermiso(f, loc(...a), () => orig.apply(this, a), obj(...a)); };
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v121-ia-chats-servidor';
+const CRM_VERSION = 'crm-adorno-v122-autorizar-hub';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8869,6 +8817,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=53"></script>
+<script src="manual.js?v=54"></script>
 </body>
 </html>
