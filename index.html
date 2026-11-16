@@ -1626,7 +1626,7 @@ html.dark .wab-vacio { background: #111b21; }
       <button class="hbtn ab-fijo" onclick="logout()" title="Salir de la sesión" aria-label="Salir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 4v16"/></svg><span class="lb">Salir</span></button>
     </div>
   </div>
-  <script src="/hub/banner.js?v=8"></script>   <!-- (16-nov-2026) v7: «Ver como» (Hub v126, solo lectura) · v8: carteles de error rojos con ✕, en castellano simple (Hub v132) -->
+  <script src="/hub/banner.js?v=10"></script>   <!-- (16-nov-2026) v9-v10: si la cámara la tiene el fichador, se le pide que la suelte y se reintenta (Hub v140-v143) · v7: «Ver como» (Hub v126, solo lectura) · v8: carteles de error rojos con ✕, en castellano simple (Hub v132) -->
 
   <!-- Tab panels -->
   <div class="tab-panels">
@@ -2057,7 +2057,7 @@ html.dark .wab-vacio { background: #111b21; }
 <!-- (6-nov-2026) Código del celular (doble factor) como en los demás módulos: supabase-js solo para el paso del código -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js" integrity="sha384-UagCvVPT5XXA0Hx+nJYUAGBFseHT9zBgpJMSebsAxl9lciTwbT+39j5VfRjdP5Tp" crossorigin="anonymous"></script>
 <script src="/hub/seguridad.js?v=1"></script>
-<script src="/hub/caras.js?v=7" defer></script>   <!-- (13-nov-2026) ¿quién responde? por la cara · (14-nov) 📷 Registra quién · (15-nov) v7: la cámara lee en segundo plano -->
+<script src="/hub/caras.js?v=10" defer></script>   <!-- (16-nov-2026) v10: el tiempo para reconocer corre con la cámara ya abierta · (13-nov-2026) ¿quién responde? por la cara · (14-nov) 📷 Registra quién · (15-nov) v7: la cámara lee en segundo plano -->
 <script src="/hub/autorizar.js?v=6" defer></script>   <!-- (16-nov-2026) v6: en «Ver como» la ventana se abre en solo lectura -->   <!-- (15-nov-2026) «Pide permiso»: cara (en segundo plano) → aviso al celu → usuario y clave; v5 usa la sesión de Clientes -->
 <script>
 'use strict';
@@ -8866,7 +8866,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v125-sesion-hub-y-avisos';
+const CRM_VERSION = 'crm-adorno-v126-camara-y-fichador';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -9014,6 +9014,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=57"></script>
+<script src="manual.js?v=58"></script>
 </body>
 </html>
