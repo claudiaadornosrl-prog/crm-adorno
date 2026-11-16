@@ -2473,6 +2473,7 @@ async function supaRefresh(refresh_token) {
 let _refreshInFlight = null;
 async function _ensureFreshToken() {
   if (VC) { _vcToken(); return; }   // (16-nov) «Ver como»: no se renueva acá
+  if (session && session.hub) { await _tokenHub(); return; }   // (16-nov) admin con la sesión del Hub: la renueva supabase-js
   if (!authRefreshToken || !session?.expires_at) return;
   const ahora = Math.floor(Date.now() / 1000);
   if (session.expires_at - ahora > 60) return;  // todavía tiene >60s de vida
@@ -2502,6 +2503,7 @@ async function _esJwtExpiredYRefrescar(resp) {
   let body = '';
   try { body = await resp.clone().text(); } catch(_) {}
   if (!body.includes('PGRST303') && !body.toLowerCase().includes('jwt expired')) return false;
+  if (session && session.hub && !VC) return !!(await _tokenHub(true));   // (16-nov) la sesión del Hub: renueva supabase-js
   if (!authRefreshToken) return false;
   try {
     const fresh = await supaRefresh(authRefreshToken);
@@ -2637,21 +2639,43 @@ function _guardarSesion(authData, extra) {
     expires_at: authData.expires_at,  // epoch seconds
   }, extra);
   if (usuario) { session.user = usuario; if (!session.email) session.email = usuario.email; }
+  session.propia = true;   // (16-nov) sesión SOLO de Clientes (entró con su clave acá): no se comparte con ningún módulo
   localStorage.setItem('ca_session', JSON.stringify(session));
-  // El CRM y los demás módulos comparten el refresh token, y Supabase lo rota
-  // cada vez que se usa: si el CRM renueva por su cuenta y no avisa, el que
-  // guardaron los otros módulos queda viejo y los desloguea.
-  if (session.isAdmin && ADORNO_SSO.confiable()) {
-    try {
-      const prev = JSON.parse(localStorage.getItem(ADORNO_SSO.KEY) || 'null');
-      if (prev && (prev.user?.email || '').toLowerCase() === (session.email || '').toLowerCase()) {
-        prev.access_token = session.access_token;
-        prev.refresh_token = session.refresh_token;
-        prev.expires_at = session.expires_at;
-        localStorage.setItem(ADORNO_SSO.KEY, JSON.stringify(prev));
-      }
-    } catch (_) {}
+  // (16-nov-2026) Ya NO se copian los tokens a la sesión compartida ('adorno-auth'): así esta sesión es solo de Clientes y
+  // nadie más la rota. La del Hub se usa con _tokenHub() (ver abajo).
+}
+
+// (16-nov-2026, Infra: a JP se le cerró la sesión en TODO el sistema a las 10:34) Causa: Clientes heredaba la sesión del Hub
+// copiando su refresh token a 'ca_session' y después la renovaba por su cuenta con esa copia. Los demás módulos rotan ese token
+// cada hora (supabase-js sobre 'adorno-auth'): cuando Clientes usó la copia vieja, Supabase lo tomó como robo de token
+// («refresh_token_already_used») y revocó la sesión entera. Lo mismo al revés (Clientes rotaba y los otros quedaban con uno
+// usado) y con el código del celular (renovaba con la copia). Ahora, para un admin con la sesión compartida abierta con su
+// mismo mail (o heredada en un equipo de confianza), Clientes NO guarda refresh token propio: el token se pide en el momento a
+// supabase-js sobre 'adorno-auth', que renueva con candado entre pestañas y guarda el resultado ahí, como los demás módulos.
+// 'ca_session' queda solo con quién es (hub: true, sin tokens). Las cuentas de local y el admin que entra con su clave en un
+// equipo sin el Hub siguen con su sesión propia (propia: true), que no se comparte con nadie.
+let _sbHub = null;
+function _clienteHub() {
+  if (!_sbHub && window.supabase && window.supabase.createClient) {
+    _sbHub = window.supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { storageKey: ADORNO_SSO.KEY, persistSession: true, autoRefreshToken: false, detectSessionInUrl: false } });
   }
+  return _sbHub;
+}
+function _hubAdmin() {   // la sesión compartida, si es de un admin de Clientes
+  try {
+    const h = JSON.parse(localStorage.getItem(ADORNO_SSO.KEY) || 'null');
+    const mail = String((h && h.user && h.user.email) || '').toLowerCase();
+    return h && h.refresh_token && ADMIN_EMAILS.includes(mail) ? { mail, id: (h.user && h.user.id) || null } : null;
+  } catch (_) { return null; }
+}
+let _hubAvisado = 0;
+async function _tokenHub(forzar) {   // token vigente de la sesión compartida (si hace falta, la renueva supabase-js)
+  const c = _clienteHub();
+  let s = null;
+  if (c) try { const r = forzar ? await c.auth.refreshSession() : await c.auth.getSession(); s = r && r.data && r.data.session; } catch (_) { s = null; }
+  if (s && s.access_token) { authToken = s.access_token; if (session) session.expires_at = s.expires_at; return s; }
+  if (Date.now() - _hubAvisado > 60000) { _hubAvisado = Date.now(); _errAviso('❌ Se cerró la sesión del Hub: volvé a entrar desde el Hub'); }
+  return null;
 }
 
 // (16-nov-2026) «Ver como»: la cuenta que se mira sale de la marca del Hub (banner.js ya la puso en el usuario de la sesión
@@ -2680,27 +2704,33 @@ function _sesionVerComo() {
 // Restore session desde localStorage (con refresh si el token expiró)
 (async function restoreSession() {
   if (VC) { _sesionVerComo(); return; }   // (16-nov) «Ver como»
-  let saved = localStorage.getItem('ca_session');
-  // (SSO 10-sep) Sin sesión propia del CRM, hereda la del Hub: solo en equipos
-  // marcados como de confianza y solo para admins. El acceso por sucursal de
-  // las vendedoras no se toca — ellas siguen eligiendo local + contraseña.
-  if (!saved && ADORNO_SSO.confiable()) {
-    try {
-      const h = JSON.parse(localStorage.getItem(ADORNO_SSO.KEY) || 'null');
-      const mail = (h?.user?.email || '').toLowerCase();
-      if (h?.refresh_token && ADMIN_EMAILS.includes(mail)) {
-        saved = JSON.stringify({
-          access_token: h.access_token, refresh_token: h.refresh_token,
-          expires_at: h.expires_at, local_id: null, isAdmin: true, email: mail,
-          nombre: mail === ADMIN_EMAIL ? 'JP (Admin)' : 'Clau (Admin)',
-        });
-        localStorage.setItem('ca_session', saved);
-      }
-    } catch (_) {}
+  const saved = localStorage.getItem('ca_session');
+  let s = null;
+  try { s = saved ? JSON.parse(saved) : null; } catch (e) { s = null; }
+  // (16-nov-2026) Admin con la sesión del Hub: se usa ESA, sin copia propia del refresh token (ver _tokenHub). Pasa si
+  // 'ca_session' es del mismo admin que la sesión compartida (una copia vieja se descarta), si ya era la del Hub, o si no hay
+  // 'ca_session' y el equipo es de confianza (SSO 10-sep: solo admins; las vendedoras siguen eligiendo local + contraseña).
+  const hub = _hubAdmin();
+  const mismo = !!(hub && s && s.isAdmin && String(s.email || '').toLowerCase() === hub.mail);
+  if (hub && (mismo || (s && s.hub) || (!s && ADORNO_SSO.confiable()))) {
+    const fresca = await _tokenHub();
+    if (!fresca) { localStorage.removeItem('ca_session'); authToken = authRefreshToken = null; return; }
+    authRefreshToken = null;
+    session = { hub: true, local_id: null, isAdmin: true, email: hub.mail, nombre: hub.mail === ADMIN_EMAIL ? 'JP (Admin)' : 'Clau (Admin)',
+      user: { id: (fresca.user && fresca.user.id) || hub.id, email: hub.mail }, expires_at: fresca.expires_at };
+    try { localStorage.setItem('ca_session', JSON.stringify(session)); } catch (_) {}   // solo quién es: sin tokens
+    // el código del celular, con el mismo cliente: si renueva, queda guardado en la sesión compartida
+    if (window.ADORNO_MFA && ADORNO_MFA.pedirCodigo) {
+      let ok = true;
+      try { ok = await ADORNO_MFA.pedirCodigo(_clienteHub()); } catch (_) { ok = true; }
+      if (!ok) { localStorage.removeItem('ca_session'); authToken = null; session = { local_id: null, nombre: null, isAdmin: false }; return; }
+      await _tokenHub();
+    }
+    setTimeout(enterApp, 0);
+    return;
   }
-  if (!saved) return;
-  let s;
-  try { s = JSON.parse(saved); } catch(e) { return; }
+  if (s && s.hub) { localStorage.removeItem('ca_session'); return; }   // era la del Hub y el Hub ya no la tiene: se entra de nuevo
+  if (!s) return;
   if (!s.refresh_token) return;  // sesión vieja sin auth → ignorar, pedir login
 
   authToken = s.access_token;
@@ -2788,7 +2818,12 @@ async function logout() {
   if (VC) { VC.salir(); return; }   // (16-nov) «Ver como»: «Salir» vuelve al Hub; la sesión de JP no se cierra
   // Cerrar sesión en Supabase Auth (best-effort)
   try {
-    if (authToken) {
+    if (session && session.hub) {
+      // (16-nov) la sesión del Hub: se cierra como en el Hub (supabase-js la revoca y borra 'adorno-auth'), así ningún módulo
+      // queda con un token muerto. Es lo mismo que Salir en el Hub: se cierra en todos los módulos.
+      const c = _clienteHub();
+      if (c) await c.auth.signOut({ scope: 'local' });
+    } else if (authToken) {
       await fetch(`${SUPA_URL}/auth/v1/logout?scope=local`, {
         method: 'POST',
         headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + authToken },
@@ -3481,7 +3516,7 @@ const COEX_VUELTA = 'https://claudiaadornosrl-prog.github.io/crm-adorno/';
 function coexConectar() {
   if (_vcFrena()) return;   // (16-nov) «Ver como»: no se conecta ningún número
   const local = (document.getElementById('coex-local') || {}).value;
-  if (!local || !LOCALES[local]) { toast('Elegí el local'); return; }
+  if (!local || !LOCALES[local]) { toast('⚠️ Elegí el local'); return; }
   if (!confirm(`Conectar el WhatsApp de siempre de ${LOCALES[local].nombre}\n\nTe vamos a llevar a la página de Meta. Tené a mano el celular del local con WhatsApp Business actualizado: Meta te va a pedir el número y un código que aparece en la app.\nCuando pregunte, elegí compartir el historial de charlas. Al terminar volvés solo al CRM.\n\nEl +1 que usa hoy el local queda libre. ¿Seguimos?`)) return;
   const estado = local + '-' + Math.random().toString(36).slice(2, 12);
   try { sessionStorage.setItem('coex_estado', estado); } catch (_) {}
@@ -3936,7 +3971,7 @@ function waBandejaAvisar() {
 function waBandejaPedirAvisos() {
   if (!('Notification' in window)) { _errAviso('❌ Este navegador no permite avisos'); return; }
   Notification.requestPermission().then(p => {
-    toast(p === 'granted' ? '🔔 Listo: esta PC avisa cuando hay un WhatsApp para atender' : 'Sin permiso para avisar: igual suena y sale el cartel con el CRM abierto');
+    toast(p === 'granted' ? '🔔 Listo: esta PC avisa cuando hay un WhatsApp para atender' : '⚠️ Sin permiso para avisar: igual suena y sale el cartel con el CRM abierto');
     waBandejaRenderLista();
   });
 }
@@ -6325,7 +6360,7 @@ async function registrarNumero() {
   if (!numAbierto) return;
   const inp = document.getElementById('num-pin');
   const pin = (inp.value || '').trim();
-  if (!/^\d{6}$/.test(pin)) { toast('El PIN tiene que ser de 6 números'); inp.focus(); return; }
+  if (!/^\d{6}$/.test(pin)) { _errAviso('⚠️ El PIN tiene que ser de 6 números'); inp.focus(); return; }
   const btn = document.getElementById('num-registrar');
   btn.disabled = true; btn.textContent = 'Registrando...';
   try {
@@ -6415,7 +6450,7 @@ async function loadChatsAdmin() {
 async function subirChatsExportados() {
   const local = document.getElementById('chats-local').value;
   const files = [...(document.getElementById('chats-archivos').files || [])];
-  if (!files.length) { toast('Elegí uno o más archivos (.txt o .zip)'); return; }
+  if (!files.length) { toast('⚠️ Elegí uno o más archivos (.txt o .zip)'); return; }
   const lote = (crypto.randomUUID ? crypto.randomUUID() : '10000000-1000-4000-8000-' + String(Date.now()).padStart(12, '0').slice(-12));   // (15-nov) esta subida
   const fin = await _permEmpezar('crm.chats_analizar', local, { objeto: 'lote:' + lote, usos: files.length, resumen: `Analizar con IA ${files.length} chat${files.length > 1 ? 's' : ''} exportado${files.length > 1 ? 's' : ''} de ${NOMBRE_LOCAL[local] || local}` });
   if (!fin) return;
@@ -6718,7 +6753,7 @@ function exportPedidos() {
 
 // Exportar historial completo de UN cliente (incluye múltiples hojas)
 async function exportClienteHistorial() {
-  if (!clienteDetailCache) { toast('No hay cliente activo'); return; }
+  if (!clienteDetailCache) { _errAviso('⚠️ No hay ningún cliente abierto: abrí la ficha y probá de nuevo'); return; }
   const { c, compras, pedidosCrm } = clienteDetailCache;
 
   // Hoja 1: datos del cliente
@@ -7335,7 +7370,7 @@ async function abrirWaSinCelular(globalid) {
   const tel = prompt('Sin celular cargado para este cliente.\nIngresá el número (ej: 1144556677 o 11 4455 6677):');
   if (!tel) return;
   const digits = String(tel).replace(/\D/g,'');
-  if (digits.length < 8) { toast('Número inválido'); return; }
+  if (digits.length < 8) { _errAviso('⚠️ Número inválido: tiene que tener al menos 8 números'); return; }
   const nombre = (clienteDetailCache?.c?.nombre_completo) || '';
   // Guardar en la ficha (mejor cache que perder el dato). (14-nov) 📷 si cancela quién lo hace, no se guarda pero el chat se abre igual
   const rq = await registraQuien('crm.clientes_editar', session.local_id, { cliente: nombre || globalid, globalid, que: 'cargar celular' });
@@ -8831,7 +8866,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v124-ver-como-y-avisos';
+const CRM_VERSION = 'crm-adorno-v125-sesion-hub-y-avisos';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8979,6 +9014,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=56"></script>
+<script src="manual.js?v=57"></script>
 </body>
 </html>
