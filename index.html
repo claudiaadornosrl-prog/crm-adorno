@@ -1626,7 +1626,7 @@ html.dark .wab-vacio { background: #111b21; }
       <button class="hbtn ab-fijo" onclick="logout()" title="Salir de la sesión" aria-label="Salir"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 4v16"/></svg><span class="lb">Salir</span></button>
     </div>
   </div>
-  <script src="/hub/banner.js?v=6"></script>
+  <script src="/hub/banner.js?v=8"></script>   <!-- (16-nov-2026) v7: «Ver como» (Hub v126, solo lectura) · v8: carteles de error rojos con ✕, en castellano simple (Hub v132) -->
 
   <!-- Tab panels -->
   <div class="tab-panels">
@@ -2058,7 +2058,7 @@ html.dark .wab-vacio { background: #111b21; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js" integrity="sha384-UagCvVPT5XXA0Hx+nJYUAGBFseHT9zBgpJMSebsAxl9lciTwbT+39j5VfRjdP5Tp" crossorigin="anonymous"></script>
 <script src="/hub/seguridad.js?v=1"></script>
 <script src="/hub/caras.js?v=7" defer></script>   <!-- (13-nov-2026) ¿quién responde? por la cara · (14-nov) 📷 Registra quién · (15-nov) v7: la cámara lee en segundo plano -->
-<script src="/hub/autorizar.js?v=5" defer></script>   <!-- (15-nov-2026) «Pide permiso»: cara (en segundo plano) → aviso al celu → usuario y clave; v5 usa la sesión de Clientes -->
+<script src="/hub/autorizar.js?v=6" defer></script>   <!-- (16-nov-2026) v6: en «Ver como» la ventana se abre en solo lectura -->   <!-- (15-nov-2026) «Pide permiso»: cara (en segundo plano) → aviso al celu → usuario y clave; v5 usa la sesión de Clientes -->
 <script>
 'use strict';
 
@@ -2067,6 +2067,23 @@ html.dark .wab-vacio { background: #111b21; }
 // ═══════════════════════════════════════════════════════
 const SUPA_URL = 'https://jfwtiagteuwmyvblgwms.supabase.co';
 const SUPA_KEY = 'sb_publishable_udSPma98Sw9eskeeLCgdCw_S2vIX0Fk';
+// (16-nov-2026, Infra / JP: «poder entrar a ver dentro de cada usuario… no para modificarles nada») «Ver como» (Hub v126):
+// JP entra desde el Hub viendo lo que ve otra cuenta, en SOLO LECTURA. No se inicia sesión como esa persona: /hub/banner.js
+// (v7) le agrega x-ver-como a las consultas, la base responde como esa cuenta y no deja grabar, y las funciones del servidor
+// (wa-enviar y las demás) no salen. Acá: la sesión se arma solo en memoria (no se toca ca_session ni la sesión compartida, no
+// se renueva el token ni se pide el código), no se piden permisos ni «quién lo hace», no se abre WhatsApp ni el mail, y lo que
+// Clientes graba solo al abrir (auto-cancelar los «No contestó», marcar la charla leída) se saltea.
+const VC = window.ADORNO_VERCOMO || null;
+let _vcAvisado = 0;
+function _vcFrena(t) {   // true (y avisa) si estamos en «Ver como»
+  if (!VC) return false;
+  if (Date.now() - _vcAvisado > 1500) { _vcAvisado = Date.now(); toast(t || '👁 «Ver como»: es solo para mirar, no se graba ni se manda nada'); }
+  return true;
+}
+function _vcLinkMensaje(url) {   // WhatsApp (wa.me, app, web, kiosco), mail o SMS
+  return !!VC && /^(https?:\/\/(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)\/|whatsapp:|cawa:|mailto:|sms:)/i.test(String(url || '').trim());
+}
+const VC_SIN_MENSAJES = '👁 «Ver como»: no se abre WhatsApp ni el mail, es solo para mirar';
 // ── Lista de vendedoras por local ── editar acá para agregar/quitar nombres
 const VENDEDORAS = {
   unicenter: [
@@ -2148,6 +2165,7 @@ function waConvertir(url) {
   return null;
 }
 function waAbrir(url) {
+  if (_vcLinkMensaje(url)) { _vcFrena(VC_SIN_MENSAJES); return null; }
   const c = waConvertir(url);
   if (!c) return _winOpenOrig(url, '_blank');
   if (c.app) { location.href = c.url; return null; }   // protocolo externo: la página del CRM no se va
@@ -2155,10 +2173,15 @@ function waAbrir(url) {
 }
 // Todos los botones de WhatsApp del CRM pasan por acá: los <a href="https://wa.me/..."> y los window.open(wa.me)
 window.open = function (url, name, feats) {
+  if (_vcLinkMensaje(url)) { _vcFrena(VC_SIN_MENSAJES); return null; }   // (16-nov) «Ver como»
   if (typeof url === 'string' && waConvertir(url)) return waAbrir(url);
   return _winOpenOrig(url, name, feats);
 };
 document.addEventListener('click', (e) => {
+  if (VC) {   // (16-nov) «Ver como»: los links de WhatsApp o mail no se abren y el onclick del botón (marcar Avisado, etc.) no corre
+    const l = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (l && _vcLinkMensaje(l.getAttribute('href'))) { e.preventDefault(); e.stopImmediatePropagation(); _vcFrena(VC_SIN_MENSAJES); return; }
+  }
   const a = e.target && e.target.closest ? e.target.closest('a[href^="https://wa.me/"]') : null;
   if (!a || !waConvertir(a.getAttribute('href'))) return;
   e.preventDefault();                 // el onclick propio del botón (marcar Avisado, etc.) igual se ejecuta
@@ -2325,9 +2348,9 @@ async function _autorizarHub(f, local, opts) {
     lAut = mio;
   }
   if (!lAut) { toast('🔒 Elegí primero en qué local trabajás'); return null; }
-  if (!window.ADORNO_AUTORIZAR || !ADORNO_AUTORIZAR.pedir) { toast('⚠️ No cargó la ventana de autorización del Hub: recargá la página'); return null; }
+  if (!window.ADORNO_AUTORIZAR || !ADORNO_AUTORIZAR.pedir) { _errAviso('❌ No cargó la ventana de autorización del Hub: recargá la página'); return null; }
   const ajena = ADORNO_AUTORIZAR.SESION ? '' : _sesionHubAjena();
-  if (ajena) { toast(`⚠️ En esta compu el Hub quedó abierto con otra cuenta (${ajena}): salí de esa cuenta en el Hub y probá de nuevo`); return null; }
+  if (ajena) { _errAviso(`⚠️ En esta compu el Hub quedó abierto con otra cuenta (${ajena}): salí de esa cuenta en el Hub y probá de nuevo`); return null; }
   await _ensureFreshToken();
   const nomLocal = NOMBRE_LOCAL[l || lAut] || (l || lAut);
   const que = String(CRM_FUNC[f] || f).replace(/^./, c => c.toLowerCase());
@@ -2354,10 +2377,18 @@ async function _permEmpezar(f, local, opts) {
   const nada = () => {};
   if (!session) return nada;
   const pm = perm(f, local);   // admin: 'h', u 'o' si es de un apartado oculto para su vista (nunca 'a')
-  if (pm === 'h') return nada;
   if (pm === 'o') { toast('🔒 No tenés permiso para esto: ' + (CRM_FUNC[f] || f) + ' (Hub → Permisos)'); return null; }
+  // (16-nov) «Ver como»: no se graba nada. Habilitada → se avisa. Pide permiso → JP: «yo necesitaría ver que la parte de
+  // pedir permiso esté funcionando bien»: se abre igual la ventana del Hub (autorizar.js v6 la muestra en solo lectura: a
+  // quién se lo pediría, sin cámara, sin avisos ni clave) y, la cierre como la cierre, la operación no sigue.
+  if (VC) {
+    if (pm !== 'a') { _vcFrena('👁 «Ver como»: esto lo tiene Habilitado. Es solo para mirar: no se graba nada'); return null; }
+    await _autorizarHub(f, local, opts);
+    return null;
+  }
+  if (pm === 'h') return nada;
   const l = _locMin(local), objeto = opts.objeto || '';
-  if (!objeto) { toast('⚠️ No se pudo pedir permiso para esto (falta qué operación es): avisale a JP'); return null; }
+  if (!objeto) { _errAviso('❌ No se pudo pedir permiso para esto (falta qué operación es): avisale a JP'); return null; }
   if (_pases.some(x => x.f === f && x.objeto === objeto && (!l || x.l === l))) return nada;   // ya autorizada esta misma operación
   const a = await _autorizarHub(f, local, opts);
   if (!a) return null;
@@ -2386,6 +2417,7 @@ async function _conPermiso(f, local, correr, objeto) {
 }
 // 'a' en algo de mirar (una pestaña, otro local): se autoriza y se gasta enseguida (queda anotado en el Hub quién autorizó)
 async function _autorizarVer(f, local, resumen) {
+  if (VC) { await _autorizarHub(f, local || (session && session.local_id), { resumen }); return false; }   // (16-nov) «Ver como»: la ventana en solo lectura, sin seguir
   const a = await _autorizarHub(f, local || (session && session.local_id), { resumen });
   if (!a) return false;
   try {
@@ -2440,6 +2472,7 @@ async function supaRefresh(refresh_token) {
 // cuando la vendedora deja la PWA abierta horas sin tocar nada.
 let _refreshInFlight = null;
 async function _ensureFreshToken() {
+  if (VC) { _vcToken(); return; }   // (16-nov) «Ver como»: no se renueva acá
   if (!authRefreshToken || !session?.expires_at) return;
   const ahora = Math.floor(Date.now() / 1000);
   if (session.expires_at - ahora > 60) return;  // todavía tiene >60s de vida
@@ -2594,6 +2627,7 @@ async function _mfaSesion(authData) {
 
 // Guarda la sesión de auth (tokens) en memoria + localStorage
 function _guardarSesion(authData, extra) {
+  if (VC) return;   // (16-nov) «Ver como»: nunca se guarda ni se toca la sesión de JP
   authToken = authData.access_token;
   authRefreshToken = authData.refresh_token;
   const usuario = _usuarioDeAuth(authData);
@@ -2620,8 +2654,32 @@ function _guardarSesion(authData, extra) {
   }
 }
 
+// (16-nov-2026) «Ver como»: la cuenta que se mira sale de la marca del Hub (banner.js ya la puso en el usuario de la sesión
+// compartida); el token es el de JP (la base acepta el encabezado solo con su token). Solo en memoria: ca_session queda como
+// estaba (al salir, Clientes vuelve a la cuenta de siempre). No se renueva el token acá (rotaría la sesión de JP): si vence,
+// se sale y se vuelve a entrar desde el Hub.
+function _vcToken() {
+  try { const s = JSON.parse(localStorage.getItem(ADORNO_SSO.KEY) || 'null'); if (s && s.access_token && session) { authToken = s.access_token; session.expires_at = s.expires_at; } } catch (_) {}
+  if (session && session.expires_at && session.expires_at < Math.floor(Date.now() / 1000))
+    _vcFrena('👁 «Ver como»: la sesión venció. Tocá «Salir» arriba y volvé a entrar desde el Hub');
+}
+function _sesionVerComo() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(ADORNO_SSO.KEY) || 'null'); } catch (_) {}
+  if (!s || !s.access_token) { setTimeout(() => toast('👁 «Ver como»: no se encontró tu sesión del Hub. Tocá «Salir» y volvé a entrar'), 0); return; }
+  const email = String(VC.email || '').toLowerCase();
+  const admin = ADMIN_EMAILS.includes(email);
+  // cuenta de un local u oficina → ese local; usuario personal → sus locales del Hub (los trae cargarPermisos)
+  const local = admin ? null : OFICINA_EMAILS.includes(email) ? 'oficina' : (Object.keys(LOCAL_EMAILS).find(k => LOCAL_EMAILS[k] === email) || null);
+  authToken = s.access_token; authRefreshToken = null;
+  session = { access_token: s.access_token, expires_at: s.expires_at, local_id: local, isAdmin: admin, email, verComo: true,
+    nombre: admin ? (email === ADMIN_EMAIL ? 'JP (Admin)' : 'Clau (Admin)') : '', user: { id: (s.user && s.user.id) || null, email } };
+  setTimeout(enterApp, 0);
+}
+
 // Restore session desde localStorage (con refresh si el token expiró)
 (async function restoreSession() {
+  if (VC) { _sesionVerComo(); return; }   // (16-nov) «Ver como»
   let saved = localStorage.getItem('ca_session');
   // (SSO 10-sep) Sin sesión propia del CRM, hereda la del Hub: solo en equipos
   // marcados como de confianza y solo para admins. El acceso por sucursal de
@@ -2682,6 +2740,7 @@ function _guardarSesion(authData, extra) {
 })();
 
 async function startSession() {
+  if (_vcFrena('👁 «Ver como»: para entrar con otra cuenta, primero tocá «Salir» arriba')) return;
   const localEl = document.querySelector('.local-opt.selected');
   const pass = document.getElementById('setup-pass').value.trim();
   if (!localEl || !pass) return;
@@ -2702,12 +2761,13 @@ async function startSession() {
     document.getElementById('setup-pass').value = '';
     enterApp();
   } catch(e) {
-    _setSetupError(e.message || 'No se pudo entrar');
+    _setSetupError(e && e.message ? _errTxt(e) : 'No se pudo entrar');
     btn.textContent = 'Entrar →'; btn.disabled = false;
   }
 }
 
 async function startAdmin() {
+  if (_vcFrena('👁 «Ver como»: para entrar con otra cuenta, primero tocá «Salir» arriba')) return;
   const email = (prompt('Email de administrador:', ADMIN_EMAIL) || '').trim().toLowerCase();
   if (!email) return;
   if (!ADMIN_EMAILS.includes(email)) { alert('Ese email no es administrador de Clientes.'); return; }
@@ -2725,6 +2785,7 @@ async function startAdmin() {
 }
 
 async function logout() {
+  if (VC) { VC.salir(); return; }   // (16-nov) «Ver como»: «Salir» vuelve al Hub; la sesión de JP no se cierra
   // Cerrar sesión en Supabase Auth (best-effort)
   try {
     if (authToken) {
@@ -2759,7 +2820,7 @@ async function elegirLocalSiVarios(forzar) {
   const locs = misLocales();
   if (locs.length < 2) return;
   let ya = null;
-  try { ya = sessionStorage.getItem('crm_local_elegido'); } catch(_) {}
+  if (!VC) try { ya = sessionStorage.getItem('crm_local_elegido'); } catch(_) {}   // (16-nov) «Ver como»: se elige cada vez
   if (!forzar && ya && locs.includes(ya)) { session.local_id = ya; return; }
   const elegido = await new Promise(listo => {
     const f = document.createElement('div');
@@ -2772,12 +2833,17 @@ async function elegirLocalSiVarios(forzar) {
     f.querySelectorAll('[data-l]').forEach(b => { b.onclick = () => { f.remove(); listo(b.dataset.l); }; });
   });
   session.local_id = elegido;
-  try { sessionStorage.setItem('crm_local_elegido', elegido); localStorage.setItem('ca_session', JSON.stringify(session)); } catch(_) {}
+  if (!VC) try { sessionStorage.setItem('crm_local_elegido', elegido); localStorage.setItem('ca_session', JSON.stringify(session)); } catch(_) {}
 }
 
 async function enterApp() {
   // (14-nov-2026) Permisos por función del Hub y locales de la persona (con varios, elige en cuál trabaja)
   await cargarPermisos();
+  // (16-nov) «Ver como» un usuario personal: entra en su local del Hub (con varios, elige; sin ninguno, se avisa)
+  if (VC && !session.isAdmin && !session.local_id) {
+    if (misLocalesHub.length === 1) session.local_id = misLocalesHub[0];
+    else if (!misLocalesHub.length) toast('👁 Esta cuenta no tiene ningún local en el Hub: en Clientes no vería pedidos ni charlas');
+  }
   await elegirLocalSiVarios();
   // Populate vendedora dropdown
   const sel = document.getElementById('f-vendedora');
@@ -3097,6 +3163,7 @@ const WA_API_PLANTILLAS = {
 // ...") sale por la API con la plantilla pedido_confirmado (wa-enviar v9: una sola, con todos los artículos). Si falla,
 // ofrece mandarla desde el WhatsApp del local como antes.
 async function enviarConfirmacionApi(pedido, nombre, celular, lineas) {
+  if (_vcFrena()) return;   // (16-nov) «Ver como»: no sale ningún WhatsApp (banner.js tampoco deja salir wa-enviar)
   const nombres = (lineas || []).map(l => waProducto(l.descripcion || l.sku)).filter(Boolean);
   const producto = nombres.length <= 1 ? (nombres[0] || '') : nombres.slice(0, -1).join(', ') + ' y ' + nombres[nombres.length - 1];
   try {
@@ -3112,12 +3179,13 @@ async function enviarConfirmacionApi(pedido, nombre, celular, lineas) {
   } catch (e) {
     console.warn('confirmación por API:', e);
     const link = buildWaConfirm(nombre, celular, lineas);
-    if (link && confirm(`No salió la confirmación por el número del sistema (${e.message}).\n\n¿La mandás desde el WhatsApp del local?`)) window.open(link, '_blank');
+    if (link && confirm(`No salió la confirmación por el número del sistema (${_errTxt(e)}).\n\n¿La mandás desde el WhatsApp del local?`)) window.open(link, '_blank');
   }
 }
 async function enviarAvisoApi(id, plantilla) {
-  const p = pedidosCache.find(x => x.id === id);
-  if (!p) { toast('Pedido no encontrado'); return; }
+  if (_vcFrena()) return;   // (16-nov) «Ver como»
+  const p =pedidosCache.find(x => x.id === id);
+  if (!p) { _errAviso('❌ No se encontró el pedido: recargá la página y probá de nuevo'); return; }
   if (!p.celular) { toast('⚠️ Este pedido no tiene celular cargado'); return; }
   const meta = WA_API_PLANTILLAS[plantilla] || { titulo: plantilla, pregunta: null };
   let vendedora = null;
@@ -3297,6 +3365,7 @@ function renderWaHilo(p) {
 }
 
 async function _waEnviarFetch(body, extraHeaders) {
+  if (_vcFrena()) throw new Error('«Ver como»: es solo para mirar, no se manda nada');   // (16-nov)
   await _ensureFreshToken();
   const r = await fetch(`${SUPA_URL}/functions/v1/wa-enviar`, {
     method: 'POST',
@@ -3401,7 +3470,7 @@ window.addEventListener('message', (ev) => {
   if (!d || d.type !== 'WA_EMBEDDED_SIGNUP') return;
   console.log('Meta (registro insertado):', d);
   _coexSesion = d;
-  if (d.event === 'CANCEL') toast('Se cerró el alta de Meta sin terminar' + (d.data && d.data.current_step ? ` (paso: ${d.data.current_step})` : ''));
+  if (d.event === 'CANCEL') _errAviso('❌ Se cerró el alta de Meta sin terminar' + (d.data && d.data.current_step ? ` (paso: ${d.data.current_step})` : ''));
   if (d.event === 'ERROR') toast('❌ Meta: ' + ((d.data && d.data.error_message) || 'error en el alta'));
 });
 // (v103, 6-nov-2026) El código de la ventanita de FB.login no se podía canjear: Meta respondía "make sure your
@@ -3410,6 +3479,7 @@ window.addEventListener('message', (ev) => {
 // wa-alta usa al canjear el código. La cuenta de WhatsApp la averigua wa-alta (debug_token).
 const COEX_VUELTA = 'https://claudiaadornosrl-prog.github.io/crm-adorno/';
 function coexConectar() {
+  if (_vcFrena()) return;   // (16-nov) «Ver como»: no se conecta ningún número
   const local = (document.getElementById('coex-local') || {}).value;
   if (!local || !LOCALES[local]) { toast('Elegí el local'); return; }
   if (!confirm(`Conectar el WhatsApp de siempre de ${LOCALES[local].nombre}\n\nTe vamos a llevar a la página de Meta. Tené a mano el celular del local con WhatsApp Business actualizado: Meta te va a pedir el número y un código que aparece en la app.\nCuando pregunte, elegí compartir el historial de charlas. Al terminar volvés solo al CRM.\n\nEl +1 que usa hoy el local queda libre. ¿Seguimos?`)) return;
@@ -3436,10 +3506,10 @@ async function coexRetorno() {
   history.replaceState({}, '', location.pathname);   // que el código no quede en la barra ni se reuse al recargar
   if (!guardado || estado !== guardado) return;       // no es una vuelta de nuestra alta
   const local = estado.split('-')[0];
-  if (err) { toast('Se cortó el alta en Meta: ' + err); return; }
+  if (err) { _errAviso('❌ Se cortó el alta en Meta: ' + err); return; }
   // espera la sesión del admin (restoreSession puede tardar un poco o pedir el código del celular)
   for (let i = 0; i < 40 && !(session && session.isAdmin && authToken); i++) await new Promise(r => setTimeout(r, 250));
-  if (!(session && session.isAdmin)) { toast('Para conectar el número hay que entrar como administrador'); return; }
+  if (!(session && session.isAdmin)) { _errAviso('🔒 Para conectar el número hay que entrar como administrador'); return; }
   try { switchTab('admin'); setAdminView('bot'); } catch (_) {}
   await coexEnviar(local, code, {}, COEX_VUELTA);
 }
@@ -3448,7 +3518,7 @@ async function coexEnviar(local, code, datos, redirectUri) {
   const el = document.getElementById('coex-estado');
   // (14-nov) 📷 Registra quién, justo antes de canjear el código (el admin entra con su usuario: se anota solo)
   if (!(await registraQuien('crm.wa_alta', local, { que: 'conectar el número de siempre' }))) {
-    toast('No se conectó el número: falta anotar quién lo hace. Volvé a empezar el alta.');
+    _errAviso('❌ No se conectó el número: falta anotar quién lo hace. Volvé a empezar el alta.');
     return;
   }
   if (el) el.innerHTML = `<div class="loading"><span class="spinner"></span> Conectando el número y pidiendo el historial...</div>`;
@@ -3535,7 +3605,7 @@ async function loadBotConfig() {
     }).join('') + `<div id="bot-textos"><div class="loading"><span class="spinner"></span> Cargando...</div></div>`;
     loadBotTextos();
     coexEstado();
-  } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudo cargar la configuración del bot: ${escHtml(e.message)}</p></div>`; }
+  } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudo cargar la configuración del bot: ${escHtml(_errTxt(e))}</p></div>`; }
 }
 
 // ── (27-oct-2026) Enseñarle al bot: estilo, preguntas frecuentes, probador y correcciones de las vendedoras ──
@@ -3596,7 +3666,7 @@ async function loadBotTextos() {
           <br><br>Si el estilo o las preguntas frecuentes dicen algo distinto a estas reglas, mandan estas reglas.</div></div>`;
     loadBotCorrecciones();
     loadBotWeb();
-  } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudieron cargar los textos del bot: ${escHtml(e.message)}</p></div>`; }
+  } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudieron cargar los textos del bot: ${escHtml(_errTxt(e))}</p></div>`; }
 }
 // (27-oct-2026) Qué web usa el bot para pasar links de productos: la oficial hoy, la del Atelier cuando esté activa.
 // Los catálogos los copia todas las mañanas el módulo Marketing; acá solo se elige cuál usa el bot.
@@ -3623,7 +3693,7 @@ async function loadBotWeb() {
       ${opt('oficial', 'www.claudiaadorno.com', `${w.oficial_productos || 0} productos · actualizado ${escHtml(fecha(w.oficial_actualizado))}`)}
       ${opt('atelier', `Tienda del Atelier${w.atelier_dominio ? ' (' + escHtml(dominio(w.atelier_dominio)) + ')' : ''}`, `${w.atelier_productos || 0} productos · actualizado ${escHtml(fecha(w.atelier_actualizado))} · usala cuando la tienda esté abierta al público`)}
       <div style="display:flex;justify-content:flex-end">${_act('primary ok', 'guardarBotWeb()', 'Guardar la web que usa el bot', ICO.check)}</div>`;
-  } catch(e) { el.innerHTML = `<div class="wa-reply-nota">No se pudo cargar: ${escHtml(e.message)}</div>`; }
+  } catch(e) { el.innerHTML = `<div class="wa-reply-nota">No se pudo cargar: ${escHtml(_errTxt(e))}</div>`; }
 }
 async function guardarBotWeb() {
   const sel = document.querySelector('input[name="bot-web-fuente"]:checked');
@@ -3672,7 +3742,7 @@ async function probarBot() {
       </div>
       ${o.derivar ? `<div class="wa-reply-nota" style="margin-top:4px">Le pasaría la charla a una vendedora y le avisaría por notificación.</div>` : ''}
       <div class="wa-sug-motivo" style="margin-top:4px">Lo que entendió: ${escHtml(o.motivo || '')}</div>`;
-  } catch(e) { out.innerHTML = `<div class="wa-reply-nota">No se pudo probar: ${escHtml(e.message)}</div>`; }
+  } catch(e) { out.innerHTML = `<div class="wa-reply-nota">No se pudo probar: ${escHtml(_errTxt(e))}</div>`; }
 }
 async function loadBotCorrecciones() {
   const el = document.getElementById('bot-correcciones');
@@ -3696,7 +3766,7 @@ async function loadBotCorrecciones() {
           <span style="color:var(--muted)">${escHtml((LOCALES[r.local_id] && LOCALES[r.local_id].nombre) || r.local_id || '')} · ${escHtml(String(r.enviado_por || '').replace(/@.*$/, ''))} · ${escHtml(formatDate(r.estado_at))}${r.no_ejemplo ? ' · <em>no se usa</em>' : ''}</span>
           ${r.no_ejemplo ? _act('ok', `botEjemplo(${r.id}, true)`, 'Volver a usarla como ejemplo', ICO.check) : _act('bad', `botEjemplo(${r.id}, false)`, 'No usar esta corrección como ejemplo', ICO.cruz)}
         </div></div>`).join('');
-  } catch(e) { el.innerHTML = `<div class="wa-reply-nota">No se pudieron cargar las correcciones: ${escHtml(e.message)}</div>`; }
+  } catch(e) { el.innerHTML = `<div class="wa-reply-nota">No se pudieron cargar las correcciones: ${escHtml(_errTxt(e))}</div>`; }
 }
 async function botEjemplo(id, usar) {
   if (!(await registraQuien('crm.wa_bot', null, { que: usar ? 'volver a usar una corrección' : 'sacar una corrección', mensaje: id }))) return;   // (14-nov) 📷
@@ -3805,7 +3875,7 @@ async function waBandejaCargar() {
   } catch(e) {
     console.warn('crm_wa_bandeja:', e);
     const el = document.getElementById('wab-items');
-    if (el && !wabConvs.length) el.innerHTML = `<div class="wab-lista-vacia">No se pudieron cargar las charlas: ${escHtml(e.message)}</div>`;
+    if (el && !wabConvs.length) el.innerHTML = `<div class="wab-lista-vacia">No se pudieron cargar las charlas: ${escHtml(_errTxt(e))}</div>`;
     return;
   }
   waBandejaBadge();
@@ -3864,7 +3934,7 @@ function waBandejaAvisar() {
   } catch(_) {}
 }
 function waBandejaPedirAvisos() {
-  if (!('Notification' in window)) { toast('Este navegador no permite avisos'); return; }
+  if (!('Notification' in window)) { _errAviso('❌ Este navegador no permite avisos'); return; }
   Notification.requestPermission().then(p => {
     toast(p === 'granted' ? '🔔 Listo: esta PC avisa cuando hay un WhatsApp para atender' : 'Sin permiso para avisar: igual suena y sale el cartel con el CRM abierto');
     waBandejaRenderLista();
@@ -3951,7 +4021,7 @@ async function waBandejaCargarChat(forzar) {
     rows = await supaGet('wa_mensajes', { select: 'id,wa_message_id,direccion,tipo,texto,plantilla,estado,estado_at,creado_at,pedido_id,enviado_por,bot_estado,bot_clasificacion,error,motivo:raw->>motivo,imagen:raw->>imagen,archivo:raw->message->document->>filename,emoji:raw->message->reaction->>emoji,reac_a:raw->message->reaction->>message_id',
       local_id: 'eq.' + s.local_id, or: `(de.like.*${c10},para.like.*${c10})`, tipo: 'neq.status', order: 'id.desc', limit: '300' });
   } catch(e) {
-    if (forzar) { const ch = document.getElementById('wab-chat'); if (ch) ch.innerHTML = `<div class="wab-vacio">No se pudo cargar la charla: ${escHtml(e.message)}</div>`; }
+    if (forzar) { const ch = document.getElementById('wab-chat'); if (ch) ch.innerHTML = `<div class="wab-vacio">No se pudo cargar la charla: ${escHtml(_errTxt(e))}</div>`; }
     return;
   }
   if (!wabSel || _wabKey(wabSel.local_id, wabSel.celular) !== _wabKey(s.local_id, s.celular)) return;   // cambió de charla mientras cargaba
@@ -3960,7 +4030,7 @@ async function waBandejaCargarChat(forzar) {
   if (forzar || firma !== wabFirma) { wabFirma = firma; waBandejaRenderChat(); }
   // leída: solo las chicas del local mueven la marca (si el admin o la Oficina la abren, para ellas sigue nueva)
   const c = _wabConvSel();
-  if (c && c.sin_leer > 0 && !session.isAdmin && puedeOperarLocal(s.local_id) && document.visibilityState === 'visible') {
+  if (c && c.sin_leer > 0 && !VC && !session.isAdmin && puedeOperarLocal(s.local_id) && document.visibilityState === 'visible') {   // (16-nov) «Ver como»: mira sin marcar
     try { await _rpcBot('crm_wa_marcar_leido', { p_local: s.local_id, p_celular: s.celular }); c.sin_leer = 0; waBandejaRenderLista(); }
     catch(e) { console.warn('crm_wa_marcar_leido:', e); }
   }
@@ -4066,7 +4136,7 @@ function _wabMediaInner(x) {
     if (x.tipo === 'video') return `<video controls src="${m.url}"></video>`;
     return `<a href="${m.url}" download="${escHtml(x.archivo || 'archivo')}">📄 ${escHtml(x.archivo || 'Descargar el archivo')}</a>`;
   }
-  if (m && m.error) return `<span class="wab-media-err">No se pudo abrir ${escHtml(nom)}: ${escHtml(m.error)}</span>`;
+  if (m && m.error) return `<span class="wab-media-err">No se pudo abrir ${escHtml(nom)}: ${escHtml(_errTxt(m.error))}</span>`;
   if (m && m.cargando) return `<span class="wab-media-err" style="color:var(--muted);font-style:normal">Cargando ${escHtml(nom)}…</span>`;
   const t = { audio: '▶ Escuchar el audio', video: '▶ Ver el video', document: `📄 Abrir ${x.archivo || 'el archivo'}` }[x.tipo] || 'Ver';
   return `<button class="wab-media-btn" onclick="_wabMedia(${x.id}, true)">${escHtml(t)}</button>`;
@@ -4291,7 +4361,7 @@ async function waBandejaSugDescartar(id) {
 const WA_ATIENDE_MIN = 10;
 const WA_SALUDO_ATIENDE = '¡Hola! Soy {nombre}, de Claudia Adorno {local}. Ya vi tu consulta y te sigo yo por acá 🙂';
 let wabAtiende = null;   // { empleado_id, nombre, hasta, modo: 'cara'|'lista' }
-try { wabAtiende = JSON.parse(sessionStorage.getItem('wab-atiende') || 'null'); } catch (_) { wabAtiende = null; }
+try { wabAtiende = VC ? null : JSON.parse(sessionStorage.getItem('wab-atiende') || 'null'); } catch (_) { wabAtiende = null; }   // (16-nov) en «Ver como» no se hereda quién respondía en esta pestaña
 function _wabAtiendeVigente() { return !!(wabAtiende && wabAtiende.nombre && Date.now() < wabAtiende.hasta); }
 function _wabAtiendeMinutos() { return _wabAtiendeVigente() ? Math.max(1, Math.ceil((wabAtiende.hasta - Date.now()) / 60000)) : 0; }
 function _wabQuien(f) {   // "Nombre · mail" → "Nombre"; "mail@…" → "mail"; "sistema (…)" → "sistema"
@@ -4324,6 +4394,7 @@ const _wabCli = { rpc: async (n, b) => { try { return { data: await _rpcBot(n, b
 // Devuelve el registro ({ omitido } o { id, nombre, modo }) o null si la persona canceló o no se pudo anotar: en ese
 // caso la operación NO se hace. Va con la sesión de quien usa el módulo, nunca con la del usuario superior.
 async function registraQuien(funcion, local, detalle) {
+  if (_vcFrena()) return null;   // (16-nov) «Ver como»: no se pregunta quién ni se graba
   const loc = local ? String(local).toLowerCase() : null;
   if (window.ADORNO_CARAS && ADORNO_CARAS.registrar) {
     const r = await ADORNO_CARAS.registrar({ cli: _wabCli, funcion, local: loc, detalle: detalle || null });
@@ -4350,6 +4421,7 @@ function _regRepetido(clave) { return !!clave && Date.now() - (_regHechos[clave]
 // El «¿Quién responde?» del WhatsApp ya sabe quién es: se anota esa persona sin volver a preguntarle.
 // o.sobre: la charla o el pedido (para no repetir) · o.descriptor: la lectura de la cara, solo si la reconoció la cámara
 async function registraQuienYa(funcion, local, empleadoId, detalle, o) {
+  if (_vcFrena()) return null;   // (16-nov) «Ver como»
   o = o || {};
   const loc = local ? String(local).toLowerCase() : null;
   const clave = _regClave(funcion, loc, detalle, o.sobre, empleadoId);
@@ -4379,6 +4451,7 @@ async function _wabRegistra(funcion, local, detalle, sobre) {
 }
 // Devuelve { empleado_id, nombre } o null si canceló. Primero la cara, después la lista.
 async function waQuienAtiende(o) {
+  if (_vcFrena()) return null;   // (16-nov) «Ver como»: no se abre la cámara ni se responde
   o = o || {};
   if (!o.forzar && _wabAtiendeVigente()) { wabAtiende.hasta = Date.now() + WA_ATIENDE_MIN * 60000; return wabAtiende; }
   const local = (wabSel && wabSel.local_id) || session.local_id;
@@ -5268,8 +5341,8 @@ function toggleSort() {
 // ═══════════════════════════════════════════════════════
 async function renderHoy() {
   // Auto-cancelar pedidos "No contestó" con re-contacto hace +24h.
-  // Best-effort: si falla no rompe el render. Si cancela algo, recargamos cache.
-  try {
+  // Best-effort: si falla no rompe el render. Si cancela algo, recargamos cache. (16-nov) En «Ver como» no se hace (grabaría).
+  if (!VC) try {
     const r = await fetch(`${SUPA_URL}/rest/v1/rpc/crm_auto_cancelar_no_contesto`, {
       method: 'POST', headers: { ...supaHeaders(), 'Content-Type': 'application/json' }, body: '{}',
     });
@@ -5806,7 +5879,7 @@ async function renderSatisfaccion() {
   try {
     data = await supaGet('crm_encuestas', { select: '*', order: 'creado_at.desc' });
   } catch (e) {
-    cont.innerHTML = '<div class="card"><div class="card-body" style="color:#b91c1c">No se pudieron cargar las encuestas: '+escS(e.message)+'</div></div>';
+    cont.innerHTML = '<div class="card"><div class="card-body" style="color:#b91c1c">No se pudieron cargar las encuestas: '+escS(_errTxt(e))+'</div></div>';
     return;
   }
 
@@ -6211,13 +6284,13 @@ async function loadNumerosAdmin() {
     el.innerHTML = `<div class="num-intro">Así ve el cliente cada número de WhatsApp del sistema. Cuando Meta aprueba un nombre nuevo, se aplica registrando el número con su PIN (hay 14 días desde la aprobación).</div>`
       + (numerosCache.length ? numerosCache.map(renderNumeroCard).join('') : '<div class="empty-state">No hay números cargados.</div>');
   } catch (e) {
-    el.innerHTML = `<div class="empty-state">No se pudo consultar a Meta: ${escHtml(e.message)}</div>`;
+    el.innerHTML = `<div class="empty-state">No se pudo consultar a Meta: ${escHtml(_errTxt(e))}</div>`;
   }
 }
 function renderNumeroCard(n) {
   const local = _NUM_LOCAL[n.local_id] || n.local_id;
   const filas = [];
-  if (n.error) filas.push(`<div class="num-fila">⚠ ${escHtml(n.error)}</div>`);
+  if (n.error) filas.push(`<div class="num-fila">⚠ ${escHtml(_errTxt(n.error))}</div>`);
   filas.push(`<div class="num-fila">Nombre que ve el cliente: <b>${escHtml(n.nombre || '—')}</b></div>`);
   if (n.nombre_nuevo && n.nombre_nuevo !== n.nombre) {
     filas.push(`<div class="num-fila">Nombre nuevo: <b>${escHtml(n.nombre_nuevo)}</b> · ${escHtml(_NUM_EST[n.nombre_nuevo_estado] || n.nombre_nuevo_estado || '')}</div>`);
@@ -6333,7 +6406,7 @@ async function loadChatsAdmin() {
         }).join('') : '<div style="padding:14px 16px;color:var(--muted)">Todavía no hay conversaciones analizadas. Las de los números del local se analizan solas cuando la charla queda quieta 6 horas.</div>'}
       </div>`;
   } catch (e) {
-    el.innerHTML = `<div class="empty"><p>No se pudo cargar: ${escHtml(e.message)}</p></div>`;
+    el.innerHTML = `<div class="empty"><p>No se pudo cargar: ${escHtml(_errTxt(e))}</p></div>`;
   }
 }
 // (14-nov-2026, JP vía Infra) «Analizar» y «Generar ahora» gastan IA: tienen su propio permiso en el Hub (crm.chats_analizar y
@@ -6376,7 +6449,7 @@ async function _subirChatsExportados(local, files, lote) {
       linea.innerHTML = `✔ <b>${escHtml(r.contacto || f.name)}</b>: ${escHtml(r.resumen || '')}${sug}`;
       ok++;
     } catch (e) {
-      linea.innerHTML = `❌ ${escHtml(f.name)}: ${escHtml(e.message)}`;
+      linea.innerHTML = `❌ ${escHtml(f.name)}: ${escHtml(_errTxt(e))}`;
     }
   }
   toast(`${ok} de ${files.length} chats analizados`);
@@ -6466,7 +6539,7 @@ async function loadCumpleanos() {
     const clientes = await _rpcBot('crm_cumples_proximos', { p_dias: 60 }) || [];
     renderCumpleanos(clientes);
   } catch(e) {
-    list.innerHTML = `<div class="cumple-empty"><div class="icon">❌</div>Error: ${escHtml(e.message)}</div>`;
+    list.innerHTML = `<div class="cumple-empty"><div class="icon">❌</div>Error: ${escHtml(_errTxt(e))}</div>`;
   }
 }
 
@@ -7071,7 +7144,7 @@ async function loadClientesVendedora(q) {
     renderClientesVendedora();
     renderTagFiltersVendedora();
   } catch(e) {
-    list.innerHTML = `<div class="empty"><div class="icon">❌</div><p>Error: ${escHtml(e.message)}</p></div>`;
+    list.innerHTML = `<div class="empty"><div class="icon">❌</div><p>Error: ${escHtml(_errTxt(e))}</p></div>`;
   }
 }
 
@@ -7163,7 +7236,7 @@ async function loadClientes(q) {
     renderClientesList();
     renderTagFilters();
   } catch(e) {
-    list.innerHTML = `<div class="empty"><div class="icon">❌</div><p>Error: ${escHtml(e.message)}</p></div>`;
+    list.innerHTML = `<div class="empty"><div class="icon">❌</div><p>Error: ${escHtml(_errTxt(e))}</p></div>`;
   }
 }
 
@@ -7243,7 +7316,7 @@ async function openClienteDetail(globalid) {
     clienteDetailCache = { c, compras, pedidosCrm, waAnalisis, comprasWeb };
     renderClienteDetail();
   } catch(e) {
-    content.innerHTML = `<div class="empty" style="padding:60px"><div class="icon">❌</div><p>Error: ${escHtml(e.message)}</p></div>`;
+    content.innerHTML = `<div class="empty" style="padding:60px"><div class="icon">❌</div><p>Error: ${escHtml(_errTxt(e))}</p></div>`;
   }
 }
 
@@ -7408,7 +7481,7 @@ async function toggleCompraDetail(compraId, ev) {
       });
       compraDetailCache[compraId] = items;
     } catch(e) {
-      detailDiv.innerHTML = `<div class="timeline-detail-loading">❌ Error: ${escHtml(e.message)}</div>`;
+      detailDiv.innerHTML = `<div class="timeline-detail-loading">❌ Error: ${escHtml(_errTxt(e))}</div>`;
       return;
     }
   }
@@ -7583,7 +7656,7 @@ async function runGlobalSearch(q) {
     resBox.innerHTML = html;
   } catch(e) {
     if (globalSearchToken === thisToken) {
-      resBox.innerHTML = `<div class="search-empty">❌ Error: ${escHtml(e.message)}</div>`;
+      resBox.innerHTML = `<div class="search-empty">❌ Error: ${escHtml(_errTxt(e))}</div>`;
     }
   }
 }
@@ -7777,7 +7850,7 @@ async function loadMetricas(forzar) {
     renderMetricas();
   } catch(e) {
     console.error('loadMetricas:', e);
-    cont.innerHTML = `<div class="empty">❌ No se pudieron cargar las métricas: ${escHtml(e.message)}</div>`;
+    cont.innerHTML = `<div class="empty">❌ No se pudieron cargar las métricas: ${escHtml(_errTxt(e))}</div>`;
   }
 }
 
@@ -8508,7 +8581,7 @@ let waTemplatesPedidoActual = null;
 
 function openWaTemplates(pedidoId) {
   const p = pedidosCache.find(x => x.id === pedidoId);
-  if (!p) { toast('Pedido no encontrado'); return; }
+  if (!p) { _errAviso('❌ No se encontró el pedido: recargá la página y probá de nuevo'); return; }
   if (!p.celular) { toast('⚠️ Este pedido no tiene celular cargado'); return; }
   waTemplatesPedidoActual = p;
 
@@ -8758,7 +8831,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v123-vista-y-microfono';
+const CRM_VERSION = 'crm-adorno-v124-ver-como-y-avisos';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -8828,6 +8901,16 @@ window.addEventListener('beforeinstallprompt', e => {
 });
 
 let toastTimer;
+// (16-nov-2026, JP vía Infra: «los carteles rojos de avisos de sistema, que no se cierren automáticamente, que tengan una X
+// para cerrar manualmente, y que todos estén en español y que se entiendan los errores») /hub/banner.js v8 define
+// ADORNO_AVISO: error(msg) = cartel rojo fijo con ✕; traducir(msg).texto = el error en castellano simple (el original queda en
+// «Ver detalle técnico»). banner.js envuelve toast(): los que empiezan con ❌ / «No se pudo» / «Error» ya salen en rojo. Estos dos
+// son para los demás errores del sistema y para los errores que se muestran adentro de la pantalla.
+function _errAviso(msg) { if (window.ADORNO_AVISO && ADORNO_AVISO.error) ADORNO_AVISO.error(msg); else toast(msg); }
+function _errTxt(e) {
+  const m = (e && e.message) || String(e == null ? '' : e);
+  try { return (window.ADORNO_AVISO && ADORNO_AVISO.traducir) ? (ADORNO_AVISO.traducir(m).texto || m) : m; } catch (_) { return m; }
+}
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -8896,6 +8979,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=55"></script>
+<script src="manual.js?v=56"></script>
 </body>
 </html>
