@@ -4491,12 +4491,22 @@ function _wabNombreCorto(n) {
 // hub_registrar para que la base verifique que es esa persona y el registro quede «📷 por la cara».
 let _wabAtiendeDescriptor = null;
 function _wabAtiendeSet(d, modo, descriptor) {
-  wabAtiende = { empleado_id: d.empleado_id, nombre: _wabNombreCorto(d.nombre), completo: d.nombre || null, hasta: Date.now() + WA_ATIENDE_MIN * 60000, modo };
+  // (19-nov-2026, JP) el nombre con el que la conocen todos (el mismo de los pedidos), no el primer nombre del legajo
+  wabAtiende = { empleado_id: d.empleado_id, nombre: _vendedoraDe(d.completo || d.nombre, (wabSel && wabSel.local_id) || session.local_id),
+    completo: d.completo || d.nombre || null, hasta: Date.now() + WA_ATIENDE_MIN * 60000, modo };
   try { sessionStorage.setItem('wab-atiende', JSON.stringify(wabAtiende)); } catch (_) {}
   _wabAtiendeDescriptor = (modo === 'cara' && descriptor && descriptor.length) ? Array.from(descriptor) : null;
   return wabAtiende;
 }
-const _wabCli = { rpc: async (n, b) => { try { return { data: await _rpcBot(n, b, authToken || SUPA_KEY) }; } catch (e) { return { error: e }; } } };   // (14-nov) nunca la sesión del superior
+const _wabCli = { rpc: async (n, b) => { try { return { data: await _rpcBot(n, b, authToken || SUPA_KEY) }; } catch (e) { return { error: e }; } } };
+// (19-nov-2026, JP) para la cámara: la persona reconocida vuelve con el nombre con el que la conocen (el de los pedidos);
+// el del legajo queda en «completo». Así caras.js dice «Responde …» / «Lo carga …» con ese nombre.
+const _wabCliCara = { rpc: async (n, b) => {
+  const r = await _wabCli.rpc(n, b);
+  if (n === 'wa_quien_atiende' && r && r.data && r.data.nombre)
+    r.data = Object.assign({}, r.data, { completo: r.data.nombre, nombre: _vendedoraDe(r.data.nombre, b && b.p_local) });
+  return r;
+} };   // (14-nov) nunca la sesión del superior
 
 // ── (14-nov-2026, JP desde Infra) 📷 Registra quién ───────────────────────────────────────────────────────────
 // Si JP marcó la función con «📷 Registra quién» en el Hub (Permisos → Perfiles → Clientes), antes de grabar se anota
@@ -4571,7 +4581,7 @@ async function waQuienAtiende(o) {
   if (window.ADORNO_CARAS && ADORNO_CARAS.quien) {
     // (15-nov-2026, JP vía Infra) caras.js v7: oculta = la cámara lee en segundo plano, sin ventana ni círculo (solo una pastilla
     // «Un momento…» y «Responde: …»). Si en ~7 s no reconoce a nadie o no hay cámara, vuelve con motivo 'lista' → la lista.
-    const r = await ADORNO_CARAS.quien({ cli: _wabCli, rpc: 'wa_quien_atiende', params: { p_local: local }, titulo: '¿Quién responde?',
+    const r = await ADORNO_CARAS.quien({ cli: _wabCliCara, rpc: 'wa_quien_atiende', params: { p_local: local }, titulo: '¿Quién responde?',
       oculta: true, textoOk: 'Responde',
       nota: 'Mirá a la cámara: te reconozco por la cara y seguimos. Si no te reconozco, elegís tu nombre de la lista. Queda ' + WA_ATIENDE_MIN + ' minutos.' });
     if (r.ok) { const a = _wabAtiendeSet(r.data, 'cara', r.descriptor); toast('👤 Hola ' + a.nombre.split(' ')[0] + '! Respondés vos los próximos ' + WA_ATIENDE_MIN + ' min'); return a; }
@@ -4622,7 +4632,7 @@ async function _elegirDeEquipo(local, o) {
   });
 }
 async function _wabElegirDeLista(local) {
-  const e = await _elegirDeEquipo(local, { titulo: '¿Quién responde?',
+  const e = await _elegirDeEquipo(local, { titulo: '¿Quién responde?', mostrar: p => _vendedoraDe(p.nombre, local),
     nota: 'Elegí tu nombre: la clienta va a saber que habla con vos y los mensajes salen a tu nombre durante ' + WA_ATIENDE_MIN + ' minutos.' });
   if (!e) return null;
   const a = _wabAtiendeSet(e, 'lista'); toast('👤 Hola ' + a.nombre.split(' ')[0] + '! Respondés vos los próximos ' + WA_ATIENDE_MIN + ' min');
@@ -4634,8 +4644,8 @@ async function _wabElegirDeLista(local) {
 // Ya no se elige la vendedora: al guardar, con la cuenta del local, la cámara reconoce en segundo plano a quien está en la
 // compu y, si no la reconoce, toca su nombre en la lista. Con usuario personal es esa persona (sin cámara); desde una charla,
 // quien la responde («¿Quién responde?», que queda los 10 minutos). Se reconoce en cada pedido: el siguiente puede ser otra.
-// El nombre que se guarda en pedidos.vendedora es el de siempre (VENDEDORAS: «Pamela Godoy», no «Cintia Godoy» del legajo),
-// así los filtros y las métricas por vendedora no se parten en dos.
+// El nombre que se guarda en pedidos.vendedora es el de siempre (el de VENDEDORAS, con el que la conocen, aunque en el legajo
+// figure primero otro nombre o falten tildes), así los filtros y las métricas por vendedora no se parten en dos.
 const _sinTilde = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 function _vendedoraDe(completo, local) {
   const t = String(completo || '').trim(); if (!t) return '';
@@ -4681,10 +4691,10 @@ async function _quienCargaPedido(local) {
     if (d && d.yo && d.yo.nombre) return { empleado_id: d.yo.empleado_id || null, vendedora: _vendedoraDe(d.yo.nombre, loc), modo: 'usuario', yo: true };
   }
   if (window.ADORNO_CARAS && ADORNO_CARAS.quien && loc) {
-    const r = await ADORNO_CARAS.quien({ cli: _wabCli, rpc: 'wa_quien_atiende', params: { p_local: loc }, titulo: '¿Quién carga el pedido?',
+    const r = await ADORNO_CARAS.quien({ cli: _wabCliCara, rpc: 'wa_quien_atiende', params: { p_local: loc }, titulo: '¿Quién carga el pedido?',
       oculta: true, textoOk: 'Lo carga',
       nota: 'Mirá a la cámara: te reconozco por la cara y el pedido queda a tu nombre. Si no te reconozco, elegís tu nombre de la lista.' });
-    if (r.ok && r.data) return { empleado_id: r.data.empleado_id, vendedora: _vendedoraDe(r.data.nombre, loc), modo: 'cara',
+    if (r.ok && r.data) return { empleado_id: r.data.empleado_id, vendedora: _vendedoraDe(r.data.completo || r.data.nombre, loc), modo: 'cara',
       descriptor: r.descriptor && r.descriptor.length ? Array.from(r.descriptor) : null };
     if (r.motivo === 'cancel') return null;
     if (r.motivo === 'camara') toast('📷 ' + (r.error || 'No pude usar la cámara') + ' · Elegí tu nombre');
@@ -9037,7 +9047,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v128-pedido-por-camara';
+const CRM_VERSION = 'crm-adorno-v129-nombres-whatsapp';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -9185,6 +9195,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=60"></script>
+<script src="manual.js?v=61"></script>
 </body>
 </html>
