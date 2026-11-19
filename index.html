@@ -912,6 +912,9 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); background: white; }
 .field textarea { resize: vertical; min-height: 70px; }
 .field .hint { font-size: 11px; color: var(--muted); margin-top: 5px; }
+/* (19-nov-2026) quién carga el pedido: se reconoce por la cámara al guardar, no se elige */
+.quien-carga { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 16px; border: 2px dashed var(--border); border-radius: 999px; font-size: 14px; color: var(--muted); background: #fafafa; }
+.quien-carga b { color: var(--text, #1C1612); font-weight: 600; }
 
 /* SKU autocomplete */
 .sku-wrap { position: relative; }
@@ -1735,10 +1738,9 @@ html.dark .wab-vacio { background: #111b21; }
           <div class="form-grid">
 
             <div class="field">
-              <label>Vendedora *</label>
-              <select id="f-vendedora">
-                <option value="" disabled selected>Seleccioná tu nombre…</option>
-              </select>
+              <label>Quién lo carga</label>
+              <!-- (19-nov-2026, JP) ya no se elige de una lista: al guardar se reconoce por la cámara (ver _quienCargaPedido) -->
+              <div id="f-quien" class="quien-carga">📷 Al guardar te reconozco por la cámara</div>
             </div>
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -2956,11 +2958,7 @@ async function enterApp() {
     else if (!misLocalesHub.length) toast('👁 Esta cuenta no tiene ningún local en el Hub: en Clientes no vería pedidos ni charlas');
   }
   await elegirLocalSiVarios();
-  // Populate vendedora dropdown
-  const sel = document.getElementById('f-vendedora');
-  const lista = (session.local_id && VENDEDORAS[session.local_id]) ? VENDEDORAS[session.local_id] : VENDEDORAS_TODAS;
-  sel.innerHTML = '<option value="" disabled selected>Seleccioná tu nombre…</option>' +
-    lista.map(v => `<option value="${v}">${v}</option>`).join('');
+  _quienPintar();   // (19-nov-2026) quién carga el pedido: ya no se elige de una lista, se reconoce al guardar
 
   // Update header
   const localInfo = LOCALES[session.local_id] || { nombre: 'Todos los locales', icon: '🏪' };
@@ -4352,6 +4350,7 @@ function waBandejaNuevoPedido() {
   const card = document.querySelector('#panel-nuevo > .card');
   if (!card) return;
   wabPedidoCtx = { local_id: c.local_id, celular: c.celular };
+  _quienPintar();
   document.getElementById('wab-ped-cuerpo').appendChild(card);
   document.getElementById('wab-ped-titulo').textContent = `Nuevo pedido · ${_wabNombre(c)}`;
   document.getElementById('wab-ped-modal').style.display = 'block';
@@ -4379,7 +4378,7 @@ function waBandejaNuevoPedido() {
   else if (tk.length === 1) setIfEmpty('f-nombre', tk[0]);
   setIfEmpty('f-notas', 'Pedido tomado por WhatsApp');
   fc.dispatchEvent(new Event('input'));   // busca la ficha y los pedidos anteriores de ese celular
-  setTimeout(() => { const v = document.getElementById('f-vendedora'); if (v && !v.value) v.focus(); }, 50);
+  setTimeout(() => { const v = ['f-nombre', 'f-apellido', 'f-dni'].map(id => document.getElementById(id)).find(x => x && !x.value.trim()); if (v) v.focus(); }, 50);
 }
 function waBandejaPedidoCerrar() {
   const card = document.querySelector('#wab-ped-cuerpo > .card');
@@ -4387,6 +4386,7 @@ function waBandejaPedidoCerrar() {
   if (card && panel) panel.appendChild(card);
   document.getElementById('wab-ped-modal').style.display = 'none';
   wabPedidoCtx = null;
+  _quienPintar();
 }
 // lo llama submitPedido cuando el pedido se cargó desde una charla
 function waBandejaPedidoGuardado(nombre, lineas) {
@@ -4491,7 +4491,7 @@ function _wabNombreCorto(n) {
 // hub_registrar para que la base verifique que es esa persona y el registro quede «📷 por la cara».
 let _wabAtiendeDescriptor = null;
 function _wabAtiendeSet(d, modo, descriptor) {
-  wabAtiende = { empleado_id: d.empleado_id, nombre: _wabNombreCorto(d.nombre), hasta: Date.now() + WA_ATIENDE_MIN * 60000, modo };
+  wabAtiende = { empleado_id: d.empleado_id, nombre: _wabNombreCorto(d.nombre), completo: d.nombre || null, hasta: Date.now() + WA_ATIENDE_MIN * 60000, modo };
   try { sessionStorage.setItem('wab-atiende', JSON.stringify(wabAtiende)); } catch (_) {}
   _wabAtiendeDescriptor = (modo === 'cara' && descriptor && descriptor.length) ? Array.from(descriptor) : null;
   return wabAtiende;
@@ -4581,28 +4581,117 @@ async function waQuienAtiende(o) {
   if (!irALista) return null;
   return await _wabElegirDeLista(local);
 }
-async function _wabElegirDeLista(local) {
+// (19-nov-2026) La lista de nombres del local, en pastillas (con un puntito verde las que están en el local ahora). La usan
+// «¿Quién responde?» y «¿Quién carga el pedido?». o.titulo, o.nota · o.mostrar(e): el nombre que se ve · o.todos: botón
+// «Ver todos los locales» por si viene de otro local. Devuelve la persona ({ empleado_id, nombre }) o null si canceló.
+async function _elegirDeEquipo(local, o) {
+  o = o || {};
+  const mostrar = o.mostrar || (e => _wabNombreCorto(e.nombre));
   let equipo = [];
-  try { equipo = await _rpcBot('wa_equipo_local', { p_local: local }) || []; } catch (e) { toast('❌ ' + e.message); return null; }
-  if (!equipo.length) { toast('⚠️ No hay gente activa cargada en ' + _wabLocalNom(local)); return null; }
+  if (local) { try { equipo = await _rpcBot('wa_equipo_local', { p_local: local }) || []; } catch (e) { toast('❌ ' + e.message); return null; } }
+  if (!equipo.length && !o.todos) { toast('⚠️ No hay gente activa cargada en ' + _wabLocalNom(local)); return null; }
   return new Promise(listo => {
     const f = document.createElement('div');
     f.style.cssText = 'position:fixed;inset:0;z-index:99995;background:rgba(28,22,18,.55);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box';
     f.setAttribute('data-adorno-superior', '1');
-    const presentes = equipo.filter(e => e.presente), resto = equipo.filter(e => !e.presente);
-    const btn = e => `<button type="button" data-id="${e.empleado_id}" style="border:1px solid var(--border,#D6CCBA);background:#fff;border-radius:999px;padding:9px 16px;font:inherit;font-size:14px;cursor:pointer;text-align:left;display:flex;gap:8px;align-items:center">${e.presente ? '<span style="width:8px;height:8px;border-radius:50%;background:#16a34a;flex:none"></span>' : '<span style="width:8px;flex:none"></span>'}${escHtml(_wabNombreCorto(e.nombre))}</button>`;
+    const btn = e => `<button type="button" data-id="${e.empleado_id}" style="border:1px solid var(--border,#D6CCBA);background:#fff;border-radius:999px;padding:9px 16px;font:inherit;font-size:14px;cursor:pointer;text-align:left;display:flex;gap:8px;align-items:center">${e.presente ? '<span style="width:8px;height:8px;border-radius:50%;background:#16a34a;flex:none"></span>' : '<span style="width:8px;flex:none"></span>'}${escHtml(mostrar(e))}</button>`;
+    const pintar = (lista, conPresentes) => {
+      const presentes = conPresentes ? lista.filter(e => e.presente) : [], resto = lista.filter(e => !presentes.includes(e));
+      return (presentes.map(btn).join('') + (presentes.length && resto.length ? '<div style="font-size:11px;color:#685B51;margin:6px 0 0">Resto del equipo</div>' : '') + resto.map(btn).join(''))
+        || '<span style="font-size:12.5px;color:#685B51">No encontré personas para este local.</span>';
+    };
+    const hayPresentes = equipo.some(e => e.presente);
     f.innerHTML = `<div role="dialog" aria-modal="true" style="background:#fff;color:#1C1612;border-radius:28px;max-width:420px;width:100%;max-height:calc(100vh - 32px);overflow:auto;padding:22px 20px 18px;box-sizing:border-box;box-shadow:0 24px 60px -20px rgba(0,0,0,.5)">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><h3 style="margin:0;font-size:18px;font-weight:500;flex:1">¿Quién responde?</h3><button type="button" class="wab-x" aria-label="Cerrar" style="border:0;background:transparent;font-size:18px;cursor:pointer;padding:4px 8px">✕</button></div>
-      <p style="font-size:12.5px;line-height:1.45;color:#685B51;margin:0 0 12px">Elegí tu nombre: la clienta va a saber que habla con vos y los mensajes salen a tu nombre durante ${WA_ATIENDE_MIN} minutos.${presentes.length ? ' El puntito verde: están en el local ahora.' : ''}</p>
-      <div style="display:flex;flex-direction:column;gap:6px">${presentes.map(btn).join('')}${presentes.length && resto.length ? '<div style="font-size:11px;color:#685B51;margin:6px 0 0">Resto del equipo</div>' : ''}${resto.map(btn).join('')}</div>
-      <div style="display:flex;justify-content:flex-end;margin-top:12px"><button type="button" class="wab-x" style="border:1px solid #D6CCBA;background:transparent;border-radius:999px;padding:8px 16px;font:inherit;cursor:pointer">Cancelar</button></div></div>`;
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><h3 style="margin:0;font-size:18px;font-weight:500;flex:1">${escHtml(o.titulo || '¿Quién sos?')}</h3><button type="button" class="wab-x" aria-label="Cerrar" style="border:0;background:transparent;font-size:18px;cursor:pointer;padding:4px 8px">✕</button></div>
+      <p style="font-size:12.5px;line-height:1.45;color:#685B51;margin:0 0 12px">${escHtml(o.nota || 'Elegí tu nombre.')}${hayPresentes ? ' El puntito verde: están en el local ahora.' : ''}</p>
+      <div class="eq-lista" style="display:flex;flex-direction:column;gap:6px">${pintar(equipo, true)}</div>
+      <div style="display:flex;justify-content:${o.todos ? 'space-between' : 'flex-end'};align-items:center;gap:8px;margin-top:12px">${o.todos ? '<button type="button" class="eq-todos" style="border:1px solid #D6CCBA;background:transparent;border-radius:999px;padding:8px 14px;font:inherit;font-size:13px;cursor:pointer">Ver todos los locales</button>' : ''}<button type="button" class="wab-x" style="border:1px solid #D6CCBA;background:transparent;border-radius:999px;padding:8px 16px;font:inherit;cursor:pointer">Cancelar</button></div></div>`;
     document.body.appendChild(f);
-    f.querySelectorAll('.wab-x').forEach(b => { b.onclick = () => { f.remove(); listo(null); }; });
-    f.querySelectorAll('[data-id]').forEach(b => { b.onclick = () => {
-      const e = equipo.find(x => String(x.empleado_id) === b.dataset.id); f.remove();
-      const a = _wabAtiendeSet(e, 'lista'); toast('👤 Hola ' + a.nombre.split(' ')[0] + '! Respondés vos los próximos ' + WA_ATIENDE_MIN + ' min'); listo(a);
+    let actual = equipo;
+    const enlazar = () => f.querySelectorAll('[data-id]').forEach(b => { b.onclick = () => {
+      const e = actual.find(x => String(x.empleado_id) === b.dataset.id); f.remove(); listo(e || null);
     }; });
+    f.querySelectorAll('.wab-x').forEach(b => { b.onclick = () => { f.remove(); listo(null); }; });
+    const bt = f.querySelector('.eq-todos');
+    if (bt) bt.onclick = async () => {
+      bt.disabled = true;
+      try { actual = await _rpcBot('hub_registro_personas', { p_local: null }) || []; } catch (e) { toast('❌ ' + e.message); bt.disabled = false; return; }
+      bt.remove(); f.querySelector('.eq-lista').innerHTML = pintar(actual, false); enlazar();
+    };
+    enlazar();
   });
+}
+async function _wabElegirDeLista(local) {
+  const e = await _elegirDeEquipo(local, { titulo: '¿Quién responde?',
+    nota: 'Elegí tu nombre: la clienta va a saber que habla con vos y los mensajes salen a tu nombre durante ' + WA_ATIENDE_MIN + ' minutos.' });
+  if (!e) return null;
+  const a = _wabAtiendeSet(e, 'lista'); toast('👤 Hola ' + a.nombre.split(' ')[0] + '! Respondés vos los próximos ' + WA_ATIENDE_MIN + ' min');
+  return a;
+}
+
+// ── (19-nov-2026, JP: «como al sistema ya le pusimos que reconozca quién es la que está en la computadora… cuando se carga
+// una petición de un cliente, directamente que lo tome por la cámara, que no sea un campo a rellenar») QUIÉN CARGA EL PEDIDO
+// Ya no se elige la vendedora: al guardar, con la cuenta del local, la cámara reconoce en segundo plano a quien está en la
+// compu y, si no la reconoce, toca su nombre en la lista. Con usuario personal es esa persona (sin cámara); desde una charla,
+// quien la responde («¿Quién responde?», que queda los 10 minutos). Se reconoce en cada pedido: el siguiente puede ser otra.
+// El nombre que se guarda en pedidos.vendedora es el de siempre (VENDEDORAS: «Pamela Godoy», no «Cintia Godoy» del legajo),
+// así los filtros y las métricas por vendedora no se parten en dos.
+const _sinTilde = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+function _vendedoraDe(completo, local) {
+  const t = String(completo || '').trim(); if (!t) return '';
+  let ape = '', nom = '';
+  if (t.includes(',')) { const p = t.split(','); ape = _sinTilde(p[0]); nom = _sinTilde(p.slice(1).join(' ')); }
+  else { const w = _sinTilde(t).split(/\s+/); nom = w[0] || ''; ape = w.slice(1).join(' '); }
+  const noms = nom.split(/\s+/).filter(Boolean), apes = ape.split(/\s+/).filter(Boolean);
+  const loc = String(local || '').toLowerCase();
+  for (const lista of [VENDEDORAS[loc] || [], VENDEDORAS_TODAS]) {
+    const v = lista.find(x => { const w = _sinTilde(x).split(/\s+/); return w.length >= 2 && noms.includes(w[0]) && apes.includes(w[w.length - 1]); });
+    if (v) return v;
+  }
+  return _wabNombreCorto(t);
+}
+function _esCuentaCompartida() {
+  const m = String((session && session.email) || '').toLowerCase();
+  return Object.values(LOCAL_EMAILS).includes(m) || OFICINA_EMAILS.includes(m);
+}
+// La pastilla del formulario dice cómo se va a saber quién lo carga (o quién lo está cargando ahora)
+function _quienPintar(q) {
+  const el = document.getElementById('f-quien'); if (!el) return;
+  let t;
+  if (q) t = '👤 Lo carga <b>' + escHtml(q.vendedora) + '</b>' + (q.modo === 'cara' ? ' · 📷 por la cara' : '');
+  else if (VC) t = '👁 «Ver como»: no se carga ningún pedido';
+  else if (wabPedidoCtx) t = _wabAtiendeVigente()
+    ? '👤 Lo carga <b>' + escHtml(_vendedoraDe(wabAtiende.completo || wabAtiende.nombre, wabPedidoCtx.local_id)) + '</b> (responde la charla)'
+    : '📷 Al guardar te reconozco por la cámara y quedás respondiendo la charla';
+  else if (session && !_esCuentaCompartida()) t = '👤 Queda a tu nombre: entraste con tu usuario';
+  else t = '📷 Al guardar te reconozco por la cámara. Si no, tocás tu nombre en la lista.';
+  el.innerHTML = t;
+}
+// Devuelve { empleado_id, vendedora, modo, descriptor?, yo?, charla? } o null si canceló (entonces no se guarda nada)
+async function _quienCargaPedido(local) {
+  if (_vcFrena()) return null;   // «Ver como»: no se abre la cámara ni se carga nada
+  const loc = local ? String(local).toLowerCase() : null;
+  if (wabPedidoCtx) {
+    const a = await waQuienAtiende(); if (!a) return null;
+    return { empleado_id: a.empleado_id, vendedora: _vendedoraDe(a.completo || a.nombre, loc), modo: a.modo, charla: true };
+  }
+  if (!_esCuentaCompartida()) {   // usuario personal (encargada, oficina, administración): es esa persona
+    let d = null;
+    try { d = await _rpcBot('hub_registra_quien', { p_funcion: 'crm.pedido_cargar' }, authToken || SUPA_KEY); } catch (_) {}
+    if (d && d.yo && d.yo.nombre) return { empleado_id: d.yo.empleado_id || null, vendedora: _vendedoraDe(d.yo.nombre, loc), modo: 'usuario', yo: true };
+  }
+  if (window.ADORNO_CARAS && ADORNO_CARAS.quien && loc) {
+    const r = await ADORNO_CARAS.quien({ cli: _wabCli, rpc: 'wa_quien_atiende', params: { p_local: loc }, titulo: '¿Quién carga el pedido?',
+      oculta: true, textoOk: 'Lo carga',
+      nota: 'Mirá a la cámara: te reconozco por la cara y el pedido queda a tu nombre. Si no te reconozco, elegís tu nombre de la lista.' });
+    if (r.ok && r.data) return { empleado_id: r.data.empleado_id, vendedora: _vendedoraDe(r.data.nombre, loc), modo: 'cara',
+      descriptor: r.descriptor && r.descriptor.length ? Array.from(r.descriptor) : null };
+    if (r.motivo === 'cancel') return null;
+    if (r.motivo === 'camara') toast('📷 ' + (r.error || 'No pude usar la cámara') + ' · Elegí tu nombre');
+  }
+  const e = await _elegirDeEquipo(loc, { titulo: '¿Quién carga el pedido?', todos: true,
+    nota: 'Elegí tu nombre: el pedido queda a tu nombre.', mostrar: p => _vendedoraDe(p.nombre, p.local || loc) });
+  return e ? { empleado_id: e.empleado_id, vendedora: _vendedoraDe(e.nombre, e.local || loc), modo: 'lista' } : null;
 }
 // Tomar una consulta que Clodi derivó: quién sos → saludo automático a la clienta → la charla queda en "humano"
 async function waBandejaTomar() {
@@ -5196,14 +5285,12 @@ function nombreDeRelleno(t) {
 }
 
 async function submitPedido() {
-  const vendedora         = document.getElementById('f-vendedora').value.trim();
   const primerNombreInput = document.getElementById('f-nombre').value.trim();
   const apellidoInput     = document.getElementById('f-apellido').value.trim();
   const dni     = document.getElementById('f-dni').value.trim();
   const fnac    = document.getElementById('f-fnac').value || null;  // YYYY-MM-DD
   const celular = celularLocal(document.getElementById('f-celular').value.trim());   // (6-nov) 15 + 8 → 11 + 8
   const email   = document.getElementById('f-email').value.trim() || null;
-  if (!vendedora)         { toast('⚠️ Falta el nombre de la vendedora'); return; }
   if (!primerNombreInput) { toast('⚠️ Falta el nombre del cliente'); return; }
   if (!apellidoInput)     { toast('⚠️ Falta el apellido del cliente'); return; }
   // (28-oct-2026, JP) Nada de nombres de relleno ("JJJJ", "xxx", "-"): van a la ficha y al Dragon
@@ -5284,6 +5371,11 @@ async function submitPedido() {
   btn.innerHTML = '<span class="spinner"></span> Guardando...';
   // (14-nov) 📷 Registra quién: si la persona cancela, no se carga nada
   const localPedido = (wabPedidoCtx && wabPedidoCtx.local_id) || session.local_id;
+  // (19-nov-2026, JP) quién lo carga: la cámara (o su usuario, o quien responde la charla). Si cancela, no se carga nada.
+  const quien = await _quienCargaPedido(localPedido);
+  if (!quien) { btn.disabled = false; btn.innerHTML = '<span>💾</span> Guardar pedido'; return; }
+  const vendedora = quien.vendedora;
+  _quienPintar(quien);
   // (14-nov-2026) Permisos del Hub. (15-nov) «Pide permiso»: la ventana del Hub; la autorización sirve para ESTE pedido nuevo
   // (un uso por artículo: 'alta') y su confirmación por WhatsApp
   const _finPerm = await _permEmpezar('crm.pedido_cargar', localPedido, { objeto: 'alta', usos: validLines.length,
@@ -5292,7 +5384,9 @@ async function submitPedido() {
   if (!_finPerm) { btn.disabled = false; btn.innerHTML = '<span>💾</span> Guardar pedido'; return; }
   const detPedido = { cliente: nombre, dni, articulos: validLines.map(l => l.sku), vendedora, ...(wabPedidoCtx ? { desde: 'charla de WhatsApp' } : {}) };
   // desde una charla: si ya se sabe quién responde, es esa persona (no se le vuelve a preguntar)
-  if (!(await (wabPedidoCtx ? _wabRegistra('crm.pedido_cargar', localPedido, detPedido, null) : registraQuien('crm.pedido_cargar', localPedido, detPedido)))) {
+  // (19-nov) con la cuenta del local ya se sabe quién es (la cámara o la lista): se anota esa persona sin volver a preguntar
+  if (!(await (quien.charla ? _wabRegistra('crm.pedido_cargar', localPedido, detPedido, null)
+      : registraQuienYa('crm.pedido_cargar', localPedido, quien.yo ? null : quien.empleado_id, detPedido, { descriptor: quien.descriptor })))) {
     _finPerm(); btn.disabled = false; btn.innerHTML = '<span>💾</span> Guardar pedido'; return;
   }
 
@@ -5355,7 +5449,7 @@ async function submitPedido() {
     // (4-nov-2026, JP) con el número del sistema activo en el local, la confirmación sale por la API, no por wa.me
     // (desde una charla de la bandeja, en cambio, queda escrita en el cuadro: ver la rama de wabPedidoCtx más abajo)
     const confirmaPorApi = !wabPedidoCtx && waApiActiva(creados[0].local_id);
-    toast(`✅ ${count} pedido${count > 1 ? 's' : ''} guardado${count > 1 ? 's' : ''}${wabPedidoCtx ? '' : (confirmaPorApi ? ' — mandando la confirmación por WhatsApp...' : ' — abriendo WhatsApp...')}`);
+    toast(`✅ ${count} pedido${count > 1 ? 's' : ''} guardado${count > 1 ? 's' : ''} a nombre de ${vendedora}${wabPedidoCtx ? '' : (confirmaPorApi ? ' — mandando la confirmación por WhatsApp...' : ' — abriendo WhatsApp...')}`);
 
     // Save for WA confirmation before resetting
     const nombreGuardado  = nombre;
@@ -5364,7 +5458,7 @@ async function submitPedido() {
 
     // Reset form
     skuLines = [];
-    // f-vendedora se mantiene para no tener que reescribirlo en cada pedido
+    // (19-nov) quién lo carga se reconoce de nuevo en cada pedido: el siguiente lo puede cargar otra persona
     document.getElementById('f-nombre').value = '';
     document.getElementById('f-apellido').value = '';
     document.getElementById('f-dni').value = '';
@@ -5373,6 +5467,7 @@ async function submitPedido() {
     document.getElementById('f-email').value = '';
     // Desbloquear y limpiar banner de cliente detectado
     hideClienteDetectado();
+    _quienPintar();
 
     // Si tenemos DNI + fecha de nacimiento, propagar la fecha al cliente correspondiente en clientes
     if (fnac && dni) {
@@ -8942,7 +9037,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v127-clodi-iphone';
+const CRM_VERSION = 'crm-adorno-v128-pedido-por-camara';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -9090,6 +9185,6 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=59"></script>
+<script src="manual.js?v=60"></script>
 </body>
 </html>
