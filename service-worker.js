@@ -5,11 +5,12 @@
 
 // (4-nov-2026) Al publicar, cambiar también CRM_VERSION en index.html (mismo texto): el número se ve arriba en el CRM y
 // las pestañas abiertas con una versión más vieja avisan "Actualizar a vN"
-const CACHE_VERSION = 'crm-adorno-v129-nombres-whatsapp';
+const CACHE_VERSION = 'crm-adorno-v130-tablas-excel';
 const CACHE_ASSETS = [
   './',
   './index.html',
   './manual.js',
+  './adorno-tablas.js',   // (19-nov-2026) tablas tipo Excel, pieza común (_shared/adorno-tablas.js)
   './manifest.json',
   './icon-192-v2.png',
   './icon-512-v2.png',

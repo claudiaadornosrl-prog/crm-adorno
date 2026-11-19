@@ -187,6 +187,19 @@ function _manualSecciones() {
         'Arriba a la derecha está el número de versión del CRM (por ejemplo "v94"). Si se publicó una versión más nueva mientras tenías la página abierta, se pone amarillo y dice "Actualizar a v95": tocalo y el CRM se recarga con la nueva. Si algo no anda como te contaron, mirá primero ese número.',
       ],
     },
+    {
+      icon: '📊', titulo: 'Tablas tipo Excel',
+      desc: 'Desde el 19-nov-2026 todas las tablas funcionan igual que en Excel, en todos los módulos. En Clientes son las de Admin: Métricas (por local, por vendedora y por mes) y la lista de clientes registrados.',
+      pasos: [
+        'Títulos fijos: al bajar por una tabla larga, la fila de títulos queda siempre arriba, así se sabe qué es cada columna.',
+        'Renglones alternados: las filas se pintan una sí y una no para leerlas más fácil. La fila que está bajo el mouse se resalta.',
+        'Ordenar: tocar el título de una columna ordena de menor a mayor; tocarlo de nuevo, de mayor a menor; una tercera vez, vuelve al orden original. Las fechas se ordenan como fechas y los importes como números.',
+        'Filtrar: el embudito al lado de cada título abre un menú para buscar dentro de esa columna, elegir qué valores mostrar (como los filtros de Excel) o poner un «desde/hasta» en fechas e importes. Arriba de la tabla aparece «Mostrando X de Y» con el botón «Quitar filtros».',
+        'Ocultar columnas: en el mismo menú, «Ocultar columna». Para volver a verlas: «Mostrar» en la barrita de arriba de la tabla, o «Columnas» en el menú de cualquier título. Las columnas ocultas se recuerdan en esa computadora.',
+        'Agrandar o achicar columnas: arrastrar el borde derecho del título. Doble clic en ese borde (o «Anchos automáticos» en el menú) vuelve al ancho normal. Los anchos también se recuerdan en esa computadora.',
+        'Los filtros y el orden duran mientras la página esté abierta; al recargarla, la tabla vuelve a mostrarse completa.',
+      ],
+    },
   ];
 
   if (admin) {

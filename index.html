@@ -1557,7 +1557,9 @@ html.dark .wab-vacio { background: #111b21; }
 /* Client table */
 .client-table-wrap { overflow-x: auto; border-radius: 10px; box-shadow: var(--shadow); }
 .client-table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; }
-.client-table thead tr { background: var(--accent); color: white; }
+/* (19-nov-2026) títulos como los de Métricas: la pieza de tablas tipo Excel pinta de blanco el fondo de los títulos fijos
+   (antes iban en letra blanca sobre el color de acento y no se veían) */
+.client-table th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--border); }
 .client-table th { padding: 8px 10px; text-align: left; font-weight: 600; white-space: nowrap; }
 .client-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .client-table tbody tr:last-child td { border-bottom: none; }
@@ -8140,8 +8142,9 @@ function renderMetricas() {
       <td class="${g.colgados30 ? 'met-mal' : ''}">${g.colgados30 || ''}</td>
       <td>${_pct(g.completados, g.pedidos)}</td>
     </tr>`;
-  const cab = `<thead><tr>
-      <th></th><th title="Pedidos creados en el período">Pedidos</th>
+  // (19-nov-2026) la primera columna con nombre: con las tablas tipo Excel el título es el que se filtra y se ordena
+  const cab = (primera) => `<thead><tr>
+      <th>${primera}</th><th title="Pedidos creados en el período">Pedidos</th>
       <th title="Mediana desde que hay stock hasta que se avisa">Listo→aviso</th>
       <th title="% de avisos dados dentro de las 24 h">≤24 h</th>
       <th title="Mediana desde el aviso hasta cargar la respuesta">Aviso→resp.</th>
@@ -8150,8 +8153,8 @@ function renderMetricas() {
       <th title="Abiertos hace más de 30 días">+30 d</th>
       <th title="% completados">Compl.</th>
     </tr></thead>`;
-  const tabla = (titulo, grupos) => `<div class="met-card"><div class="met-card-title">${titulo}</div>
-      <div class="met-scroll"><table class="met-table">${cab}<tbody>${grupos.join('')}</tbody></table></div></div>`;
+  const tabla = (titulo, grupos, primera) => `<div class="met-card"><div class="met-card-title">${titulo}</div>
+      <div class="met-scroll"><table class="met-table">${cab(primera)}<tbody>${grupos.join('')}</tbody></table></div></div>`;
 
   const agrupar = (key) => {
     const m = {};
@@ -8166,7 +8169,7 @@ function renderMetricas() {
     .map(([k, v]) => fila(k, _resumirMetricas(v)));
 
   document.getElementById('met-tablas').innerHTML = rows.length
-    ? tabla('Por local', porLocal) + tabla('Por vendedora', porVend) + tabla('Por mes', porMes)
+    ? tabla('Por local', porLocal, 'Local') + tabla('Por vendedora', porVend, 'Vendedora') + tabla('Por mes', porMes, 'Mes')
     : '<div class="empty">Sin pedidos en el período.</div>';
 }
 
@@ -9047,7 +9050,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v129-nombres-whatsapp';
+const CRM_VERSION = 'crm-adorno-v130-tablas-excel';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -9195,6 +9198,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=61"></script>
+<script src="manual.js?v=62"></script>
+<script src="adorno-tablas.js?v=6761f5ad"></script>
 </body>
 </html>
