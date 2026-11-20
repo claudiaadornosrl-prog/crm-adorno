@@ -91,6 +91,7 @@ function _manualSecciones() {
       pasos: [
         'Quién lo carga (desde el 19-nov-2026): ya no se elige la vendedora. Al tocar «Guardar pedido», la cámara te reconoce en segundo plano (aparece «Un momento…» y después tu nombre) y el pedido queda a tu nombre. Si no te reconoce o no hay cámara, tocás tu nombre en la lista; si venís de otro local, «Ver todos los locales». Si entraste con tu usuario, queda a tu nombre sin cámara. Cada pedido se reconoce de nuevo: si el siguiente lo carga otra persona, queda a nombre de ella.',
         'Cargá el DNI o CUIT: si la clienta ya compró alguna vez, el sistema la detecta solo y completa sus datos.',
+        'Dar de alta (agendar) una clienta nueva: no hay un alta suelta. La clienta queda registrada cuando le cargás un pedido acá con su DNI: si no estaba, se da de alta sola en Dragonfish en unos 15 minutos (en la tarjeta dice «⏳ Dragon» hasta que entra). Si te pasó sus datos por WhatsApp, también se confirma desde Alertas › «Clientes con datos para confirmar». Ojo: si el DNI que ponés ya es de una clienta, el formulario se completa con los datos de su ficha (nombre, celular, mail); revisalos antes de guardar y, si no es ella, corregí el DNI.',
         'El celular cargalo con la característica: 11 y los 8 números (sin el 0 ni el 15). Si lo ponés como 15 + 8 números, o solo los 8, el sistema le agrega el 11 solo al salir del casillero: es de Buenos Aires. Si es de otra ciudad, poné su característica.',
         'Agregá los artículos buscando por descripción o SKU. Al lado de cada código ves el stock vivo de cada local: A = Alcorta, U = Unicenter, O = Oficina (verde si hay).',
         'Anotá seña si dejó, y cualquier aclaración en las notas.',
@@ -154,6 +155,7 @@ function _manualSecciones() {
       desc: 'La base de clientas: datos, historial de compras y etiquetas.',
       pasos: [
         'Buscá por nombre, DNI o CUIT — están todas las clientas de Dragonfish.',
+        'Esta pestaña es para buscar y ver. Para dar de alta (agendar) una clienta nueva, cargale un pedido en Nuevo pedido: ahí queda registrada.',
         'La ficha muestra el historial completo de compras y los pedidos que hizo.',
         'Podés ponerle etiquetas (tags) para agruparlas y filtrarlas después.',
         'En la ficha aparece "💬 Lo que sabemos por WhatsApp": lo que le gusta, los productos que pidió (marcados los que no había), fechas que mencionó (cumpleaños, eventos) y un resumen de las últimas charlas. Sale solo de los chats analizados.',
