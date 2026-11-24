@@ -3746,7 +3746,10 @@ async function loadBotConfig() {
             ${_act('primary ok', `guardarBotConfig('${lid}')`, 'Guardar el modo del bot de este local', ICO.check)}
           </div>
         </div></div>`;
-    }).join('') + `<div id="bot-textos"><div class="loading"><span class="spinner"></span> Cargando...</div></div>`;
+    }).join('') + `<div class="card"><div class="card-header"><span class="card-title">🙅 Números sin Clodi</span></div>
+        <div class="card-body" id="bot-excluidos"><div class="loading"><span class="spinner"></span> Cargando...</div></div></div>`
+      + `<div id="bot-textos"><div class="loading"><span class="spinner"></span> Cargando...</div></div>`;
+    loadBotExcluidos();
     loadBotTextos();
     coexEstado();
   } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudo cargar la configuración del bot: ${escHtml(_errTxt(e))}</p></div>`; }
@@ -3938,6 +3941,62 @@ async function guardarBotConfig(local) {
     renderPedidos(); renderAlertas();
     toast(`✅ Bot de ${(LOCALES[local] && LOCALES[local].nombre) || local}: ${BOT_MODOS.find(m => m.v === modo).t}`);
   } catch(e) { toast('❌ No se pudo guardar: ' + e.message); }
+}
+
+// ── (24-nov-2026, JP) Números sin Clodi: depósito, proveedores, el equipo, los otros locales… Clodi no les contesta ni
+// deja sugerencia (wa-bot v46). Sirve sobre todo con el número de siempre del local conectado, donde escribe de todo.
+function _fmtCel10(c) {
+  const d = String(c || '').replace(/\D/g, '');
+  return d.length === 10 && d.startsWith('11') ? `11 ${d.slice(2, 6)}-${d.slice(6)}` : d;
+}
+async function loadBotExcluidos() {
+  const el = document.getElementById('bot-excluidos');
+  if (!el) return;
+  try {
+    const rows = await supaGet('wa_bot_excluidos', { select: 'id,celular,local_id,nombre', order: 'nombre' });
+    const pill = 'padding:8px 14px;border:1px solid var(--border);border-radius:999px;font-size:13px;background:var(--surface,#fff)';
+    const lista = (rows || []).length ? rows.map(r => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span style="flex:1;min-width:0;font-size:13px"><strong>${escHtml(r.nombre || 'Sin nombre')}</strong> · ${escHtml(_fmtCel10(r.celular))}
+          <span style="font-size:12px;color:var(--muted)">· ${r.local_id ? escHtml((LOCALES[r.local_id] && LOCALES[r.local_id].nombre) || r.local_id) : 'todos los locales'}</span></span>
+        ${_act('bad', `quitarBotExcluido(${Number(r.id)})`, 'Sacarlo de la lista (Clodi le vuelve a contestar)', ICO.cruz)}</div>`).join('')
+      : '<div style="font-size:13px;color:var(--muted)">Todavía no hay ninguno.</div>';
+    el.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.5">A estos números Clodi no les
+        contesta ni deja sugerencia: el depósito, proveedores, las chicas del equipo, los otros locales. Los mensajes llegan
+        igual a la bandeja y al celular del local.</div>${lista}
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:10px">
+        <input type="text" id="bot-excl-nombre" data-no-upper placeholder="Quién es (ej: Iván, depósito)" style="${pill};flex:1 1 160px;min-width:0">
+        <input type="tel" id="bot-excl-cel" data-no-upper placeholder="Celular (ej: 11 6247-6803)" style="${pill};flex:1 1 150px;min-width:0">
+        <select id="bot-excl-local" style="${pill}"><option value="">Todos los locales</option>${Object.keys(LOCALES).map(l => `<option value="${l}">Solo ${escHtml(LOCALES[l].nombre)}</option>`).join('')}</select>
+        ${_act('primary ok', 'agregarBotExcluido()', 'Agregar a los números sin Clodi', ICO.check)}
+      </div>`;
+  } catch(e) { el.innerHTML = `<div class="empty"><p>No se pudo cargar la lista: ${escHtml(_errTxt(e))}</p></div>`; }
+}
+async function _botExcluidosRpc(fn, body) {
+  await _ensureFreshToken();
+  const r = await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers: supaHeaders(), body: JSON.stringify(body) });
+  if (!r.ok) { const t = await r.text(); throw new Error((t.match(/"message":"([^"]+)"/) || [])[1] || `HTTP ${r.status}`); }
+}
+async function agregarBotExcluido() {
+  const nombre = ((document.getElementById('bot-excl-nombre') || {}).value || '').trim();
+  const cel = (document.getElementById('bot-excl-cel') || {}).value || '';
+  const local = (document.getElementById('bot-excl-local') || {}).value || '';
+  if (cel.replace(/\D/g, '').length < 8) { toast('⚠️ Poné el celular con el código de área (ej: 11 6247-6803)'); return; }
+  if (!nombre) { toast('⚠️ Poné quién es, así después se entiende la lista'); return; }
+  if (!(await registraQuien('crm.wa_bot', local || null, { que: 'número sin Clodi', nombre }))) return;
+  try {
+    await _botExcluidosRpc('crm_wa_bot_excluir', { p_celular: cel, p_local: local, p_nombre: nombre });
+    await loadBotExcluidos();
+    toast(`✅ Clodi no le va a contestar a ${nombre}`);
+  } catch(e) { toast('❌ No se pudo guardar: ' + e.message); }
+}
+async function quitarBotExcluido(id) {
+  if (!confirm('¿Lo sacás de la lista? Clodi le va a volver a contestar.')) return;
+  if (!(await registraQuien('crm.wa_bot', null, { que: 'sacar un número sin Clodi', id }))) return;
+  try {
+    await _botExcluidosRpc('crm_wa_bot_excluir_quitar', { p_id: id });
+    await loadBotExcluidos();
+    toast('✅ Listo: Clodi le vuelve a contestar');
+  } catch(e) { toast('❌ No se pudo sacar: ' + e.message); }
 }
 
 async function waBotToggle(id, on) {
@@ -9092,7 +9151,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v133-tablas-embudo';
+const CRM_VERSION = 'crm-adorno-v134-numeros-sin-clodi';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -9240,7 +9299,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=64"></script>
+<script src="manual.js?v=65"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>
