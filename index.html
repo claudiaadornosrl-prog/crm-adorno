@@ -3626,10 +3626,11 @@ function coexConectar() {
   if (_vcFrena()) return;   // (16-nov) «Ver como»: no se conecta ningún número
   const local = (document.getElementById('coex-local') || {}).value;
   if (!local || !LOCALES[local]) { toast('⚠️ Elegí el local'); return; }
-  if (!confirm(`Conectar el WhatsApp de siempre de ${LOCALES[local].nombre}\n\nTe vamos a llevar a la página de Meta. Tené a mano el celular del local con WhatsApp Business actualizado: Meta te va a pedir el número y un código que aparece en la app.\nCuando pregunte, elegí compartir el historial de charlas. Al terminar volvés solo al CRM.\n\nEl +1 que usa hoy el local queda libre. ¿Seguimos?`)) return;
+  if (!confirm(`Conectar el WhatsApp de siempre de ${LOCALES[local].nombre}\n\nTe vamos a llevar a la página de Meta. Tené a mano el celular del local con WhatsApp Business actualizado.\nEn Meta: Continuar → el número del local → la empresa «Claudia Adorno SRL» → escaneá el código QR con la app del celular (Conectar y compartir el historial) → Confirmar → Finalizar. Volvés solo al CRM.\nSi Meta pide un código por SMS o llamada, NO lo pongas: avisale a JP.\n\nEl +1 que usa hoy el local queda libre. ¿Seguimos?`)) return;
   const estado = local + '-' + Math.random().toString(36).slice(2, 12);
   try { sessionStorage.setItem('coex_estado', estado); } catch (_) {}
-  const extras = JSON.stringify({ setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' });
+  // (24-nov-2026) v5: al poner el número de la app WhatsApp Business, Meta pasa sola a la coexistencia (QR); probado con Alcorta
+  const extras = JSON.stringify({ version: 'v5', setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' });
   const u = new URL('https://www.facebook.com/v23.0/dialog/oauth');
   u.searchParams.set('client_id', META_APP_ID);
   u.searchParams.set('config_id', META_ES_CONFIG);
@@ -3718,7 +3719,8 @@ async function loadBotConfig() {
         manden desde el celular queda en la charla y Clodi se calla ahí, y Clodi contesta desde el número que las clientas
         ya conocen. El +1 que usaba el local queda libre.
         <div style="font-size:12px;color:var(--muted);margin-top:8px">Hace falta el celular del local a mano con WhatsApp
-        Business actualizado. En el celular: las listas de difusión quedan solo para leer, no andan los mensajes temporales
+        Business actualizado. En Meta se elige la empresa «Claudia Adorno SRL» y se escanea un código QR con la app (si pide
+        un código por SMS, no lo pongas). En el celular: las listas de difusión quedan solo para leer, no andan los mensajes temporales
         ni "ver una vez", y WhatsApp para Windows deja de funcionar (en la compu, usar WhatsApp Web). Los avisos por API del
         local quedan apagados hasta que Meta apruebe las plantillas en el número nuevo y se cargue la forma de pago.</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px">
@@ -3944,7 +3946,7 @@ async function guardarBotConfig(local) {
 }
 
 // ── (24-nov-2026, JP) Números sin Clodi: depósito, proveedores, el equipo, los otros locales… Clodi no les contesta ni
-// deja sugerencia (wa-bot v46). Sirve sobre todo con el número de siempre del local conectado, donde escribe de todo.
+// deja sugerencia (wa-webhook v10). Sirve sobre todo con el número de siempre del local conectado, donde escribe de todo.
 function _fmtCel10(c) {
   const d = String(c || '').replace(/\D/g, '');
   return d.length === 10 && d.startsWith('11') ? `11 ${d.slice(2, 6)}-${d.slice(6)}` : d;
@@ -9151,7 +9153,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v134-numeros-sin-clodi';
+const CRM_VERSION = 'crm-adorno-v136-coex-v5';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -9299,7 +9301,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=65"></script>
+<script src="manual.js?v=67"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>

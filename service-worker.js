@@ -5,7 +5,7 @@
 
 // (4-nov-2026) Al publicar, cambiar también CRM_VERSION en index.html (mismo texto): el número se ve arriba en el CRM y
 // las pestañas abiertas con una versión más vieja avisan "Actualizar a vN"
-const CACHE_VERSION = 'crm-adorno-v134-numeros-sin-clodi';
+const CACHE_VERSION = 'crm-adorno-v136-coex-v5';
 const CACHE_ASSETS = [
   './',
   './index.html',
