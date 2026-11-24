@@ -1558,6 +1558,61 @@ html.dark .wa-msg .wa-reac { background: #1f2c34; border-color: #2a3942; }
   .wab-msgs .wa-msg { max-width: 88%; }
 }
 html.dark .wab-item.sel { background: #134e4a; }
+/* ── (24-nov-2026) Correo: la misma bandeja que WhatsApp (lista a la izquierda, el mail a la derecha) ── */
+#panel-correo.active { display: block; overflow: hidden; padding: 12px; }
+.cor-fila { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.cor-chip { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; gap: 5px; align-items: center; }
+.cor-chip.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+.cor-chip.err { border-color: #fca5a5; }
+.cor-chip .n { background: #dc2626; color: #fff; border-radius: 999px; font-size: 10.5px; padding: 0 6px; min-width: 16px; text-align: center; line-height: 16px; }
+.cor-chip.on .n { background: #fff; color: #2563eb; }
+.cor-escribir, .cor-enviar { margin-left: auto; border: 0; background: #2563eb; color: #fff; border-radius: 999px; padding: 6px 15px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.cor-enviar { padding: 8px 22px; font-size: 13.5px; }
+.cor-enviar:disabled { opacity: .6; cursor: wait; }
+.cor-estado { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.cor-estado.mal { color: #b91c1c; }
+.cor .wab-av { background: #dbeafe; color: #1e40af; }
+.cor .wab-item.sel { background: #eff6ff; }
+.cor .wab-item.nuevo .wab-it-nom { font-weight: 800; }
+.cor .wab-item.nuevo .wab-it-hora { color: #2563eb; }
+.cor-clip { font-size: 12px; flex-shrink: 0; color: var(--muted); }
+.cor-mas { display: block; margin: 12px auto; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 999px; padding: 6px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.cor-hd-acts { display: flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0; }
+.cor-meta { padding: 6px 14px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); line-height: 1.55; overflow-wrap: anywhere; }
+.cor-meta b { color: var(--text); font-weight: 600; }
+.cor-adjs { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.cor-adj { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-flex; gap: 5px; align-items: center; }
+.cor-adj small { color: var(--muted); }
+.cor-adj a { color: #b91c1c; text-decoration: none; font-weight: 700; }
+.cor-cuerpo { flex: 1; width: 100%; border: 0; min-height: 0; background: #fff; }
+.cor-img-aviso { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 7px 14px; font-size: 12px; color: #92400e; background: #fffbeb; border-bottom: 1px solid var(--border); }
+.cor-form { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; overflow-y: auto; min-height: 0; }
+.cor-form label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-top: 2px; }
+.cor-form input { border: 1px solid var(--border); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 13px; background: var(--bg); color: var(--text); text-transform: none; }
+.cor-form textarea { flex: 1; min-height: 220px; border: 1px solid var(--border); border-radius: 16px; padding: 10px 14px; font: inherit; font-size: 13.5px; line-height: 1.45; resize: vertical; background: var(--bg); color: var(--text); text-transform: none; margin-top: 6px; }
+.cor-form input:focus, .cor-form textarea:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+.cor-form-pie { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 84px 12px 14px; border-top: 1px solid var(--border); background: var(--card); }
+@media (min-width: 1440px) { .cor-form-pie { padding-right: 14px; } }
+.cor-adjuntar { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 999px; padding: 6px 13px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.cor-adm-intro { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 12px 16px; margin-bottom: 12px; font-size: 13px; line-height: 1.5; }
+.cor-adm { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 12px 16px; margin-bottom: 12px; }
+.cor-adm-top { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
+.cor-adm-top b { font-size: 15px; }
+.cor-adm-top span { font-size: 12px; color: var(--muted); }
+.cor-adm-est { margin-left: auto; font-size: 12px; }
+.cor-adm-est.mal { color: #b91c1c; }
+.cor-adm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 12px; }
+.cor-adm-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.cor-adm-grid input[type=text], .cor-adm-grid input[type=number] { border: 1px solid var(--border); border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 400; text-transform: none; letter-spacing: 0; background: var(--bg); color: var(--text); }
+.cor-adm-ven { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.cor-adm-ven label { display: inline-flex; gap: 5px; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; font-size: 12px; cursor: pointer; background: var(--bg); }
+.cor-adm-pie { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.cor-adm-pie code { background: var(--bg); border-radius: 6px; padding: 1px 6px; color: var(--text); }
+.cor-adm-res { font-size: 12px; margin-top: 6px; line-height: 1.5; }
+@media (max-width: 760px) {
+  #panel-correo.active { padding: 0; }
+}
+html.dark .cor .wab-item.sel { background: #1e3a8a; }
 html.dark .wab-msgs { background: #0b141a; }
 html.dark .wab-dia { background: #1f2c34; color: #8696a0; }
 html.dark .wab-vacio { background: #111b21; }
@@ -1789,6 +1844,12 @@ html.dark .wab-vacio { background: #111b21; }
         <span class="lb">WhatsApp</span>
         <span class="tab-badge hidden" id="wab-badge">0</span>
       </button>
+      <!-- (24-nov-2026, JP) Correo: las casillas @claudiaadorno.com sin Outlook. Se ve solo si la cuenta tiene alguna asignada -->
+      <button class="tab-btn" data-tab="correo" onclick="switchTab('correo')" id="tab-correo" style="display:none" title="Correo">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg></span>
+        <span class="lb">Correo</span>
+        <span class="tab-badge hidden" id="cor-badge">0</span>
+      </button>
       <button class="tab-btn" data-tab="satisfaccion" onclick="switchTab('satisfaccion')" title="Satisfacción">
         <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg></span>
         <span class="lb">Satisfacción</span>
@@ -1828,6 +1889,14 @@ html.dark .wab-vacio { background: #111b21; }
       <div class="wab" id="wab">
         <div class="wab-lista" id="wab-lista"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
         <div class="wab-chat" id="wab-chat"><div class="wab-vacio">Elegí una charla de la lista para verla y responderla.</div></div>
+      </div>
+    </div>
+
+    <!-- ── CORREO: las casillas de mail del local, como el Outlook (24-nov-2026) ── -->
+    <div class="tab-panel" id="panel-correo">
+      <div class="wab cor" id="cor">
+        <div class="wab-lista" id="cor-lista"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
+        <div class="wab-chat" id="cor-ver"><div class="wab-vacio">Elegí un mail de la lista para leerlo.</div></div>
       </div>
     </div>
 
@@ -1985,6 +2054,10 @@ html.dark .wab-vacio { background: #111b21; }
         <button class="admin-vtab-btn" data-view="bot" onclick="setAdminView('bot')">🤖 Bot WhatsApp</button>
         <button class="admin-vtab-btn" data-view="chats" onclick="setAdminView('chats')">💬 Chats</button>
         <button class="admin-vtab-btn" data-view="numeros" onclick="setAdminView('numeros')">📱 Números</button>
+        <button class="admin-vtab-btn" data-view="correo" onclick="setAdminView('correo')">✉️ Correo</button>
+      </div>
+      <div id="admin-view-correo" class="hidden">
+        <div id="correo-admin"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
       </div>
       <div id="admin-view-chats" class="hidden">
         <div id="chats-view"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
@@ -2432,6 +2505,7 @@ const CRM_FUNC = {
   'crm.pedido_cargar': 'Cargar un pedido', 'crm.pedidos_ver': 'Ver los pedidos y las alertas',
   'crm.pedido_gestionar': 'Cambiar el estado, avisar a la clienta o editar un pedido', 'crm.pedido_borrar': 'Borrar un pedido',
   'crm.wa_ver': 'Ver las charlas de WhatsApp', 'crm.wa_responder': 'Responder por WhatsApp', 'crm.wa_bot': 'Configurar el bot',
+  'crm.correo_ver': 'Leer el correo', 'crm.correo_enviar': 'Contestar y escribir mails',   // (24-nov-2026)
   'crm.clientes_ver': 'Buscar clientas y ver la ficha', 'crm.clientes_editar': 'Corregir la ficha (celular, etiquetas)',
   'crm.datos_sugeridos': 'Aceptar o rechazar datos sacados de los chats', 'crm.satisfaccion': 'Ver las encuestas de satisfacción',
   'crm.ver_otros_locales': 'Ver pedidos y charlas de los otros locales', 'crm.operar_otros_locales': 'Operar en nombre de otro local',
@@ -3111,6 +3185,8 @@ async function enterApp() {
     const b = document.querySelector(`.tab-btn[data-tab="${t}"]`);
     if (b) b.style.display = esModoSimple ? 'none' : '';
   });
+  // (24-nov-2026) Correo: aparece solo si la cuenta tiene casillas asignadas (Admin › Correo) y no está «Oculta»
+  if (!esModoSimple) corIniciar(); else { const _bc = document.getElementById('tab-correo'); if (_bc) _bc.style.display = 'none'; }
   if (esModoSimple) setTimeout(() => switchTab('satisfaccion'), 0);
   // (14-nov-2026) Permisos del Hub: no se muestran las pestañas de lo que está «Oculta» para esta cuenta
   // (15-nov) también para un dueño con vista (Clau): sus apartados ocultos
@@ -3196,18 +3272,18 @@ function showScreen(id) {
 
 // (14-nov-2026) Pestaña → función del Hub. «Oculta»: no se ve. «Pide permiso» en las de mirar: se autoriza al entrar y vale
 // hasta que se cambia de pestaña. En Nuevo, el permiso se pide recién al guardar el pedido.
-const TAB_FUNC = { nuevo: 'crm.pedido_cargar', pedidos: 'crm.pedidos_ver', whatsapp: 'crm.wa_ver', satisfaccion: 'crm.satisfaccion', clientes: 'crm.clientes_ver' };
-const TAB_MIRAR = ['pedidos', 'whatsapp', 'satisfaccion', 'clientes'];
+const TAB_FUNC = { nuevo: 'crm.pedido_cargar', pedidos: 'crm.pedidos_ver', whatsapp: 'crm.wa_ver', correo: 'crm.correo_ver', satisfaccion: 'crm.satisfaccion', clientes: 'crm.clientes_ver' };
+const TAB_MIRAR = ['pedidos', 'whatsapp', 'correo', 'satisfaccion', 'clientes'];
 function _tabVisible(t) { const b = document.querySelector(`.tab-btn[data-tab="${t}"]`); return !!b && b.style.display !== 'none' && (!TAB_FUNC[t] || permVe(TAB_FUNC[t])) && (t !== 'admin' || _adminVistas().length > 0); }
 // (15-nov-2026) Panel Admin: cada vista con su función del Hub (para un dueño con vista, Clau, se esconden las de sus apartados
 // ocultos; si no le queda ninguna, tampoco se ve la pestaña). Para JP y sin el Hub: todas.
 const ADMIN_VISTA_FUNC = { resumen: ['crm.admin'], metricas: ['crm.admin'], clientes: ['crm.clientes_ver'], cumple: ['crm.clientes_ver'],
-  bot: ['crm.wa_bot'], chats: ['crm.chats_analizar', 'crm.informe_generar'], numeros: ['crm.wa_numeros'] };
+  bot: ['crm.wa_bot'], chats: ['crm.chats_analizar', 'crm.informe_generar'], numeros: ['crm.wa_numeros'], correo: ['crm.admin'] };
 function _adminVistas() {
   if (!session || !session.isAdmin) return [];
   return Object.keys(ADMIN_VISTA_FUNC).filter(v => ADMIN_VISTA_FUNC[v].some(f => permVe(f)));
 }
-function _primeraPestana() { return ['nuevo', 'pedidos', 'whatsapp', 'clientes', 'satisfaccion', 'admin'].find(_tabVisible) || null; }
+function _primeraPestana() { return ['nuevo', 'pedidos', 'whatsapp', 'correo', 'clientes', 'satisfaccion', 'admin'].find(_tabVisible) || null; }
 
 function switchTab(tab) {
   // (10-ago) Modo simple (Clau): las tabs ocultas redirigen a Satisfacción
@@ -3248,6 +3324,7 @@ function switchTab(tab) {
   if (tab === 'hoy')     renderHoy();
   if (tab === 'satisfaccion') renderSatisfaccion();
   if (tab === 'whatsapp') waBandejaEntrar();
+  if (tab === 'correo') corEntrar();
   if (tab === 'nuevo' && skuLines.length === 0) addSkuLine();
 }
 
@@ -6174,6 +6251,425 @@ const ICO = {
   robot:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4M9 4h6"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/><path d="M2 13h2M20 13h2"/></svg>',
   chevron:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="m9 6 6 6-6 6"/></svg>',
 };
+// ═══════════════════════════════════════════════════════
+//  CORREO (24-nov-2026, JP: «reemplazar el Outlook y que ellas tengan para ver el mail desde el mismo sistema»)
+// ═══════════════════════════════════════════════════════
+// Las casillas @claudiaadorno.com se leen en el momento con la función «correo» (IMAP y SMTP en el servidor): los mails
+// no se copian a la base y la clave de cada casilla no pasa por acá. Cada cuenta ve las casillas que tiene asignadas
+// (Admin › Correo). Contestar o escribir pregunta quién lo manda (cara o lista, como en WhatsApp; se recuerda 10 minutos).
+let corCasillas = [], corSel = '', corCarpeta = 'entrada', corLista = [], corHayMas = false, corBusca = '';
+let corListaDe = '', corAbierto = null, corCargando = false, corTimer = null, corRedac = null, corAdjNuevos = [], corAdmin = null, corErr = '';
+const COR_CARPETAS = { entrada: 'Entrada', enviados: 'Enviados', papelera: 'Papelera' };
+const _corSvg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const COR_ICO = {
+  responder: _corSvg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'),
+  todos: _corSvg('<path d="M7 14 2 9l5-5"/><path d="M12 14 7 9l5-5"/><path d="M7 9h9.5a5.5 5.5 0 0 1 0 11H13"/>'),
+  reenviar: _corSvg('<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>'),
+  noleido: _corSvg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/>'),
+  borrar: _corSvg('<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>'),
+  cerrar: _corSvg('<path d="M18 6 6 18M6 6l12 12"/>'),
+};
+async function corApi(body) {
+  await _ensureFreshToken();
+  const r = await fetch(`${SUPA_URL}/functions/v1/correo`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY), ..._paseHdr() },
+    body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+function _corC() { return corCasillas.find(c => c.id === corSel) || null; }
+function _corActiva() { const p = document.getElementById('panel-correo'); return !!(p && p.classList.contains('active')); }
+function _corPuedeEscribir(c) { return !!(c && c.puede_enviar && permVe('crm.correo_enviar')); }
+function _corFecha(f) {
+  const d = new Date(f); if (!f || isNaN(d)) return '';
+  const h = new Date();
+  if (d.toDateString() === h.toDateString()) return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  if (d.getFullYear() === h.getFullYear()) return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString('es-AR');
+}
+function _corFechaLarga(f) { const d = new Date(f); return !f || isNaN(d) ? '' : d.toLocaleString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function _corTam(n) { n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+
+// Al entrar al módulo: qué casillas ve esta cuenta. Sin ninguna, la pestaña no aparece.
+async function corIniciar() {
+  const b = document.getElementById('tab-correo');
+  clearInterval(corTimer); corTimer = null;
+  if (!b) return;
+  b.style.display = 'none';
+  if (!session || !permVe('crm.correo_ver')) { corCasillas = []; return; }
+  try { corCasillas = (await _rpcBot('correo_mis_casillas', {}, authToken || SUPA_KEY)) || []; }
+  catch (e) { console.warn('[correo] casillas:', e); corCasillas = []; }
+  if (!Array.isArray(corCasillas) || !corCasillas.length) { corCasillas = []; return; }
+  b.style.display = '';
+  if (!corCasillas.some(c => c.id === corSel)) {
+    const mio = corCasillas.find(c => (session.email || '').toLowerCase() === String(c.direccion).toLowerCase());
+    corSel = (mio || corCasillas[0]).id;
+  }
+  corPintarBadge();
+  corTimer = setInterval(() => { if (!document.hidden) corContar(); }, 3 * 60000);   // el número de mails nuevos, cada 3 minutos
+  corContar();
+  if (_corActiva()) corEntrar();
+}
+async function corContar() {
+  if (!corCasillas.some(c => c.configurada)) return;
+  try {
+    const j = await corApi({ accion: 'contar' });
+    (j.casillas || []).forEach(x => { const c = corCasillas.find(k => k.id === x.id); if (c) { if (x.no_leidos != null) c.no_leidos = x.no_leidos; c.error = x.error || null; } });
+  } catch (e) { console.warn('[correo] contar:', e); }
+  corPintarBadge();
+  if (_corActiva()) corPintarLista();
+}
+function corPintarBadge() {
+  const n = corCasillas.reduce((s, c) => s + (Number(c.no_leidos) || 0), 0);
+  const el = document.getElementById('cor-badge'); if (!el) return;
+  el.textContent = n > 99 ? '99+' : String(n);
+  el.classList.toggle('hidden', !n);
+}
+function corEntrar() {
+  if (!corCasillas.length) { corPintarLista(); return; }
+  corPintarLista(); corPintarVer();
+  if (corListaDe !== corSel + '|' + corCarpeta + '|' + corBusca) corCargar();
+}
+function corElegir(id) {
+  if (id === corSel) return;
+  if (corRedac && !corDescartar()) return;
+  corSel = id; corCarpeta = 'entrada'; corBusca = ''; corAbierto = null;
+  document.getElementById('cor')?.classList.remove('con-chat');
+  corPintarVer(); corCargar();
+}
+function corElegirCarpeta(x) {
+  if (x === corCarpeta) return;
+  if (corRedac && !corDescartar()) return;
+  corCarpeta = x; corAbierto = null;
+  document.getElementById('cor')?.classList.remove('con-chat');
+  corPintarVer(); corCargar();
+}
+function corBuscar(q) { q = String(q || '').trim(); if (q === corBusca) return; corBusca = q; corCargar(); }
+async function corCargar(mas) {
+  const c = _corC(); if (!c) return;
+  const k = corSel + '|' + corCarpeta + '|' + corBusca;
+  if (!mas) { corLista = []; corHayMas = false; corErr = ''; }
+  corCargando = true; corListaDe = k; corPintarLista();
+  try {
+    const antes = mas && corLista.length ? corLista[corLista.length - 1].uid : 0;
+    const j = await corApi({ accion: 'lista', casilla: c.id, carpeta: corCarpeta, buscar: corBusca || undefined, antes: antes || undefined });
+    if (corListaDe !== k) return;   // cambió de casilla, carpeta o búsqueda mientras cargaba
+    corLista = mas ? corLista.concat(j.mensajes || []) : (j.mensajes || []);
+    corHayMas = !!j.hay_mas; corErr = '';
+    if (corCarpeta === 'entrada') c.error = null;
+    if (j.no_leidos != null) { c.no_leidos = j.no_leidos; corPintarBadge(); }
+  } catch (e) {
+    if (corListaDe !== k) return;
+    corErr = e.message; if (!mas) corLista = [];
+    if (corCarpeta === 'entrada') c.error = e.message;   // un problema de otra carpeta (no hay Papelera) no marca la casilla
+  }
+  corCargando = false; corPintarLista();
+}
+function corItem(m) {
+  const env = corCarpeta === 'enviados';
+  const quien = env ? (m.para || '(sin destinatario)') : (m.de || m.de_email || '(sin remitente)');
+  const ini = (quien.replace(/^[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9]+/, '')[0] || '?').toUpperCase();
+  const sel = corAbierto && corAbierto.uid === m.uid ? ' sel' : '';
+  return `<div class="wab-item${m.leido ? '' : ' nuevo'}${sel}" onclick="corAbrir(${Number(m.uid)})">
+    <div class="wab-av">${escHtml(ini)}</div>
+    <div class="wab-it-body">
+      <div class="wab-it-top"><span class="wab-it-nom">${escHtml(quien)}</span><span class="wab-it-hora">${escHtml(_corFecha(m.fecha))}</span></div>
+      <div class="wab-it-bot"><span class="wab-it-prev">${escHtml(m.asunto || '(sin asunto)')}</span>${m.adjuntos ? '<span class="cor-clip" title="Tiene adjuntos">📎</span>' : ''}${m.respondido ? '<span class="cor-clip" title="Ya se respondió">↩</span>' : ''}</div>
+    </div></div>`;
+}
+function corPintarLista() {
+  const el = document.getElementById('cor-lista'); if (!el) return;
+  if (!corCasillas.length) { el.innerHTML = '<div class="wab-lista-vacia">Esta cuenta no tiene casillas de correo asignadas.</div>'; return; }
+  const c = _corC();
+  const sc = (document.getElementById('cor-items') || {}).scrollTop || 0;
+  const chips = corCasillas.map(k => `<button class="cor-chip${k.id === corSel ? ' on' : ''}${k.error ? ' err' : ''}" onclick="corElegir('${escHtml(k.id)}')" title="${escHtml(k.direccion)}">${escHtml(k.nombre)}${Number(k.no_leidos) ? `<span class="n">${Number(k.no_leidos)}</span>` : ''}</button>`).join('');
+  const carps = Object.keys(COR_CARPETAS).map(x => `<button class="cor-chip${x === corCarpeta ? ' on' : ''}" onclick="corElegirCarpeta('${x}')">${COR_CARPETAS[x]}</button>`).join('');
+  let estado = '';
+  const err = corErr || (corCarpeta === 'entrada' && c && c.error) || '';
+  if (c && !c.configurada) estado = '<span class="cor-estado mal">Falta configurar esta casilla (Admin › Correo).</span>';
+  else if (err) estado = `<span class="cor-estado mal">⚠️ ${escHtml(err)}</span>`;
+  else if (c) estado = `<span class="cor-estado">${escHtml(c.direccion)}${Number(c.no_leidos) ? ' · ' + Number(c.no_leidos) + ' sin leer' : ''}</span>`;
+  let items;
+  if (corCargando && !corLista.length) items = '<div class="loading"><span class="spinner"></span> Trayendo los mails…</div>';
+  else if (!corLista.length) items = `<div class="wab-lista-vacia">${err ? 'No se pudo leer esta carpeta.' : corBusca ? 'No encontré mails con eso.' : 'No hay mails en esta carpeta.'}</div>`;
+  else items = corLista.map(corItem).join('') + (corHayMas ? `<button class="cor-mas" onclick="corCargar(true)"${corCargando ? ' disabled' : ''}>${corCargando ? 'Cargando…' : 'Ver más viejos'}</button>` : '');
+  el.innerHTML = `<div class="wab-lista-top">
+      <div class="cor-fila">${chips}</div>
+      <div class="cor-fila">${carps}${_corPuedeEscribir(c) ? '<button class="cor-escribir" onclick="corRedactar(\'nuevo\')">✏️ Escribir</button>' : ''}</div>
+      <input type="search" class="wab-busca" id="cor-busca" data-no-upper placeholder="Buscar en ${COR_CARPETAS[corCarpeta].toLowerCase()} (Enter)" value="${escHtml(corBusca)}" onkeydown="if (event.key === 'Enter') corBuscar(this.value)" onsearch="corBuscar(this.value)">
+      ${estado}
+    </div>
+    <div class="wab-items" id="cor-items">${items}</div>`;
+  const it = document.getElementById('cor-items'); if (it && sc) it.scrollTop = sc;
+}
+async function corAbrir(uid) {
+  const c = _corC(); if (!c) return;
+  if (corRedac && !corDescartar()) return;
+  corAbierto = { uid, cargando: true };
+  document.getElementById('cor')?.classList.add('con-chat');
+  corPintarVer(); corPintarLista();
+  try {
+    const j = await corApi({ accion: 'abrir', casilla: c.id, carpeta: corCarpeta, uid });
+    if (!corAbierto || corAbierto.uid !== uid) return;
+    corAbierto = j;
+    const it = corLista.find(x => x.uid === uid);
+    if (it && !it.leido) { it.leido = true; if (corCarpeta === 'entrada' && Number(c.no_leidos)) { c.no_leidos--; corPintarBadge(); } }
+  } catch (e) { if (corAbierto && corAbierto.uid === uid) corAbierto = { uid, error: e.message }; }
+  corPintarVer(); corPintarLista();
+}
+function corVolver() {
+  document.getElementById('cor')?.classList.remove('con-chat');
+  corAbierto = null; corRedac = null; corPintarVer(); corPintarLista();
+}
+function _corDoc(a) {   // el mail va en un marco aislado: sin programas, los links abren en otra pestaña
+  const est = '<style>body{font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-size:14px;line-height:1.45;color:#1f2937;margin:14px;overflow-wrap:anywhere}img{max-width:100%;height:auto}pre{white-space:pre-wrap;font:inherit;margin:0}table{max-width:100%}</style>';
+  const cuerpo = a.html ? a.html : `<pre>${escHtml(a.texto || '')}</pre>`;
+  // (aviso de Infra) como el Outlook: las imágenes y el contenido de afuera no cargan hasta tocar «Mostrar imágenes»
+  // (si no, el que mandó el mail se entera de que se abrió). Las pegadas en el mail (data:) se ven siempre.
+  const afuera = a.verImg ? '' : "; img-src data: cid:; style-src 'unsafe-inline'; font-src data:; media-src 'none'";
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none'; frame-src 'none'${afuera}"><base target="_blank">${est}</head><body>${cuerpo}</body></html>`;
+}
+function _corTieneAfuera(a) { return !!(a && a.html && /(<img[^>]+src\s*=\s*["']?\s*(https?:)?\/\/)|(url\(\s*["']?\s*(https?:)?\/\/)|(<link[^>]+href\s*=\s*["']?\s*(https?:)?\/\/)/i.test(a.html)); }
+function corVerImg() {
+  if (!corAbierto) return;
+  corAbierto.verImg = true;
+  const av = document.getElementById('cor-img-aviso'); if (av) av.remove();
+  const fr = document.getElementById('cor-cuerpo'); if (fr) fr.srcdoc = _corDoc(corAbierto);
+}
+function corPintarVer() {
+  const el = document.getElementById('cor-ver'); if (!el) return;
+  if (corRedac) { corPintarRedactar(); return; }
+  const a = corAbierto;
+  const volver = _act('wab-volver', 'corVolver()', 'Volver a la lista', WAB_ICO_VOLVER);
+  if (!a) { el.innerHTML = '<div class="wab-vacio">Elegí un mail de la lista para leerlo.</div>'; return; }
+  if (a.cargando) { el.innerHTML = `<div class="wab-chat-head">${volver}<div class="wab-chat-tit"><b>Abriendo el mail…</b></div></div><div class="wab-vacio"><span class="spinner"></span></div>`; return; }
+  if (a.error) { el.innerHTML = `<div class="wab-chat-head">${volver}<div class="wab-chat-tit"><b>No se pudo abrir</b></div></div><div class="wab-vacio">⚠️ ${escHtml(a.error)}</div>`; return; }
+  const c = _corC(), puede = _corPuedeEscribir(c);
+  const acts = (puede ? _act('', "corRedactar('responder')", 'Responder', COR_ICO.responder) + _act('', "corRedactar('todos')", 'Responder a todos', COR_ICO.todos)
+      + _act('', "corRedactar('reenviar')", 'Reenviar', COR_ICO.reenviar) : '')
+    + (corCarpeta === 'entrada' ? _act('', 'corNoLeido()', 'Marcar como no leído', COR_ICO.noleido) : '')
+    + (puede && corCarpeta !== 'papelera' ? _act('', 'corBorrar()', 'Mandar a la Papelera', COR_ICO.borrar) : '');
+  const adjs = (a.adjuntos || []).map(x => `<button class="cor-adj" onclick="corAdjunto(${Number(x.i)})" title="Bajar ${escHtml(x.nombre)}">📎 ${escHtml(x.nombre)} <small>${_corTam(x.tam)}</small></button>`).join('');
+  el.innerHTML = `<div class="wab-chat-head">${volver}<div class="wab-chat-tit"><b>${escHtml(a.asunto || '(sin asunto)')}</b><span>${escHtml(a.de || '')}</span></div><div class="cor-hd-acts">${acts}</div></div>
+    <div class="cor-meta"><b>Fecha:</b> ${escHtml(_corFechaLarga(a.fecha))}<br><b>Para:</b> ${escHtml(a.para || '')}${a.cc ? `<br><b>CC:</b> ${escHtml(a.cc)}` : ''}</div>
+    ${adjs ? `<div class="cor-adjs">${adjs}</div>` : ''}
+    ${!a.verImg && _corTieneAfuera(a) ? '<div class="cor-img-aviso" id="cor-img-aviso">🖼 Las imágenes de este mail no se cargaron, para que el que lo mandó no sepa que lo abriste. <button class="cor-chip" onclick="corVerImg()">Mostrar imágenes</button></div>' : ''}
+    <iframe class="cor-cuerpo" id="cor-cuerpo" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" title="Contenido del mail"></iframe>`;
+  document.getElementById('cor-cuerpo').srcdoc = _corDoc(a);
+}
+async function corAdjunto(i) {
+  const c = _corC(), a = corAbierto; if (!c || !a || !a.uid) return;
+  toast('⏳ Bajando el adjunto…');
+  try {
+    const j = await corApi({ accion: 'adjunto', casilla: c.id, carpeta: corCarpeta, uid: a.uid, i });
+    const bin = atob(j.b64 || ''), u8 = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+    const url = URL.createObjectURL(new Blob([u8], { type: j.tipo || 'application/octet-stream' }));
+    const ln = document.createElement('a'); ln.href = url; ln.download = j.nombre || 'adjunto'; document.body.appendChild(ln); ln.click();
+    setTimeout(() => { URL.revokeObjectURL(url); ln.remove(); }, 2000);
+  } catch (e) { _errAviso('❌ No se pudo bajar el adjunto: ' + e.message); }
+}
+async function corNoLeido() {
+  const c = _corC(), a = corAbierto; if (!c || !a || !a.uid) return;
+  try {
+    await corApi({ accion: 'marcar', casilla: c.id, carpeta: corCarpeta, uid: a.uid, leido: false });
+    const it = corLista.find(x => x.uid === a.uid);
+    if (it && it.leido) { it.leido = false; if (corCarpeta === 'entrada') { c.no_leidos = (Number(c.no_leidos) || 0) + 1; corPintarBadge(); } }
+    corVolver(); toast('✉️ Quedó como no leído');
+  } catch (e) { _errAviso('❌ ' + e.message); }
+}
+async function corBorrar() {
+  const c = _corC(), a = corAbierto; if (!c || !a || !a.uid) return;
+  if (_vcFrena()) return;
+  if (!confirm('¿Mandar este mail a la Papelera?')) return;
+  await _conPermiso('crm.correo_enviar', c.local_id || null, async () => {
+    try {
+      await corApi({ accion: 'borrar', casilla: c.id, carpeta: corCarpeta, uid: a.uid });
+      corLista = corLista.filter(x => x.uid !== a.uid); corVolver(); toast('🗑 Fue a la Papelera');
+    } catch (e) { _errAviso('❌ ' + e.message); }
+  }, 'correo:' + c.id);
+}
+// Escribir, responder, responder a todos o reenviar
+function corRedactar(modo) {
+  const c = _corC(); if (!c) return;
+  if (!_corPuedeEscribir(c)) { toast('🔒 Sin permiso para mandar mails desde esta casilla'); return; }
+  const a = modo === 'nuevo' ? null : corAbierto;
+  if (modo !== 'nuevo' && (!a || !a.uid || a.error || a.cargando)) return;
+  if (corRedac && !corDescartar()) return;
+  const yo = String(c.direccion).toLowerCase();
+  const sep = s => String(s || '').split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(x => x.trim()).filter(Boolean);
+  const sinMi = l => l.filter(x => !x.toLowerCase().includes(yo));
+  const pre = (p, s) => new RegExp('^\\s*' + p + '\\s*:', 'i').test(s || '') ? s : `${p}: ${s || ''}`;
+  let para = '', cc = '', asunto = '', cita = '';
+  if (a) {
+    const cuando = _corFechaLarga(a.fecha);
+    const txt = String(a.texto || '').replace(/\r/g, '').trim().split('\n').slice(0, 300);
+    if (modo === 'reenviar') {
+      asunto = pre('RV', a.asunto);
+      cita = `\n\n---------- Mensaje reenviado ----------\nDe: ${a.de}\nFecha: ${cuando}\nAsunto: ${a.asunto || ''}\nPara: ${a.para || ''}\n\n${txt.join('\n')}`;
+    } else {
+      asunto = pre('RE', a.asunto);
+      para = a.responder_a || a.de || '';
+      if (modo === 'todos') { para = [para, ...sinMi(sep(a.para))].filter(Boolean).join(', '); cc = sinMi(sep(a.cc)).join(', '); }
+      cita = `\n\nEl ${cuando}, ${a.de} escribió:\n${txt.map(l => '> ' + l).join('\n')}`;
+    }
+  }
+  const texto = `\n\n${c.firma || 'Claudia Adorno · ' + c.nombre}${cita}`;
+  corRedac = { modo, para, cc, asunto, texto, inicial: texto, uid: a ? a.uid : null, carpeta: corCarpeta,
+    en_respuesta_a: a && modo !== 'reenviar' ? a.message_id : '', referencias: a && modo !== 'reenviar' ? a.referencias : '',
+    adjOrig: modo === 'reenviar' && a ? (a.adjuntos || []).length : 0 };
+  corAdjNuevos = [];
+  document.getElementById('cor')?.classList.add('con-chat');
+  corPintarVer();
+  setTimeout(() => {
+    const t = document.getElementById(modo === 'responder' || modo === 'todos' ? 'cor-texto' : 'cor-para');
+    if (t) { t.focus(); if (t.id === 'cor-texto') { t.setSelectionRange(0, 0); t.scrollTop = 0; } }
+  }, 50);
+}
+function corPintarRedactar() {
+  const el = document.getElementById('cor-ver'), r = corRedac, c = _corC(); if (!el || !r || !c) return;
+  const tit = { nuevo: 'Mail nuevo', responder: 'Responder', todos: 'Responder a todos', reenviar: 'Reenviar' }[r.modo] || 'Mail';
+  const adj = corAdjNuevos.map((f, i) => `<span class="cor-adj">📎 ${escHtml(f.name)} <small>${_corTam(f.size)}</small> <a href="#" onclick="corQuitarAdj(${i}); return false" title="Sacar este adjunto">✕</a></span>`).join('')
+    + (r.adjOrig ? `<span class="cor-adj" title="Van los adjuntos del mail original">📎 ${r.adjOrig} adjunto${r.adjOrig > 1 ? 's' : ''} del original</span>` : '');
+  el.innerHTML = `<div class="wab-chat-head">${_act('wab-volver', 'corCancelar()', 'Volver', WAB_ICO_VOLVER)}<div class="wab-chat-tit"><b>${tit}</b><span>Sale desde ${escHtml(c.direccion)}</span></div>${_act('', 'corCancelar()', 'Descartar', COR_ICO.cerrar)}</div>
+    <div class="cor-form">
+      <label for="cor-para">Para</label><input id="cor-para" type="text" data-no-upper autocomplete="off" placeholder="mail@ejemplo.com (varios, separados por coma)" value="${escHtml(r.para)}" oninput="corRedac.para = this.value">
+      <label for="cor-cc">CC</label><input id="cor-cc" type="text" data-no-upper autocomplete="off" value="${escHtml(r.cc)}" oninput="corRedac.cc = this.value">
+      <label for="cor-asunto">Asunto</label><input id="cor-asunto" type="text" data-no-upper autocomplete="off" value="${escHtml(r.asunto)}" oninput="corRedac.asunto = this.value">
+      <textarea id="cor-texto" data-no-upper oninput="corRedac.texto = this.value"></textarea>
+    </div>
+    <div class="cor-form-pie">
+      <label class="cor-adjuntar">📎 Adjuntar<input type="file" multiple hidden onchange="corSumarAdj(this.files); this.value = ''"></label>
+      ${adj}
+      <button class="cor-enviar" id="cor-enviar" onclick="corEnviar()">Enviar</button>
+    </div>`;
+  document.getElementById('cor-texto').value = r.texto;
+}
+async function corSumarAdj(files) {
+  for (const f of [...(files || [])]) {
+    if (corAdjNuevos.reduce((s, x) => s + x.size, 0) + f.size > 15 * 1024 * 1024) { _errAviso('❌ Los adjuntos pasan los 15 MB: mandá el resto en otro mail'); break; }
+    try {
+      const b64 = await new Promise((ok, mal) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.onerror = () => mal(fr.error); fr.readAsDataURL(f); });
+      corAdjNuevos.push({ name: f.name, type: f.type, size: f.size, b64 });
+    } catch (e) { _errAviso('❌ No se pudo leer ' + f.name); }
+  }
+  corPintarRedactar();
+}
+function corQuitarAdj(i) { corAdjNuevos.splice(i, 1); corPintarRedactar(); }
+// ¿Se puede dejar lo que se estaba escribiendo? (pregunta solo si se escribió algo)
+function corDescartar() {
+  const r = corRedac; if (!r) return true;
+  const tocado = r.texto !== r.inicial || corAdjNuevos.length || (r.modo === 'nuevo' && (String(r.para).trim() || String(r.asunto).trim()));
+  if (tocado && !confirm('¿Descartar el mail que estabas escribiendo?')) return false;
+  corRedac = null; corAdjNuevos = []; return true;
+}
+function corCancelar() {
+  if (!corDescartar()) return;
+  if (!corAbierto) document.getElementById('cor')?.classList.remove('con-chat');
+  corPintarVer();
+}
+async function corEnviar() {
+  const c = _corC(), r = corRedac; if (!c || !r) return;
+  if (_vcFrena()) return;
+  if (!String(r.para || '').trim()) { _errAviso('❌ Falta a quién mandarlo'); document.getElementById('cor-para')?.focus(); return; }
+  if (!String(r.asunto || '').trim() && !confirm('El mail no tiene asunto. ¿Lo mandás igual?')) return;
+  const btn = document.getElementById('cor-enviar');
+  const listo = () => { const b = document.getElementById('cor-enviar'); if (b) { b.disabled = false; b.textContent = 'Enviar'; } };
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+  const loc = c.local_id || null;
+  await _conPermiso('crm.correo_enviar', loc, async () => {
+    // quién lo manda: con la cuenta del local, la cara o la lista (como en WhatsApp, se recuerda 10 minutos)
+    const det = { que: 'Mandar un mail', casilla: c.direccion, a: String(r.para).slice(0, 120), asunto: String(r.asunto || '').slice(0, 120) };
+    let quien = null;
+    if (_esCuentaCompartida()) {
+      const q = await _wabRegistra('crm.correo_enviar', loc, det, 'correo:' + c.id + ':' + (r.uid || 'nuevo'));
+      if (!q) return;
+      if (_wabAtiendeVigente()) quien = { empleado_id: wabAtiende.empleado_id, nombre: wabAtiende.nombre };
+    } else {
+      registraQuienYa('crm.correo_enviar', loc, null, det);
+      quien = { nombre: session.nombre || session.email || '' };
+    }
+    try {
+      const j = await corApi({ accion: 'enviar', casilla: c.id, para: r.para, cc: r.cc, asunto: r.asunto, texto: r.texto,
+        en_respuesta_a: r.en_respuesta_a || undefined, referencias: r.referencias || undefined,
+        respondido: (r.modo === 'responder' || r.modo === 'todos') && r.uid ? { carpeta: r.carpeta, uid: r.uid } : undefined,
+        reenviar: r.modo === 'reenviar' && r.uid ? { carpeta: r.carpeta, uid: r.uid } : undefined,
+        adjuntos: corAdjNuevos.map(x => ({ nombre: x.name, tipo: x.type, b64: x.b64 })), quien });
+      toast(j.guardado_en_enviados ? '✅ Mail enviado' : '✅ Mail enviado (no quedó la copia en Enviados)');
+      if (r.uid && r.modo !== 'reenviar' && r.modo !== 'nuevo') { const it = corLista.find(x => x.uid === r.uid); if (it) it.respondido = true; }
+      corRedac = null; corAdjNuevos = [];
+      if (!corAbierto) document.getElementById('cor')?.classList.remove('con-chat');
+      corPintarVer(); corPintarLista();
+      if (corCarpeta === 'enviados') corCargar();
+    } catch (e) { _errAviso('❌ No salió el mail: ' + e.message); }
+  }, 'correo:' + c.id);
+  listo();
+}
+
+// ── Admin › Correo: servidores, quién ve cada casilla, firma y la prueba de conexión. Las claves NO se cargan acá. ──
+async function corAdminCargar() {
+  const el = document.getElementById('correo-admin'); if (!el) return;
+  el.innerHTML = '<div class="loading"><span class="spinner"></span> Cargando...</div>';
+  try { corAdmin = await _rpcBot('correo_casillas_admin', {}, authToken || SUPA_KEY) || { casillas: [], cuentas: [] }; }
+  catch (e) { el.innerHTML = `<div class="cor-adm-intro">❌ ${escHtml(e.message)}</div>`; return; }
+  corAdminPintar();
+}
+function corAdminPintar() {
+  const el = document.getElementById('correo-admin'); if (!el || !corAdmin) return;
+  const cuentas = corAdmin.cuentas || [];
+  const card = k => {
+    const id = escHtml(k.id), ven = (k.ven || []).map(x => String(x).toLowerCase());
+    const est = k.error ? `<span class="cor-adm-est mal">⚠️ ${escHtml(k.error)}</span>`
+      : k.revisada_at ? `<span class="cor-adm-est">✅ Anduvo ${escHtml(_corFechaLarga(k.revisada_at))}${k.no_leidos != null ? ' · ' + Number(k.no_leidos) + ' sin leer' : ''}</span>`
+      : '<span class="cor-adm-est">Todavía no se probó</span>';
+    const inp = (s, v, ph, tipo) => `<input type="${tipo || 'text'}" id="cora-${s}-${id}" data-no-upper autocomplete="off" value="${escHtml(v == null ? '' : v)}" placeholder="${escHtml(ph || '')}">`;
+    return `<div class="cor-adm">
+      <div class="cor-adm-top"><b>${escHtml(k.nombre)}</b><span>${escHtml(k.direccion)}</span>${est}</div>
+      <div class="cor-adm-grid">
+        <label>Servidor de entrada (IMAP)${inp('ih', k.imap_host, 'servidor')}</label>
+        <label>Puerto de entrada${inp('ip', k.imap_puerto, '993', 'number')}</label>
+        <label>Servidor de salida (SMTP)${inp('sh', k.smtp_host, 'servidor')}</label>
+        <label>Puerto de salida${inp('sp', k.smtp_puerto, '465', 'number')}</label>
+        <label>Usuario${inp('us', k.usuario, k.direccion)}</label>
+        <label>Firma${inp('fi', k.firma, 'Claudia Adorno · ' + k.nombre)}</label>
+      </div>
+      <div class="cor-adm-pie">La ven:</div>
+      <div class="cor-adm-ven">${cuentas.map(m => `<label><input type="checkbox" data-cora-ven="${id}" value="${escHtml(m)}"${ven.includes(String(m).toLowerCase()) ? ' checked' : ''}> ${escHtml(m)}</label>`).join('')}</div>
+      <div class="cor-adm-pie">
+        <label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" id="cora-ac-${id}"${k.activa ? ' checked' : ''}> Activa</label>
+        <span>Clave: secreto <code>${escHtml(k.secreto)}</code></span>
+        <button class="cor-chip" id="cora-pr-${id}" onclick="corAdminProbar('${id}')" style="margin-left:auto">Probar conexión</button>
+        <button class="cor-escribir" style="margin-left:0" onclick="corAdminGuardar('${id}')">Guardar</button>
+      </div>
+      <div class="cor-adm-res" id="cora-res-${id}"></div>
+    </div>`;
+  };
+  el.innerHTML = `<div class="cor-adm-intro">✉️ <b>Correo dentro de Clientes.</b> Cada casilla aparece en la pestaña Correo de las cuentas tildadas en «La ven».
+    Los mails no se copian al sistema: se leen del servidor en el momento, así se ve lo mismo que en el Outlook.<br>
+    🔑 <b>Las claves no se cargan acá:</b> van en Supabase → Edge Functions → Secrets, con el nombre que dice cada casilla (por ejemplo <code>CORREO_CLAVE_ALCORTA</code>). Así no pasan por el navegador ni quedan guardadas en la base. Después, «Probar conexión».</div>`
+    + (corAdmin.casillas || []).map(card).join('');
+}
+async function corAdminGuardar(id) {
+  const g = s => document.getElementById(`cora-${s}-${id}`);
+  const ven = [...document.querySelectorAll(`[data-cora-ven="${id}"]:checked`)].map(x => x.value);
+  try {
+    corAdmin = await _rpcBot('correo_casilla_guardar', { p_id: id, p_imap_host: g('ih').value, p_imap_puerto: Number(g('ip').value) || 993,
+      p_smtp_host: g('sh').value, p_smtp_puerto: Number(g('sp').value) || 465, p_usuario: g('us').value, p_ven: ven,
+      p_firma: g('fi').value, p_activa: g('ac').checked }, authToken || SUPA_KEY);
+    toast('✅ Casilla guardada'); corAdminPintar(); corIniciar();
+  } catch (e) { _errAviso('❌ No se pudo guardar: ' + e.message); }
+}
+async function corAdminProbar(id) {
+  const b = document.getElementById('cora-pr-' + id), res = document.getElementById('cora-res-' + id);
+  if (b) { b.disabled = true; b.textContent = 'Probando…'; }
+  try {
+    const j = await corApi({ accion: 'probar', casilla: id });
+    if (res) res.innerHTML = `Entrada (leer): ${j.imap === 'ok' ? '✅ anda' : '❌ ' + escHtml(j.imap)}<br>Salida (mandar): ${j.smtp === 'ok' ? '✅ anda' : '❌ ' + escHtml(j.smtp)}`;
+  } catch (e) { if (res) res.textContent = '❌ ' + e.message; }
+  if (b) { b.disabled = false; b.textContent = 'Probar conexión'; }
+}
+
 function _act(cls, onclick, title, svg) {
   return `<button class="act ${cls}" onclick="${onclick}" title="${escHtml(title)}" aria-label="${escHtml(title)}">${svg}</button>`;
 }
@@ -6898,6 +7394,8 @@ function setAdminView(v) {
   document.getElementById('admin-view-bot').classList.toggle('hidden', v !== 'bot');
   document.getElementById('admin-view-chats').classList.toggle('hidden', v !== 'chats');
   document.getElementById('admin-view-numeros').classList.toggle('hidden', v !== 'numeros');
+  document.getElementById('admin-view-correo').classList.toggle('hidden', v !== 'correo');
+  if (v === 'correo') corAdminCargar();
   if (v === 'chats') loadChatsAdmin();
   if (v === 'numeros') loadNumerosAdmin();
   if (v === 'metricas') loadMetricas();
@@ -9225,7 +9723,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v137-clodi-listados';
+const CRM_VERSION = 'crm-adorno-v138-correo';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -9373,7 +9871,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=68"></script>
+<script src="manual.js?v=69"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>
