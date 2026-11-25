@@ -995,8 +995,18 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 
 /* Nuevo pedido — centered narrow form */
 #panel-nuevo { display: none; }
-#panel-nuevo.active { display: flex; justify-content: center; }
-#panel-nuevo > .card { width: 100%; max-width: 520px; align-self: flex-start; }
+#panel-nuevo.active { display: flex; flex-direction: column; align-items: center; }
+#panel-nuevo > .card { width: 100%; max-width: 520px; }
+#panel-nuevo > * { flex-shrink: 0; }   /* en columna, la tarjeta no se achica: el panel hace scroll entero */
+/* (24-nov-2026, JP) Nuevo pedido adentro de Pedidos: botón arriba de la lista y «← Pedidos» arriba del formulario */
+.ped-top { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.ped-nuevo-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; background: var(--accent); color: #fff; border-radius: 999px; padding: 10px 24px; font-size: 14.5px; font-weight: 700; font-family: inherit; cursor: pointer; box-shadow: var(--shadow); transition: opacity .15s; }
+.ped-nuevo-btn:hover { opacity: .9; }
+.ped-nuevo-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+.ped-volver-row { width: 100%; max-width: 520px; margin-bottom: 10px; }
+.ped-volver { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: 6px 16px 6px 10px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
+.ped-volver:hover { border-color: var(--accent); color: var(--accent); }
+@media (max-width: 760px) { .ped-nuevo-btn { width: 100%; padding: 12px 24px; font-size: 15px; } }
 
 /* Tablero de pedidos y alertas: contenido centrado, no full-width en desktop */
 #panel-pedidos > *, #panel-alertas > *, #panel-hoy > * { max-width: 720px; margin-left: auto; margin-right: auto; }
@@ -1609,8 +1619,17 @@ html.dark .wab-item.sel { background: #134e4a; }
 .cor-adm-pie { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .cor-adm-pie code { background: var(--bg); border-radius: 6px; padding: 1px 6px; color: var(--text); }
 .cor-adm-res { font-size: 12px; margin-top: 6px; line-height: 1.5; }
+/* (24-nov-2026, JP) «Próximamente», hasta que la cuenta tenga una casilla prendida */
+.cor-prox { max-width: 520px; margin: 40px auto; background: var(--card); border-radius: 24px; box-shadow: var(--shadow); padding: 34px 28px 30px; text-align: center; }
+.cor-prox-ico { width: 54px; height: 54px; color: #2563eb; display: block; margin: 0 auto 10px; }
+.cor-prox-pill { display: inline-block; background: #dbeafe; color: #1e40af; border-radius: 999px; padding: 4px 14px; font-size: 12.5px; font-weight: 700; margin-bottom: 12px; }
+.cor-prox h3 { margin: 0 0 8px; font-size: 19px; color: var(--text); }
+.cor-prox p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.cor-prox p + p { margin-top: 12px; font-size: 12.5px; }
+html.dark .cor-prox-pill { background: #1e3a8a; color: #dbeafe; }
 @media (max-width: 760px) {
   #panel-correo.active { padding: 0; }
+  .cor-prox { margin: 16px; padding: 28px 20px 24px; }
 }
 html.dark .cor .wab-item.sel { background: #1e3a8a; }
 html.dark .wab-msgs { background: #0b141a; }
@@ -1829,12 +1848,10 @@ html.dark .wab-vacio { background: #111b21; }
       </div>
     </div>
     <div class="tab-bar ab-tabs" id="tabs">
-      <button class="tab-btn active" data-tab="nuevo" onclick="switchTab('nuevo')" title="Nuevo">
-        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span>
-        <span class="lb">Nuevo</span>
-      </button>
       <!-- (4-nov-2026, JP) Alertas ya no es una pestaña: va arriba de todo dentro de Pedidos, y Pedidos se pone verde con el número -->
-      <button class="tab-btn" data-tab="pedidos" onclick="switchTab('pedidos')" title="Pedidos">
+      <!-- (24-nov-2026, JP) Nuevo tampoco: «Nuevo pedido» es un botón arriba de la lista de Pedidos (el formulario sigue siendo
+           el panel «nuevo» y, mientras está abierto, queda marcada la pestaña Pedidos) -->
+      <button class="tab-btn active" data-tab="pedidos" onclick="switchTab('pedidos')" title="Pedidos">
         <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6"/><path d="M9 10h6M9 14h6M9 18h3"/></svg></span>
         <span class="lb">Pedidos</span>
         <span class="tab-badge hidden" id="alertas-badge">0</span>
@@ -1844,7 +1861,8 @@ html.dark .wab-vacio { background: #111b21; }
         <span class="lb">WhatsApp</span>
         <span class="tab-badge hidden" id="wab-badge">0</span>
       </button>
-      <!-- (24-nov-2026, JP) Correo: las casillas @claudiaadorno.com sin Outlook. Se ve solo si la cuenta tiene alguna asignada -->
+      <!-- (24-nov-2026, JP) Correo: las casillas @claudiaadorno.com sin Outlook. Se ve siempre (si no está «Oculta»); sin casillas
+           prendidas para la cuenta, al entrar dice «Próximamente» -->
       <button class="tab-btn" data-tab="correo" onclick="switchTab('correo')" id="tab-correo" style="display:none" title="Correo">
         <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg></span>
         <span class="lb">Correo</span>
@@ -1894,6 +1912,14 @@ html.dark .wab-vacio { background: #111b21; }
 
     <!-- ── CORREO: las casillas de mail del local, como el Outlook (24-nov-2026) ── -->
     <div class="tab-panel" id="panel-correo">
+      <!-- (24-nov-2026, JP) hasta que se prendan las casillas (Admin › Correo): «Próximamente» -->
+      <div class="cor-prox" id="cor-prox" style="display:none">
+        <svg class="cor-prox-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>
+        <div class="cor-prox-pill">Próximamente</div>
+        <h3>El correo del local, acá adentro</h3>
+        <p>Muy pronto vas a poder leer y contestar los mails desde esta pestaña, sin abrir el Outlook.<br>Mientras tanto, seguí usando el Outlook como siempre.</p>
+        <p class="cor-prox-adm" style="display:none">Se prende desde Admin › Correo cuando cada casilla tenga su clave.</p>
+      </div>
       <div class="wab cor" id="cor">
         <div class="wab-lista" id="cor-lista"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
         <div class="wab-chat" id="cor-ver"><div class="wab-vacio">Elegí un mail de la lista para leerlo.</div></div>
@@ -1906,6 +1932,11 @@ html.dark .wab-vacio { background: #111b21; }
     </div>
 
     <div class="tab-panel active" id="panel-nuevo">
+      <!-- (24-nov-2026, JP) Nuevo pedido vive adentro de Pedidos: «← Pedidos» vuelve a la lista (la tarjeta de abajo se muda a
+           la ventana de la charla de WhatsApp y vuelve al final del panel, por eso esta fila va arriba y aparte) -->
+      <div class="ped-volver-row" id="ped-volver-row">
+        <button type="button" class="ped-volver" onclick="switchTab('pedidos')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Pedidos</button>
+      </div>
       <div class="card">
         <div class="card-header">
           <span class="card-title">Registrar pedido de cliente</span>
@@ -1988,6 +2019,10 @@ html.dark .wab-vacio { background: #111b21; }
 
     <!-- ── PEDIDOS ── -->
     <div class="tab-panel" id="panel-pedidos">
+      <!-- (24-nov-2026, JP) «Nuevo pedido» adentro de Pedidos (antes era una pestaña aparte) -->
+      <div class="ped-top" id="ped-top">
+        <button type="button" class="ped-nuevo-btn" onclick="switchTab('nuevo')" title="Cargar un pedido nuevo (atajo: N)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nuevo pedido</button>
+      </div>
       <!-- (12-nov-2026) Oficina: elegir qué local mirar (los otros, solo para ver) -->
       <div class="ofi-ver" id="ofi-ver" style="display:none"></div>
       <!-- (4-nov-2026, JP) Alertas arriba de todo, en verde; abajo el resto de los pedidos -->
@@ -3181,18 +3216,19 @@ async function enterApp() {
   // ── Modo simple (Clau): solo Satisfacción + Admin ──────────────
   const esModoSimple = session.isAdmin && MODO_SIMPLE_EMAILS.includes((session.email || '').toLowerCase());
   const _bSat = document.querySelector('.tab-btn[data-tab="satisfaccion"]'); if (_bSat) _bSat.style.display = '';   // (15-nov) la vuelve a mostrar si se re-entra (abajo se esconde si está Oculta)
-  ['nuevo', 'pedidos', 'alertas', 'whatsapp'].forEach(t => {
+  ['pedidos', 'alertas', 'whatsapp'].forEach(t => {   // (24-nov-2026) Nuevo ya no es pestaña: va adentro de Pedidos
     const b = document.querySelector(`.tab-btn[data-tab="${t}"]`);
     if (b) b.style.display = esModoSimple ? 'none' : '';
   });
-  // (24-nov-2026) Correo: aparece solo si la cuenta tiene casillas asignadas (Admin › Correo) y no está «Oculta»
+  // (24-nov-2026) Correo: se ve si no está «Oculta»; sin casillas prendidas para la cuenta dice «Próximamente»
   if (!esModoSimple) corIniciar(); else { const _bc = document.getElementById('tab-correo'); if (_bc) _bc.style.display = 'none'; }
   if (esModoSimple) setTimeout(() => switchTab('satisfaccion'), 0);
   // (14-nov-2026) Permisos del Hub: no se muestran las pestañas de lo que está «Oculta» para esta cuenta
   // (15-nov) también para un dueño con vista (Clau): sus apartados ocultos
+  // (24-nov-2026) Pedidos se ve también si solo puede cargar pedidos nuevos (al tocarla va directo al formulario)
   Object.keys(TAB_FUNC).forEach(t => {
     const b = document.querySelector(`.tab-btn[data-tab="${t}"]`);
-    if (b && !permVe(TAB_FUNC[t])) b.style.display = 'none';
+    if (b && !permVe(TAB_FUNC[t]) && !(t === 'pedidos' && _puedeNuevo())) b.style.display = 'none';
   });
   if (!session.isAdmin) {
     const varios = misLocales().length > 1;
@@ -3211,7 +3247,7 @@ async function enterApp() {
   }
 
   showScreen('app-screen');
-  switchTab(session.isAdmin ? 'admin' : 'nuevo');   // (26-oct, JP) lo primero es Nuevo pedido
+  switchTab(session.isAdmin ? 'admin' : 'nuevo');   // (26-oct, JP) lo primero es Nuevo pedido (24-nov: ahora adentro de Pedidos)
   // Los push del CRM abren ?tab=alertas (o la pestaña que indiquen)
   try {
     const _q = new URLSearchParams(window.location.search);
@@ -3219,7 +3255,7 @@ async function enterApp() {
     // (4-nov-2026) la notificación del bot trae la charla: ?tab=whatsapp&chat=unicenter|549…
     const _c = (_q.get('chat') || '').split('|');
     if (_t === 'whatsapp' && _c.length === 2 && _c[1].replace(/\D/g, '').length >= 10) wabAbrirAlEntrar = { local_id: _c[0].toLowerCase(), celular: _c[1].replace(/\D/g, '') };
-    if (_t && document.querySelector(`.tab-btn[data-tab="${_t}"]`)) switchTab(_t);
+    if (_t && (_t === 'nuevo' || document.querySelector(`.tab-btn[data-tab="${_t}"]`))) switchTab(_t);   // (24-nov) nuevo, sin botón propio
   } catch(_) {}
   loadData();
 }
@@ -3274,7 +3310,12 @@ function showScreen(id) {
 // hasta que se cambia de pestaña. En Nuevo, el permiso se pide recién al guardar el pedido.
 const TAB_FUNC = { nuevo: 'crm.pedido_cargar', pedidos: 'crm.pedidos_ver', whatsapp: 'crm.wa_ver', correo: 'crm.correo_ver', satisfaccion: 'crm.satisfaccion', clientes: 'crm.clientes_ver' };
 const TAB_MIRAR = ['pedidos', 'whatsapp', 'correo', 'satisfaccion', 'clientes'];
-function _tabVisible(t) { const b = document.querySelector(`.tab-btn[data-tab="${t}"]`); return !!b && b.style.display !== 'none' && (!TAB_FUNC[t] || permVe(TAB_FUNC[t])) && (t !== 'admin' || _adminVistas().length > 0); }
+function _tabVisible(t) {
+  if (t === 'nuevo') return _puedeNuevo();   // (24-nov-2026) sin botón propio: se entra desde Pedidos
+  const b = document.querySelector(`.tab-btn[data-tab="${t}"]`); return !!b && b.style.display !== 'none' && (!TAB_FUNC[t] || permVe(TAB_FUNC[t])) && (t !== 'admin' || _adminVistas().length > 0);
+}
+// (24-nov-2026) ¿Esta cuenta puede cargar un pedido nuevo? (no en el modo simple de Clau, ni con «Cargar pedido» Oculta)
+function _puedeNuevo() { return !!session && !(session.isAdmin && MODO_SIMPLE_EMAILS.includes((session.email || '').toLowerCase())) && permVe(TAB_FUNC.nuevo); }
 // (15-nov-2026) Panel Admin: cada vista con su función del Hub (para un dueño con vista, Clau, se esconden las de sus apartados
 // ocultos; si no le queda ninguna, tampoco se ve la pestaña). Para JP y sin el Hub: todas.
 const ADMIN_VISTA_FUNC = { resumen: ['crm.admin'], metricas: ['crm.admin'], clientes: ['crm.clientes_ver'], cumple: ['crm.clientes_ver'],
@@ -3310,9 +3351,13 @@ function switchTab(tab) {
       return;
     }
   }
-  Object.keys(_verAut).forEach(k => { if (k !== TAB_FUNC[tab] && k !== 'crm.ver_otros_locales') delete _verAut[k]; });
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  // (24-nov-2026) Nuevo pedido es parte de Pedidos: ir y volver no vuelve a pedir el permiso de mirar los pedidos
+  Object.keys(_verAut).forEach(k => { if (k !== TAB_FUNC[tab] && k !== 'crm.ver_otros_locales' && !(tab === 'nuevo' && k === TAB_FUNC.pedidos)) delete _verAut[k]; });
+  const _btn = tab === 'nuevo' ? 'pedidos' : tab;   // con el formulario abierto queda marcada Pedidos
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === _btn));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+  const _pt = document.getElementById('ped-top'); if (_pt) _pt.style.display = _puedeNuevo() ? '' : 'none';
+  const _pv = document.getElementById('ped-volver-row'); if (_pv) _pv.style.display = session && permVe(TAB_FUNC.pedidos) ? '' : 'none';
   if (tab === 'pedidos') { renderAlertas(); renderPedidos(); }
   if (tab === 'admin') {
     renderAdmin();
@@ -6291,17 +6336,18 @@ function _corFecha(f) {
 function _corFechaLarga(f) { const d = new Date(f); return !f || isNaN(d) ? '' : d.toLocaleString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function _corTam(n) { n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
 
-// Al entrar al módulo: qué casillas ve esta cuenta. Sin ninguna, la pestaña no aparece.
+// Al entrar al módulo: qué casillas ve esta cuenta (solo las prendidas en Admin › Correo).
+// (24-nov-2026, JP) La pestaña se ve siempre que no esté «Oculta»; sin ninguna casilla prendida, al tocarla dice «Próximamente».
 async function corIniciar() {
   const b = document.getElementById('tab-correo');
   clearInterval(corTimer); corTimer = null;
   if (!b) return;
   b.style.display = 'none';
   if (!session || !permVe('crm.correo_ver')) { corCasillas = []; return; }
+  b.style.display = '';
   try { corCasillas = (await _rpcBot('correo_mis_casillas', {}, authToken || SUPA_KEY)) || []; }
   catch (e) { console.warn('[correo] casillas:', e); corCasillas = []; }
-  if (!Array.isArray(corCasillas) || !corCasillas.length) { corCasillas = []; return; }
-  b.style.display = '';
+  if (!Array.isArray(corCasillas) || !corCasillas.length) { corCasillas = []; corPintarBadge(); if (_corActiva()) corEntrar(); return; }
   if (!corCasillas.some(c => c.id === corSel)) {
     const mio = corCasillas.find(c => (session.email || '').toLowerCase() === String(c.direccion).toLowerCase());
     corSel = (mio || corCasillas[0]).id;
@@ -6327,7 +6373,11 @@ function corPintarBadge() {
   el.classList.toggle('hidden', !n);
 }
 function corEntrar() {
-  if (!corCasillas.length) { corPintarLista(); return; }
+  // (24-nov-2026) sin casillas prendidas para esta cuenta: el cartel de «Próximamente» en vez de la bandeja
+  const prox = !corCasillas.length, px = document.getElementById('cor-prox'), cw = document.getElementById('cor');
+  if (px) { px.style.display = prox ? '' : 'none'; const ad = px.querySelector('.cor-prox-adm'); if (ad) ad.style.display = session && session.isAdmin ? '' : 'none'; }
+  if (cw) cw.style.display = prox ? 'none' : '';
+  if (prox) return;
   corPintarLista(); corPintarVer();
   if (corListaDe !== corSel + '|' + corCarpeta + '|' + corBusca) corCargar();
 }
@@ -9723,7 +9773,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v139-avisos-clodi';
+const CRM_VERSION = 'crm-adorno-v140-pedidos-nuevo';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -9871,7 +9921,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=70"></script>
+<script src="manual.js?v=71"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>
