@@ -998,15 +998,20 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 #panel-nuevo.active { display: flex; flex-direction: column; align-items: center; }
 #panel-nuevo > .card { width: 100%; max-width: 520px; }
 #panel-nuevo > * { flex-shrink: 0; }   /* en columna, la tarjeta no se achica: el panel hace scroll entero */
-/* (24-nov-2026, JP) Nuevo pedido adentro de Pedidos: botón arriba de la lista y «← Pedidos» arriba del formulario */
-.ped-top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+/* (24-nov-2026, JP) Nuevo pedido adentro de Pedidos: botón arriba de la lista que abre el formulario en una ventana */
+.ped-top { display: flex; align-items: stretch; gap: 10px; margin-bottom: 10px; }
+/* (24-nov-2026, JP) «Nuevo pedido» y la barra verde de Alertas en el mismo renglón, mitad y mitad; sin alertas, Nuevo ocupa todo */
+.ped-top > * { flex: 1 1 0; min-width: 0; }
+.ped-top > .ped-alertas-tit { margin-bottom: 0; }
 /* (24-nov-2026, JP) a todo el ancho y con la misma forma que la barra de Alertas de abajo */
 .ped-nuevo-btn { display: flex; width: 100%; align-items: center; justify-content: flex-start; gap: 8px; border: 0; background: var(--accent); color: #fff; border-radius: var(--radius); padding: 10px 14px; font-size: 14px; font-weight: 700; font-family: inherit; text-align: left; cursor: pointer; box-shadow: 0 4px 14px rgba(26,26,46,.22); transition: opacity .15s; }
 .ped-nuevo-btn:hover { opacity: .9; }
 .ped-nuevo-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
-.ped-volver-row { width: 100%; max-width: 520px; margin-bottom: 10px; }
-.ped-volver { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: 6px 16px 6px 10px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
-.ped-volver:hover { border-color: var(--accent); color: var(--accent); }
+/* (24-nov-2026, JP: «que me abra una subventana arriba de lo que vengo trabajando») la ventana de Nuevo pedido */
+.ped-nuevo-modal { position: fixed; inset: 0; z-index: 1100; background: rgba(0,0,0,.5); padding: 20px 12px; overflow-y: auto; }
+.ped-nuevo-caja { max-width: 540px; margin: 0 auto; }
+.ped-nuevo-cab { background: var(--accent); color: #fff; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-radius: 16px 16px 0 0; font-size: 15px; font-weight: 700; }
+@media (max-width: 760px) { .ped-nuevo-modal { padding: 10px 6px; } }
 
 /* Tablero de pedidos y alertas: contenido centrado, no full-width en desktop */
 #panel-pedidos > *, #panel-alertas > *, #panel-hoy > * { max-width: 720px; margin-left: auto; margin-right: auto; }
@@ -1935,12 +1940,9 @@ html.dark .wab-vacio { background: #111b21; }
       <div id="satisfaccion-content"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
     </div>
 
-    <div class="tab-panel active" id="panel-nuevo">
-      <!-- (24-nov-2026, JP) Nuevo pedido vive adentro de Pedidos: «← Pedidos» vuelve a la lista (la tarjeta de abajo se muda a
-           la ventana de la charla de WhatsApp y vuelve al final del panel, por eso esta fila va arriba y aparte) -->
-      <div class="ped-volver-row" id="ped-volver-row">
-        <button type="button" class="ped-volver" onclick="switchTab('pedidos')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Pedidos</button>
-      </div>
+    <!-- (24-nov-2026, JP) Nuevo pedido ya no se ve como pestaña: este panel solo guarda la tarjeta, que se muda a la ventana
+         de «+ Nuevo pedido» (#ped-nuevo-modal) o a la de la charla de WhatsApp (#wab-ped-modal) y vuelve acá al cerrarlas -->
+    <div class="tab-panel" id="panel-nuevo">
       <div class="card">
         <div class="card-header">
           <span class="card-title">Registrar pedido de cliente</span>
@@ -2022,16 +2024,17 @@ html.dark .wab-vacio { background: #111b21; }
     </div>
 
     <!-- ── PEDIDOS ── -->
-    <div class="tab-panel" id="panel-pedidos">
-      <!-- (24-nov-2026, JP) «Nuevo pedido» adentro de Pedidos (antes era una pestaña aparte) -->
-      <div class="ped-top" id="ped-top">
-        <button type="button" class="ped-nuevo-btn" onclick="switchTab('nuevo')" title="Cargar un pedido nuevo (atajo: N)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nuevo pedido</button>
-      </div>
+    <div class="tab-panel active" id="panel-pedidos">
       <!-- (12-nov-2026) Oficina: elegir qué local mirar (los otros, solo para ver) -->
       <div class="ofi-ver" id="ofi-ver" style="display:none"></div>
+      <!-- (24-nov-2026, JP) «Nuevo pedido» adentro de Pedidos (antes era una pestaña aparte), en el mismo renglón que la barra
+           verde de Alertas: mitad y mitad; sin alertas, Nuevo pedido ocupa todo (ver _pedTopPintar) -->
+      <div class="ped-top" id="ped-top">
+        <button type="button" class="ped-nuevo-btn" id="ped-nuevo-btn" onclick="switchTab('nuevo')" title="Cargar un pedido nuevo (atajo: N)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nuevo pedido</button>
+        <div class="ped-alertas-tit" id="ped-alertas-tit" style="display:none"><span class="ped-alertas-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><span>Alertas</span><span class="ped-alertas-n" id="ped-alertas-n">0</span></div>
+      </div>
       <!-- (4-nov-2026, JP) Alertas arriba de todo, en verde; abajo el resto de los pedidos -->
       <div class="ped-alertas" id="ped-alertas" style="display:none">
-        <div class="ped-alertas-tit"><span class="ped-alertas-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><span>Alertas</span><span class="ped-alertas-n" id="ped-alertas-n">0</span></div>
         <div id="alertas-list"></div>
       </div>
       <div class="ped-resto-tit" id="ped-resto-tit" style="display:none">Los demás pedidos</div>
@@ -2238,6 +2241,17 @@ html.dark .wab-vacio { background: #111b21; }
       <button class="hdr-ico" onclick="waBandejaPedidoCerrar()" title="Cerrar sin guardar (los datos quedan cargados en Nuevo pedido)" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div id="wab-ped-cuerpo" class="wab-ped-cuerpo"></div>
+  </div>
+</div>
+<!-- (24-nov-2026, JP: «que no se vaya donde estaba, sino que me abra una subventana arriba de lo que vengo trabajando»)
+     «+ Nuevo pedido» abre acá la tarjeta de Nuevo pedido; al cerrar o guardar vuelve a su lugar y se sigue donde se estaba -->
+<div id="ped-nuevo-modal" class="ped-nuevo-modal" style="display:none">
+  <div class="ped-nuevo-caja">
+    <div class="ped-nuevo-cab">
+      <span>Nuevo pedido</span>
+      <button class="hdr-ico" onclick="pedNuevoCerrar()" title="Cerrar sin guardar (lo cargado queda para cuando lo vuelvas a abrir)" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div id="ped-nuevo-cuerpo" class="wab-ped-cuerpo"></div>
   </div>
 </div>
 <div id="sug-modal" style="display:none; position:fixed; inset:0; z-index:1100; background:rgba(0,0,0,0.5); padding:20px; overflow-y:auto;">
@@ -3251,7 +3265,7 @@ async function enterApp() {
   }
 
   showScreen('app-screen');
-  switchTab(session.isAdmin ? 'admin' : 'nuevo');   // (26-oct, JP) lo primero es Nuevo pedido (24-nov: ahora adentro de Pedidos)
+  switchTab(session.isAdmin ? 'admin' : 'pedidos');   // (26-oct, JP) se entraba en Nuevo pedido; (24-nov) Nuevo pedido es una ventana: se entra en Pedidos
   // Los push del CRM abren ?tab=alertas (o la pestaña que indiquen)
   try {
     const _q = new URLSearchParams(window.location.search);
@@ -3315,7 +3329,6 @@ function showScreen(id) {
 const TAB_FUNC = { nuevo: 'crm.pedido_cargar', pedidos: 'crm.pedidos_ver', whatsapp: 'crm.wa_ver', correo: 'crm.correo_ver', satisfaccion: 'crm.satisfaccion', clientes: 'crm.clientes_ver' };
 const TAB_MIRAR = ['pedidos', 'whatsapp', 'correo', 'satisfaccion', 'clientes'];
 function _tabVisible(t) {
-  if (t === 'nuevo') return _puedeNuevo();   // (24-nov-2026) sin botón propio: se entra desde Pedidos
   const b = document.querySelector(`.tab-btn[data-tab="${t}"]`); return !!b && b.style.display !== 'none' && (!TAB_FUNC[t] || permVe(TAB_FUNC[t])) && (t !== 'admin' || _adminVistas().length > 0);
 }
 // (24-nov-2026) ¿Esta cuenta puede cargar un pedido nuevo? (no en el modo simple de Clau, ni con «Cargar pedido» Oculta)
@@ -3328,14 +3341,16 @@ function _adminVistas() {
   if (!session || !session.isAdmin) return [];
   return Object.keys(ADMIN_VISTA_FUNC).filter(v => ADMIN_VISTA_FUNC[v].some(f => permVe(f)));
 }
-function _primeraPestana() { return ['nuevo', 'pedidos', 'whatsapp', 'correo', 'clientes', 'satisfaccion', 'admin'].find(_tabVisible) || null; }
+function _primeraPestana() { return ['pedidos', 'whatsapp', 'correo', 'clientes', 'satisfaccion', 'admin'].find(_tabVisible) || null; }
 
 function switchTab(tab) {
   // (10-ago) Modo simple (Clau): las tabs ocultas redirigen a Satisfacción
   const _simple = session?.isAdmin && MODO_SIMPLE_EMAILS.includes((session.email || '').toLowerCase());
   if (_simple && ['nuevo', 'pedidos', 'alertas', 'clientes', 'whatsapp'].includes(tab)) tab = 'satisfaccion';
-  if (tab === 'hoy') tab = 'nuevo';   // (26-oct) la pestaña Hoy se eliminó
+  if (tab === 'hoy') tab = 'pedidos';   // (26-oct) la pestaña Hoy se eliminó
   if (tab === 'alertas') tab = 'pedidos';   // (4-nov) las Alertas están arriba de todo en Pedidos
+  // (24-nov-2026, JP) Nuevo pedido no es una pestaña: se abre en una ventana encima de lo que se está mirando
+  if (tab === 'nuevo') { if (_puedeNuevo()) pedNuevoAbrir(); else if (session) toast('🔒 Esta cuenta no tiene habilitado cargar pedidos (Hub → Permisos)'); return; }
   // (14-nov-2026) Permisos del Hub. (15-nov) Un dueño con vista (Clau): sus apartados ocultos también (para un admin, perm
   // da solo 'h' u 'o'); y la pestaña Admin, si no le queda ninguna vista.
   if (session && session.isAdmin && tab === 'admin' && !_adminVistas().length) {
@@ -3346,6 +3361,7 @@ function switchTab(tab) {
   if (session && TAB_FUNC[tab]) {
     const f = TAB_FUNC[tab], pm = perm(f);
     if (pm === 'o') {
+      if (tab === 'pedidos' && _puedeNuevo()) { pedNuevoAbrir(); return; }   // (24-nov) solo puede cargar: la ventana de Nuevo pedido
       const otra = _primeraPestana();
       if (!otra) { toast('🔒 Esta cuenta no tiene nada habilitado en Clientes (Hub → Permisos)'); return; }
       return switchTab(otra);
@@ -3355,13 +3371,11 @@ function switchTab(tab) {
       return;
     }
   }
-  // (24-nov-2026) Nuevo pedido es parte de Pedidos: ir y volver no vuelve a pedir el permiso de mirar los pedidos
-  Object.keys(_verAut).forEach(k => { if (k !== TAB_FUNC[tab] && k !== 'crm.ver_otros_locales' && !(tab === 'nuevo' && k === TAB_FUNC.pedidos)) delete _verAut[k]; });
-  const _btn = tab === 'nuevo' ? 'pedidos' : tab;   // con el formulario abierto queda marcada Pedidos
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === _btn));
+  Object.keys(_verAut).forEach(k => { if (k !== TAB_FUNC[tab] && k !== 'crm.ver_otros_locales') delete _verAut[k]; });
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
-  const _pt = document.getElementById('ped-top'); if (_pt) _pt.style.display = _puedeNuevo() ? '' : 'none';
-  const _pv = document.getElementById('ped-volver-row'); if (_pv) _pv.style.display = session && permVe(TAB_FUNC.pedidos) ? '' : 'none';
+  const _nb = document.getElementById('ped-nuevo-btn'); if (_nb) _nb.style.display = _puedeNuevo() ? '' : 'none';
+  _pedTopPintar();
   if (tab === 'pedidos') { renderAlertas(); renderPedidos(); }
   if (tab === 'admin') {
     renderAdmin();
@@ -3374,7 +3388,32 @@ function switchTab(tab) {
   if (tab === 'satisfaccion') renderSatisfaccion();
   if (tab === 'whatsapp') waBandejaEntrar();
   if (tab === 'correo') corEntrar();
-  if (tab === 'nuevo' && skuLines.length === 0) addSkuLine();
+}
+// (24-nov-2026, JP) El renglón de arriba de Pedidos: «+ Nuevo pedido» y la barra verde de Alertas, mitad y mitad. Si falta uno,
+// el otro ocupa todo; si no hay ninguno, el renglón no se ve.
+function _pedTopPintar() {
+  const t = document.getElementById('ped-top'); if (!t) return;
+  const ve = id => { const e = document.getElementById(id); return !!e && e.style.display !== 'none'; };
+  t.style.display = ve('ped-nuevo-btn') || ve('ped-alertas-tit') ? '' : 'none';
+}
+// (24-nov-2026, JP: «que no se vaya donde estaba, sino que me abra una subventana arriba de lo que vengo trabajando») La tarjeta
+// de Nuevo pedido se muda a una ventana encima de la pestaña abierta (igual que desde una charla de WhatsApp). Al cerrarla vuelve
+// a su lugar con lo cargado, para seguir después; al guardar se cierra y se sigue en la misma pestaña.
+function _pedNuevoAbierto() { const m = document.getElementById('ped-nuevo-modal'); return !!(m && m.style.display === 'block'); }
+function pedNuevoAbrir() {
+  const m = document.getElementById('ped-nuevo-modal'), card = document.querySelector('#panel-nuevo > .card');
+  if (!m || !card) return;   // la tarjeta ya está en una ventana (esta o la de la charla de WhatsApp)
+  document.getElementById('ped-nuevo-cuerpo').appendChild(card);
+  m.style.display = 'block'; m.scrollTop = 0;
+  _quienPintar();
+  if (!skuLines.length) addSkuLine();
+  let tactil = false; try { tactil = matchMedia('(pointer: coarse)').matches; } catch (_) {}
+  if (!tactil) setTimeout(() => { const v = ['f-nombre', 'f-apellido', 'f-dni'].map(id => document.getElementById(id)).find(x => x && !x.value.trim()); if (v) v.focus(); }, 50);
+}
+function pedNuevoCerrar() {
+  const m = document.getElementById('ped-nuevo-modal'), card = document.querySelector('#ped-nuevo-cuerpo > .card'), panel = document.getElementById('panel-nuevo');
+  if (card && panel) panel.appendChild(card);
+  if (m) m.style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5817,7 +5856,9 @@ async function submitPedido() {
     await loadPedidos();
     // (4-nov-2026) cargado desde una charla de WhatsApp: se queda en la charla, con la confirmación escrita
     if (wabPedidoCtx) { waBandejaPedidoGuardado(nombreGuardado, lineasGuardadas); return; }
-    switchTab('pedidos');
+    // (24-nov-2026) cargado desde la ventana de «+ Nuevo pedido»: se cierra y se sigue en la pestaña que estaba abierta
+    pedNuevoCerrar();
+    if (document.getElementById('panel-pedidos')?.classList.contains('active')) switchTab('pedidos');
 
     // Confirmación al cliente: por el número del sistema (plantilla pedido_confirmado) si el local lo tiene activo;
     // si no, el WhatsApp del local por wa.me como siempre
@@ -6953,13 +6994,17 @@ function renderAlertas() {
   const caja = document.getElementById('ped-alertas'), resto = document.getElementById('ped-resto-tit');
   if (!el) return;
   // (12-nov-2026) Oficina mirando otro local: las alertas son de la Oficina, se esconden mientras mira
-  if (mirandoOtroLocal()) { if (caja) caja.style.display = 'none'; if (resto) resto.style.display = 'none'; return; }
+  // (24-nov-2026) la barra verde «Alertas» está en el renglón de «Nuevo pedido» (#ped-alertas-tit): se prende y apaga con la lista
+  const tit = document.getElementById('ped-alertas-tit');
+  if (mirandoOtroLocal()) { if (caja) caja.style.display = 'none'; if (resto) resto.style.display = 'none'; if (tit) tit.style.display = 'none'; _pedTopPintar(); return; }
   const listos = pedidosCache.filter(p => p.estado === 'Listo para avisar');
   const vencidos = pedidosVencidos60();
   const mensajes = permVe('crm.wa_ver') ? pedidosConMensajeSinResponder() : [];   // (14-nov) Hub: sin «Ver las charlas», sin esta sección
   const total = listos.length + vencidos.length + mensajes.length + sugerenciasCache.length;
   if (caja) caja.style.display = total ? '' : 'none';
   if (resto) resto.style.display = total ? '' : 'none';
+  if (tit) tit.style.display = total ? '' : 'none';
+  _pedTopPintar();
   const n = document.getElementById('ped-alertas-n'); if (n) n.textContent = total;
 
   if (!total) { el.innerHTML = ''; return; }
@@ -8662,9 +8707,9 @@ document.addEventListener('keydown', e => {
       if (typeof saveEdit === 'function') saveEdit();
       return;
     }
-    // Si estamos en panel nuevo → submit
-    const panelNuevo = document.getElementById('panel-nuevo');
-    if (panelNuevo && panelNuevo.classList.contains('active')) {
+    // Si está abierta la ventana de Nuevo pedido (o la de la charla de WhatsApp) → submit
+    const _wpm = document.getElementById('wab-ped-modal');
+    if (_pedNuevoAbierto() || (_wpm && _wpm.style.display === 'block')) {
       const btn = document.getElementById('submit-btn');
       if (btn && !btn.disabled) btn.click();
       return;
@@ -8676,6 +8721,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     const sm = document.getElementById('shortcuts-modal');
     if (sm && sm.classList.contains('active')) { closeShortcutsHelp(); return; }
+    if (_pedNuevoAbierto() && !isInput) { pedNuevoCerrar(); return; }   // (24-nov) en un casillero, Esc cierra la lista de artículos
   }
 
   // El resto de atajos NO disparan si estás en un input/textarea
@@ -9792,7 +9838,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v142-wab-audios';
+const CRM_VERSION = 'crm-adorno-v143-nuevo-ventana';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -9940,7 +9986,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=73"></script>
+<script src="manual.js?v=74"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>
