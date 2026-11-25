@@ -1571,6 +1571,11 @@ html.dark .wab-trans { background: rgba(255,255,255,.08); }
 .wab-adj-nom b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wab-adj-nom small { font-weight: 400; color: var(--muted); }
 .wab-adj-txt { flex: 1 1 180px; font-size: 12px; color: var(--muted); padding: 0 4px; }
+/* (25-nov-2026) mientras se manda: botón de mandar apagado y «Mandando…» (así no se manda dos veces) */
+.wab-pie.enviando .act.primary.wa { opacity: .35; pointer-events: none; }
+.wab-pie.enviando .wab-adj { opacity: .55; }
+.wab-pie.enviando .wab-adj-txt { font-size: 0; }
+.wab-pie.enviando .wab-adj-txt::after { content: '📤 Mandando… esperá a que termine'; font-size: 12px; font-weight: 600; color: #128c7e; }
 #wab-chat.wab-soltar .wab-msgs { outline: 3px dashed #25d366; outline-offset: -8px; border-radius: 18px; }
 .wab-borr-fuera { margin-top: 6px; color: var(--text); }
 .wab-borr-fuera a { color: #128c7e; font-weight: 600; }
@@ -4157,6 +4162,15 @@ async function loadBotTextos() {
 }
 // (27-oct-2026) Qué web usa el bot para pasar links de productos: la oficial hoy, la del Atelier cuando esté activa.
 // Los catálogos los copia todas las mañanas el módulo Marketing; acá solo se elige cuál usa el bot.
+// (25-nov-2026, JP: «Sí, armala»; pedido de Arquitectura por el corte del Dragonfish) Buscar clientas por la función
+// crm_buscar_clientes. Con la sesión de la vendedora la tabla tiene permisos por fila y Postgres no usa los índices de
+// trigramas para «contiene» (ilike): recorría las 53.720 fichas (~1 s con varias PC). La función pregunta el mismo
+// permiso que la tabla (crm_ve_fichas) y busca con los índices: el buscador de 5 columnas pasó de 250 a 18 ms, mismas fichas.
+// args: p_texto (+ p_campos), p_dni, p_dni_empieza, p_celular, p_cuit_contiene [], p_sucursal, p_tag, p_orden, p_limite.
+async function _buscarClientes(args) {
+  const r = await _rpcBot('crm_buscar_clientes', args);
+  return Array.isArray(r) ? r : [];
+}
 async function _rpcBot(nombre, body, tok) {   // (14-nov) tok: forzar un token (el registro de quién usa siempre el del módulo)
   await _ensureFreshToken();
   const h = supaHeaders();
@@ -4370,6 +4384,7 @@ let wabPieFirma = '';         // ídem el pie (así no se pierde lo que se está
 let wabPegado = true;         // el hilo está scrolleado hasta abajo
 const wabMedia = {};          // mensaje_id → { url } | { cargando } | { error }
 const wabBorr = {};           // charla → texto a medio escribir
+const wabEnviando = {};       // (25-nov) charla → true mientras se manda algo (no se puede mandar dos veces)
 const wabEdit = {};           // charla → id de la sugerencia del bot que se está corrigiendo en el cuadro
 const WAB_TIPO_TXT = { image: '📷 Foto', audio: '🎤 Audio', video: '🎥 Video', document: '📄 Archivo', sticker: 'Sticker', location: '📍 Ubicación', contacts: '👤 Contacto', reaction: 'Reacción' };
 const WAB_ICO_VOLVER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>';
@@ -4795,6 +4810,7 @@ function waBandejaRenderPie() {
   const el = document.getElementById('wab-pie');
   if (!el || !wabSel) return;
   const k = _wabKey(wabSel.local_id, wabSel.celular);
+  el.classList.toggle('enviando', !!wabEnviando[k]);   // (25-nov) si se vuelve a una charla que está mandando
   const sug = [...wabMsgs].reverse().find(x => x.bot_estado === 'sugerido') || null;
   const ultIn = [...wabMsgs].reverse().find(x => x.direccion === 'in');
   const dentro = !!ultIn && (Date.now() - new Date(ultIn.creado_at).getTime()) < WA_VENTANA_H * 3600 * 1000;
@@ -5041,7 +5057,23 @@ function waBandejaPedidoGuardado(nombre, lineas) {
   }
   toast('✅ Pedido guardado. Te dejé escrita la confirmación en la charla: revisala y mandala con Enter');
 }
+// (25-nov-2026, JP: «está enviando dos veces los adjuntos») Un archivo tarda unos segundos en salir (subirlo, pasarlo a
+// WhatsApp y mandarlo) y antes, mientras tanto, seguía a la vista con el botón de mandar activo: un Enter o un clic de más
+// (o el Enter mientras la cámara reconocía quién responde) arrancaba otro envío y a la clienta le llegaba dos veces.
+// Ahora, mientras una charla está mandando, no se puede volver a mandar y el pie dice «Mandando…» (wabEnviando).
 async function waBandejaEnviar(sugerenciaId) {
+  if (!wabSel) return;
+  const k = _wabKey(wabSel.local_id, wabSel.celular);
+  if (wabEnviando[k]) { toast('⏳ Se está mandando: esperá a que termine'); return; }
+  wabEnviando[k] = true;
+  document.getElementById('wab-pie')?.classList.add('enviando');
+  try { await _waBandejaEnviar(sugerenciaId); }
+  finally {
+    delete wabEnviando[k];
+    if (wabSel && _wabKey(wabSel.local_id, wabSel.celular) === k) document.getElementById('wab-pie')?.classList.remove('enviando');
+  }
+}
+async function _waBandejaEnviar(sugerenciaId) {
   if (!wabSel) return;
   const s = { ...wabSel };
   const k = _wabKey(s.local_id, s.celular);
@@ -5068,7 +5100,7 @@ async function waBandejaEnviar(sugerenciaId) {
       let primero = true;
       for (const a of adj) {
         if (_vcFrena()) throw new Error('«Ver como»: es solo para mirar, no se manda nada');
-        if (adj.length > 1) toast(`📤 Mandando ${adj.indexOf(a) + 1} de ${adj.length}…`);
+        toast(adj.length > 1 ? `📤 Mandando ${adj.indexOf(a) + 1} de ${adj.length}…` : `📤 Mandando «${a.tipo === 'image' ? 'la foto' : a.nombre}»…`);
         const path = await _wabSubirAdj(a);
         const j = await _waEnviarFetch({ local_id: s.local_id, celular: s.celular, texto: primero ? texto : '', archivo: { path, nombre: a.nombre, mime: a.mime }, atiende: quien.nombre });
         // ya está en la PC: se ve en la charla sin volver a bajarlo
@@ -5733,21 +5765,14 @@ async function detectarClienteExistente() {
   // Construir filtro OR para buscar por celular, DNI o CUIT.
   // Los clientes sincronizados desde Dragonfish vienen con CUIT (no DNI),
   // entonces también buscamos el DNI ingresado DENTRO del CUIT (CUIT = prefijo + DNI + dígito).
-  const filters = [];
-  if (cel.length >= 8) filters.push(`celular.eq.${cel}`);
-  if (dni.length >= 7) {
-    filters.push(`dni.eq.${dni}`);
-    filters.push(`cuit.like.*${dni}*`);
-  }
-  if (!filters.length) { hideClienteDetectado(); return; }
+  // (25-nov-2026) por la función crm_buscar_clientes: con la sesión de la vendedora, la tabla no usa los índices para «contiene»
+  const busca = { p_orden: 'total', p_limite: 1 };
+  if (cel.length >= 8) busca.p_celular = cel;
+  if (dni.length >= 7) { busca.p_dni = dni; busca.p_cuit_contiene = [dni]; }
+  if (!busca.p_celular && !busca.p_dni) { hideClienteDetectado(); return; }
 
   try {
-    const matches = await supaGet('clientes', {
-      select: 'globalid,nombre_completo,celular,telefono,dni,cuit,email,fecha_nacimiento,total_compras,cantidad_compras,ticket_promedio,sucursal_favorita,ultima_compra_fecha,tags',
-      or: '(' + filters.join(',') + ')',
-      order: 'total_compras.desc.nullslast',
-      limit: '1',
-    });
+    const matches = await _buscarClientes(busca);
     if (detectClienteToken !== thisToken) return;
 
     if (matches.length) {
@@ -8747,15 +8772,14 @@ async function loadClientesVendedora(q) {
       params['sucursal_favorita'] = 'eq.' + session.local_id;
     }
     if (q) {
-      const qLike = `*${q}*`;
-      params['or'] = `(nombre_completo.ilike.${qLike},dni.ilike.${qLike},cuit.ilike.${qLike},celular.ilike.${qLike},email.ilike.${qLike})`;
-    } else if (!currentTagFilterVendedora) {
-      params['cantidad_compras'] = 'gt.0';
+      // (25-nov-2026) buscar por texto va por crm_buscar_clientes (usa los índices; mismo resultado que el filtro de antes)
+      clientesVendedoraCache = await _buscarClientes({ p_texto: q, p_sucursal: params['sucursal_favorita'] ? session.local_id : null,
+        p_tag: currentTagFilterVendedora || null, p_orden: 'total', p_limite: 100 });
+    } else {
+      if (!currentTagFilterVendedora) params['cantidad_compras'] = 'gt.0';
+      if (currentTagFilterVendedora) params['tags'] = 'cs.{' + currentTagFilterVendedora + '}';
+      clientesVendedoraCache = await supaGet('clientes', params);
     }
-    if (currentTagFilterVendedora) {
-      params['tags'] = 'cs.{' + currentTagFilterVendedora + '}';
-    }
-    clientesVendedoraCache = await supaGet('clientes', params);
     renderClientesVendedora();
     renderTagFiltersVendedora();
   } catch(e) {
@@ -8839,15 +8863,13 @@ async function loadClientes(q) {
       limit: '100',
     };
     if (q) {
-      const qLike = `*${q}*`;
-      params['or'] = `(nombre_completo.ilike.${qLike},dni.ilike.${qLike},cuit.ilike.${qLike},celular.ilike.${qLike},email.ilike.${qLike})`;
-    } else if (!currentTagFilter) {
-      params['cantidad_compras'] = 'gt.0';
+      // (25-nov-2026) buscar por texto va por crm_buscar_clientes (usa los índices; mismo resultado que el filtro de antes)
+      clientesCache = await _buscarClientes({ p_texto: q, p_tag: currentTagFilter || null, p_orden: 'total', p_limite: 100 });
+    } else {
+      if (!currentTagFilter) params['cantidad_compras'] = 'gt.0';
+      if (currentTagFilter) params['tags'] = 'cs.{' + currentTagFilter + '}';
+      clientesCache = await supaGet('clientes', params);
     }
-    if (currentTagFilter) {
-      params['tags'] = 'cs.{' + currentTagFilter + '}';
-    }
-    clientesCache = await supaGet('clientes', params);
     renderClientesList();
     renderTagFilters();
   } catch(e) {
@@ -9170,12 +9192,7 @@ async function runGlobalSearch(q) {
   try {
     // 4 queries en paralelo: clientes, pedidos, articulos, compras
     const [clientes, pedidos, articulos, compras] = await Promise.all([
-      supaGet('clientes', {
-        select: 'globalid,nombre_completo,dni,cuit,celular,total_compras,cantidad_compras',
-        or: `(nombre_completo.ilike.${qLike},dni.ilike.${qLike},cuit.ilike.${qLike},celular.ilike.${qLike},email.ilike.${qLike})`,
-        order: 'total_compras.desc.nullslast',
-        limit: '8',
-      }).catch(() => []),
+      _buscarClientes({ p_texto: q.trim(), p_orden: 'total', p_limite: 8 }).catch(() => []),   // (25-nov-2026) con índices
       supaGet('pedidos', {
         select: 'id,nombre_cliente,sku,descripcion_sku,celular,estado,created_at,local_id,vendedora,compra_id,factura_monto',
         or: `(nombre_cliente.ilike.${qLike},celular.ilike.${qLike},sku.ilike.${qLike},descripcion_sku.ilike.${qLike},email.ilike.${qLike})`,
@@ -10448,7 +10465,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v148-wa-archivos';
+const CRM_VERSION = 'crm-adorno-v149-wa-sin-duplicados';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -10596,7 +10613,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=79"></script>
+<script src="manual.js?v=80"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>
