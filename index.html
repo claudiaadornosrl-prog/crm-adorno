@@ -999,14 +999,14 @@ input[type="text"]::placeholder, input[type="search"]::placeholder, textarea::pl
 #panel-nuevo > .card { width: 100%; max-width: 520px; }
 #panel-nuevo > * { flex-shrink: 0; }   /* en columna, la tarjeta no se achica: el panel hace scroll entero */
 /* (24-nov-2026, JP) Nuevo pedido adentro de Pedidos: botón arriba de la lista y «← Pedidos» arriba del formulario */
-.ped-top { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
-.ped-nuevo-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; background: var(--accent); color: #fff; border-radius: 999px; padding: 10px 24px; font-size: 14.5px; font-weight: 700; font-family: inherit; cursor: pointer; box-shadow: var(--shadow); transition: opacity .15s; }
+.ped-top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+/* (24-nov-2026, JP) a todo el ancho y con la misma forma que la barra de Alertas de abajo */
+.ped-nuevo-btn { display: flex; width: 100%; align-items: center; justify-content: flex-start; gap: 8px; border: 0; background: var(--accent); color: #fff; border-radius: var(--radius); padding: 10px 14px; font-size: 14px; font-weight: 700; font-family: inherit; text-align: left; cursor: pointer; box-shadow: 0 4px 14px rgba(26,26,46,.22); transition: opacity .15s; }
 .ped-nuevo-btn:hover { opacity: .9; }
-.ped-nuevo-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+.ped-nuevo-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
 .ped-volver-row { width: 100%; max-width: 520px; margin-bottom: 10px; }
 .ped-volver { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: 6px 16px 6px 10px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
 .ped-volver:hover { border-color: var(--accent); color: var(--accent); }
-@media (max-width: 760px) { .ped-nuevo-btn { width: 100%; padding: 12px 24px; font-size: 15px; } }
 
 /* Tablero de pedidos y alertas: contenido centrado, no full-width en desktop */
 #panel-pedidos > *, #panel-alertas > *, #panel-hoy > * { max-width: 720px; margin-left: auto; margin-right: auto; }
@@ -9773,7 +9773,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v140-pedidos-nuevo';
+const CRM_VERSION = 'crm-adorno-v141-nuevo-ancho';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -9921,7 +9921,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=71"></script>
+<script src="manual.js?v=72"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>
