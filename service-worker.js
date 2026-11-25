@@ -5,7 +5,7 @@
 
 // (4-nov-2026) Al publicar, cambiar también CRM_VERSION en index.html (mismo texto): el número se ve arriba en el CRM y
 // las pestañas abiertas con una versión más vieja avisan "Actualizar a vN"
-const CACHE_VERSION = 'crm-adorno-v150-wa-facturas-pos';
+const CACHE_VERSION = 'crm-adorno-v151-sw-cache-propia';
 const CACHE_ASSETS = [
   './',
   './index.html',
@@ -28,10 +28,12 @@ self.addEventListener('install', event => {
 });
 
 // Activate: limpiar caches viejos
+// (25-nov-2026, charla Infra con OK de JP) solo los del CRM ('crm-adorno-…'): todos los módulos comparten el dominio
+// claudiaadornosrl-prog.github.io y por lo tanto las cachés; borrar las demás dejaba al POS y a los otros sin copia offline
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k.startsWith('crm-adorno-') && k !== CACHE_VERSION).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
