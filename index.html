@@ -1561,11 +1561,16 @@ html.dark .wab-trans { background: rgba(255,255,255,.08); }
 .wab-pie .wa-sug { margin: 0 0 8px; }
 /* (4-nov-2026) Nuevo pedido desde la charla: botón al lado del cuadro y la tarjeta de Nuevo pedido en una ventana */
 .wab-pie .act.wab-btn-pedido { color: #128c7e; }
-/* (25-nov-2026) foto para mandar: se pega con Ctrl+V, se arrastra o se elige con el clip */
+/* (25-nov-2026) fotos y archivos para mandar: se pegan con Ctrl+V, se arrastran o se eligen con el clip */
 .wab-pie .act.wab-clip { color: #128c7e; }
-.wab-foto-prev { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; padding: 6px 8px 6px 6px; border: 1px solid #a7f3d0; border-radius: 18px; background: #f0fdf4; }
-.wab-foto-prev img { display: block; max-height: 84px; max-width: 140px; border-radius: 14px; }
-.wab-foto-prev span { flex: 1; font-size: 12px; color: var(--muted); }
+.wab-adj-prev { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; padding: 6px; border: 1px solid #a7f3d0; border-radius: 18px; background: #f0fdf4; max-height: 200px; overflow-y: auto; }
+.wab-adj { display: flex; align-items: center; gap: 6px; padding: 4px 4px 4px 4px; border-radius: 16px; background: #fff; border: 1px solid #d1fae5; max-width: 260px; }
+.wab-adj img { display: block; height: 64px; max-width: 110px; object-fit: cover; border-radius: 12px; }
+.wab-adj-ico { font-size: 26px; line-height: 1; padding-left: 6px; }
+.wab-adj-nom { display: flex; flex-direction: column; min-width: 0; font-size: 12px; max-width: 150px; }
+.wab-adj-nom b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wab-adj-nom small { font-weight: 400; color: var(--muted); }
+.wab-adj-txt { flex: 1 1 180px; font-size: 12px; color: var(--muted); padding: 0 4px; }
 #wab-chat.wab-soltar .wab-msgs { outline: 3px dashed #25d366; outline-offset: -8px; border-radius: 18px; }
 .wab-borr-fuera { margin-top: 6px; color: var(--text); }
 .wab-borr-fuera a { color: #128c7e; font-weight: 600; }
@@ -4365,12 +4370,11 @@ let wabPieFirma = '';         // ídem el pie (así no se pierde lo que se está
 let wabPegado = true;         // el hilo está scrolleado hasta abajo
 const wabMedia = {};          // mensaje_id → { url } | { cargando } | { error }
 const wabBorr = {};           // charla → texto a medio escribir
-const wabImg = {};            // (25-nov) charla → foto lista para mandar { blob, url, w, h } (ya achicada, JPEG)
 const wabEdit = {};           // charla → id de la sugerencia del bot que se está corrigiendo en el cuadro
 const WAB_TIPO_TXT = { image: '📷 Foto', audio: '🎤 Audio', video: '🎥 Video', document: '📄 Archivo', sticker: 'Sticker', location: '📍 Ubicación', contacts: '👤 Contacto', reaction: 'Reacción' };
 const WAB_ICO_VOLVER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>';
 const WAB_ICO_PEDIDO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6"/><path d="M12 9.5v7M8.5 13h7"/></svg>';
-const WAB_ICO_FOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 15-4.5-4.5L7 19"/></svg>';
+const WAB_ICO_CLIP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.1-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg>';
 const _wabKey = (l, c) => (l || '').toLowerCase() + '|' + String(c || '').replace(/\D/g, '').slice(-10);
 const _wabPanelActivo = () => !!document.getElementById('panel-whatsapp')?.classList.contains('active');
 function _wabConvSel() { return wabSel ? wabConvs.find(c => _wabKey(c.local_id, c.celular) === _wabKey(wabSel.local_id, wabSel.celular)) || null : null; }
@@ -4605,7 +4609,7 @@ async function waBandejaCargarChat(forzar) {
   const c10 = String(s.celular).replace(/\D/g, '').slice(-10);
   let rows;
   try {
-    rows = await supaGet('wa_mensajes', { select: 'id,wa_message_id,direccion,tipo,texto,plantilla,estado,estado_at,creado_at,pedido_id,enviado_por,bot_estado,bot_clasificacion,error,motivo:raw->>motivo,imagen:raw->>imagen,archivo:raw->message->document->>filename,emoji:raw->message->reaction->>emoji,reac_a:raw->message->reaction->>message_id,m_audio:raw->message->audio->>id,trans:raw->>transcripcion,e_image:raw->echo->image->>id,e_audio:raw->echo->audio->>id,e_video:raw->echo->video->>id,e_doc:raw->echo->document->>id,e_sticker:raw->echo->sticker->>id,e_docname:raw->echo->document->>filename,o_img:raw->out_media->>id',
+    rows = await supaGet('wa_mensajes', { select: 'id,wa_message_id,direccion,tipo,texto,plantilla,estado,estado_at,creado_at,pedido_id,enviado_por,bot_estado,bot_clasificacion,error,motivo:raw->>motivo,imagen:raw->>imagen,archivo:raw->message->document->>filename,emoji:raw->message->reaction->>emoji,reac_a:raw->message->reaction->>message_id,m_audio:raw->message->audio->>id,trans:raw->>transcripcion,e_image:raw->echo->image->>id,e_audio:raw->echo->audio->>id,e_video:raw->echo->video->>id,e_doc:raw->echo->document->>id,e_sticker:raw->echo->sticker->>id,e_docname:raw->echo->document->>filename,o_img:raw->out_media->>id,o_nom:raw->out_media->>nombre',
       local_id: 'eq.' + s.local_id, or: `(de.like.*${c10},para.like.*${c10})`, tipo: 'neq.status', order: 'id.desc', limit: '300' });
   } catch(e) {
     if (forzar) { const ch = document.getElementById('wab-chat'); if (ch) ch.innerHTML = `<div class="wab-vacio">No se pudo cargar la charla: ${escHtml(_errTxt(e))}</div>`; }
@@ -4645,15 +4649,15 @@ function waBandejaRenderChat() {
     el.dataset.key = k;
     el.innerHTML = `<div class="wab-chat-head" id="wab-head"></div><div class="wab-msgs" id="wab-msgs"></div><div class="wab-pie" id="wab-pie"></div>`;
     wabPieFirma = '';
-    // (25-nov) una foto arrastrada a la charla queda lista para mandar (solo si se puede escribir: está el cuadro)
-    const conFoto = e => !!document.getElementById('wab-txt') && [...((e.dataTransfer && e.dataTransfer.items) || [])].some(i => i.kind === 'file' && /^image\//.test(i.type));
-    el.ondragover = e => { if (!conFoto(e)) return; e.preventDefault(); el.classList.add('wab-soltar'); };
+    // (25-nov) fotos y archivos arrastrados a la charla quedan listos para mandar (solo si se puede escribir: está el cuadro)
+    const conArch = e => !!document.getElementById('wab-txt') && [...((e.dataTransfer && e.dataTransfer.items) || [])].some(i => i.kind === 'file');
+    el.ondragover = e => { if (!conArch(e)) return; e.preventDefault(); el.classList.add('wab-soltar'); };
     el.ondragleave = e => { if (!el.contains(e.relatedTarget)) el.classList.remove('wab-soltar'); };
     el.ondrop = e => {
       el.classList.remove('wab-soltar');
-      const f = [...((e.dataTransfer && e.dataTransfer.files) || [])].find(x => /^image\//.test(x.type));
-      if (!f || !document.getElementById('wab-txt')) return;
-      e.preventDefault(); _wabSumarFoto(f);
+      const fs = [...((e.dataTransfer && e.dataTransfer.files) || [])];
+      if (!fs.length || !document.getElementById('wab-txt')) return;
+      e.preventDefault(); _wabSumarAdj(fs);
     };
   }
   waBandejaRenderHead();
@@ -4716,7 +4720,7 @@ function _wabBurbujas() {
 const WAB_MEDIA_TIPOS = ['image', 'audio', 'video', 'document', 'sticker'];
 function _wabTipoMedia(x) {
   if (x.direccion === 'in') return WAB_MEDIA_TIPOS.includes(x.tipo) ? x.tipo : (x.m_audio ? 'audio' : '');
-  if (x.tipo === 'image' && x.o_img) return 'image';   // (25-nov) foto mandada desde el CRM (wa-enviar v17)
+  if (x.o_img && ['image', 'video', 'document'].includes(x.tipo)) return x.tipo;   // (25-nov) foto o archivo mandado desde el CRM (wa-enviar v17/v18)
   const eco = { image: x.e_image, audio: x.e_audio, video: x.e_video, document: x.e_doc, sticker: x.e_sticker }[x.tipo];
   return eco ? x.tipo : '';
 }
@@ -4741,7 +4745,7 @@ function _wabContenido(x) {
 function _wabMediaInner(x) {
   const m = wabMedia[x.id];
   const tm = _wabTipoMedia(x) || x.tipo;
-  const arch = x.archivo || x.e_docname;
+  const arch = x.archivo || x.e_docname || x.o_nom;
   const nom = (WAB_TIPO_TXT[tm] || 'Archivo').replace(/^\S+\s/, '').toLowerCase();
   if (m && m.url) {
     if (tm === 'image' || tm === 'sticker') return `<img src="${m.url}" alt="" onclick="window.open(this.src, '_blank')">`;
@@ -4774,7 +4778,7 @@ async function _wabMedia(id, alTocar) {
     const av = box && box.querySelector('audio,video');
     if (av) av.play().catch(() => {});
     const x = wabMsgs.find(y => y.id === id);
-    if (x && _wabTipoMedia(x) === 'document') { const a = document.createElement('a'); a.href = wabMedia[id].url; a.download = x.archivo || x.e_docname || 'archivo'; document.body.appendChild(a); a.click(); a.remove(); }
+    if (x && _wabTipoMedia(x) === 'document') { const a = document.createElement('a'); a.href = wabMedia[id].url; a.download = x.archivo || x.e_docname || x.o_nom || 'archivo'; document.body.appendChild(a); a.click(); a.remove(); }
   }
 }
 function _wabMediaPintar(id) {
@@ -4794,7 +4798,7 @@ function waBandejaRenderPie() {
   const sug = [...wabMsgs].reverse().find(x => x.bot_estado === 'sugerido') || null;
   const ultIn = [...wabMsgs].reverse().find(x => x.direccion === 'in');
   const dentro = !!ultIn && (Date.now() - new Date(ultIn.creado_at).getTime()) < WA_VENTANA_H * 3600 * 1000;
-  const firma = `${k}|${sug ? sug.id : 0}|${dentro}|${wabEdit[k] || 0}|${ultIn ? ultIn.id : 0}|${_wabAtiendeVigente() ? wabAtiende.nombre : ''}|${(wabConvs.find(c => _wabKey(c.local_id, c.celular) === k) || {}).bot_estado || ''}|${wabImg[k] ? wabImg[k].url : ''}`;
+  const firma = `${k}|${sug ? sug.id : 0}|${dentro}|${wabEdit[k] || 0}|${ultIn ? ultIn.id : 0}|${_wabAtiendeVigente() ? wabAtiende.nombre : ''}|${(wabConvs.find(c => _wabKey(c.local_id, c.celular) === k) || {}).bot_estado || ''}|${(wabAdj[k] || []).map(a => a.url).join(',')}`;
   if (firma === wabPieFirma) return;
   wabPieFirma = firma;
   // (12-nov-2026, JP) La Oficina mira las charlas de los locales pero no les responde a sus clientes (wa-enviar también
@@ -4836,27 +4840,106 @@ function waBandejaRenderPie() {
   const firmaHtml = _wabAtiendeVigente()
     ? `<div class="wa-reply-nota" style="margin-top:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">👤 Respondés como <b>${escHtml(wabAtiende.nombre)}</b> <span style="color:var(--muted)">(${_wabAtiendeMinutos()} min más)</span> <a href="#" onclick="waQuienAtiende({ forzar: true }).then(() => { wabPieFirma = ''; waBandejaRenderPie(); }); return false" style="color:#128c7e;font-weight:600">Cambiar</a></div>`
     : '';
-  // (25-nov-2026, JP: «que en el chat de WhatsApp te deje pegar una imagen») la foto lista para mandar, arriba del cuadro
-  const foto = dentro ? wabImg[k] : null;
-  const fotoHtml = foto
-    ? `<div class="wab-foto-prev"><img src="${foto.url}" alt=""><span>Foto lista para mandar. Lo que escribas abajo va como texto de la foto. Enter la manda.</span>${_act('bad', '_wabQuitarFoto()', 'Sacar la foto (no se manda)', ICO.cruz)}</div>`
+  // (25-nov-2026, JP: «que en el chat de WhatsApp te deje pegar una imagen» y «arrastrar archivos a las conversaciones»)
+  // lo que está listo para mandar (fotos, videos y archivos), arriba del cuadro, cada uno con su ✗
+  const adj = dentro ? (wabAdj[k] || []) : [];
+  const adjHtml = adj.length
+    ? `<div class="wab-adj-prev">${adj.map((a, i) => `<div class="wab-adj">${a.tipo === 'image' ? `<img src="${a.url}" alt="">` : `<span class="wab-adj-ico">${a.tipo === 'video' ? '🎥' : '📄'}</span>`}<span class="wab-adj-nom" title="${escHtml(a.nombre)}"><b>${escHtml(a.tipo === 'image' ? 'Foto' : a.nombre)}</b><small>${escHtml(_wabTam(a.blob.size))}</small></span>${_act('bad', `_wabQuitarAdj(${i})`, 'Sacarlo (no se manda)', ICO.cruz)}</div>`).join('')}
+        <span class="wab-adj-txt">${adj.length === 1 ? 'Listo para mandar' : `${adj.length} listos para mandar`}. Lo que escribas abajo va como texto ${adj.length === 1 ? (adj[0].tipo === 'image' ? 'de la foto' : 'del archivo') : 'del primero'}. Enter ${adj.length === 1 ? 'lo manda' : 'los manda'}.</span></div>`
     : '';
-  const btnFoto = _act('wab-clip', "document.getElementById('wab-file').click()", 'Mandar una foto (también la podés pegar con Ctrl+V o arrastrar a la charla)', WAB_ICO_FOTO)
-    + `<input type="file" id="wab-file" accept="image/*" hidden onchange="if (this.files[0]) _wabSumarFoto(this.files[0]); this.value = ''">`;
+  const btnFoto = _act('wab-clip', "document.getElementById('wab-file').click()", 'Mandar fotos o archivos (también los podés pegar con Ctrl+V o arrastrar a la charla)', WAB_ICO_CLIP)
+    + `<input type="file" id="wab-file" multiple accept="${WAB_ADJ_ACCEPT}" hidden onchange="_wabSumarAdj([...this.files]); this.value = ''">`;
   // (25-nov) fuera de las 24 h: si un botón dejó el mensaje armado (cumpleaños, ficha de la clienta…), se muestra para copiarlo
   const borr = String(wabBorr[k] || '').trim();
   const borrHtml = !dentro && borr
     ? `<div class="wab-borr-fuera">El mensaje que ibas a mandar: «${escHtml(borr.length > 300 ? borr.slice(0, 300) + '…' : borr)}» · <a href="#" onclick="_wabCopiarBorr(); return false">Copiarlo</a> para mandarlo desde el celular del local.</div>`
     : '';
-  el.innerHTML = sugHtml + firmaHtml + fotoHtml + (dentro
-    ? `<div class="wa-reply">${btnPedido}${btnFoto}<textarea id="wab-txt" data-no-upper rows="1" placeholder="${foto ? 'Texto para la foto (opcional) · Enter la manda' : 'Escribí un mensaje (Enter manda · Shift+Enter, otra línea · Ctrl+V pega una foto)'}" oninput="wabBorr['${k}'] = this.value" onpaste="_wabPegar(event)" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); waBandejaEnviar(); }">${escHtml(wabBorr[k] || '')}</textarea>${_act('primary wa', 'waBandejaEnviar()', foto ? 'Mandar la foto por WhatsApp (Enter)' : 'Mandar el mensaje por WhatsApp (Enter)', ICO.enviar)}</div>`
+  el.innerHTML = sugHtml + firmaHtml + adjHtml + (dentro
+    ? `<div class="wa-reply">${btnPedido}${btnFoto}<textarea id="wab-txt" data-no-upper rows="1" placeholder="${adj.length ? 'Texto (opcional) · Enter manda' : 'Escribí un mensaje (Enter manda · Shift+Enter, otra línea · Ctrl+V pega una foto o un archivo)'}" oninput="wabBorr['${k}'] = this.value" onpaste="_wabPegar(event)" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); waBandejaEnviar(); }">${escHtml(wabBorr[k] || '')}</textarea>${_act('primary wa', 'waBandejaEnviar()', adj.length ? 'Mandar por WhatsApp (Enter)' : 'Mandar el mensaje por WhatsApp (Enter)', ICO.enviar)}</div>`
     : `<div style="display:flex;gap:6px;align-items:center">${btnPedido}<div class="wa-reply-nota" style="margin-top:0;flex:1">${ultIn ? `Pasaron más de ${WA_VENTANA_H} h desde el último mensaje del cliente: WhatsApp no deja escribirle texto libre hasta que vuelva a escribir.` : 'La clienta todavía no le escribió a este número: WhatsApp no deja escribirle primero (solo salen los avisos automáticos de los pedidos).'}${borrHtml}</div></div>`);
 }
-// (25-nov-2026, JP: «que en el chat de WhatsApp te deje pegar una imagen») Fotos a la clienta: se pegan con Ctrl+V en el
-// cuadro, se arrastran a la charla o se eligen con el clip. Antes de mandarla se achica (1600 px de lado, JPEG) y lo escrito
-// va como texto de la foto. Como el texto, solo dentro de las 24 h. wa-enviar v17 la sube a Meta y guarda una copia en el
-// bucket privado wa-enviados, que wa-media v5 muestra en la charla.
-const WAB_FOTO_LADO = 1600, WAB_FOTO_MAX = 4.5 * 1024 * 1024;
+// (25-nov-2026, JP: «que en el chat de WhatsApp te deje pegar una imagen» y «que pueda arrastrar archivos a las
+// conversaciones») Fotos, videos y archivos a la clienta: se pegan con Ctrl+V en el cuadro, se arrastran a la charla o se
+// eligen con el clip (varios a la vez, hasta WAB_ADJ_MAX). Las fotos se achican antes (1600 px de lado, JPEG). Lo escrito va
+// como texto del primero. Como el texto, solo dentro de las 24 h. Cada uno se sube directo al bucket privado wa-enviados
+// (subidas/<uid>/…, la política deja a cada usuario escribir solo en su carpeta) y wa-enviar v18 lo pasa a Meta: así un
+// archivo grande no viaja dentro del pedido a la función. wa-media lo muestra en la charla.
+// WhatsApp acepta: fotos, videos MP4 (hasta 16 MB) y archivos PDF, Word, Excel, PowerPoint y texto (acá, hasta 16 MB).
+const WAB_FOTO_LADO = 1600, WAB_FOTO_MAX = 4.5 * 1024 * 1024, WAB_ADJ_TOPE = 16 * 1024 * 1024, WAB_ADJ_MAX = 10;
+const WAB_DOC_TIPOS = {
+  'application/pdf': 'pdf', 'text/plain': 'txt',
+  'application/msword': 'doc', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt', 'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+};
+const WAB_VIDEO_TIPOS = { 'video/mp4': 'mp4', 'video/3gpp': '3gp' };
+const WAB_ADJ_ACCEPT = ['image/*', ...Object.keys(WAB_VIDEO_TIPOS), ...Object.keys(WAB_DOC_TIPOS), '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.mp4'].join(',');
+const wabAdj = {};            // charla → [{ tipo: 'image'|'video'|'document', blob, url, nombre, mime }] listos para mandar
+function _wabTam(n) { return n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+// el tipo que entiende WhatsApp: si Windows no dice el tipo, se saca de la extensión
+function _wabMimeDe(file) {
+  const t = String(file.type || '').toLowerCase();
+  if (t) return t;
+  const ext = String(file.name || '').toLowerCase().split('.').pop();
+  const todos = Object.assign({}, WAB_DOC_TIPOS, WAB_VIDEO_TIPOS);
+  return Object.keys(todos).find(m => todos[m] === ext) || '';
+}
+async function _wabPrepararAdj(file) {
+  const mime = _wabMimeDe(file), nombre = String(file.name || '').trim() || 'archivo';
+  if (/^image\//.test(mime)) { const f = await _wabPrepararFoto(file); return Object.assign(f, { tipo: 'image', nombre, mime: 'image/jpeg' }); }
+  const tipo = WAB_VIDEO_TIPOS[mime] ? 'video' : WAB_DOC_TIPOS[mime] ? 'document' : '';
+  if (!tipo) throw new Error(`«${nombre}»: WhatsApp no deja mandar ese tipo de archivo (sí fotos, videos MP4, PDF, Word, Excel, PowerPoint y texto)`);
+  if (!file.size) throw new Error(`«${nombre}» está vacío`);
+  if (file.size > WAB_ADJ_TOPE) throw new Error(`«${nombre}» pesa ${_wabTam(file.size)}: el tope es 16 MB`);
+  return { tipo, blob: file, url: URL.createObjectURL(file), nombre, mime };
+}
+async function _wabSumarAdj(files) {
+  if (!wabSel || !document.getElementById('wab-txt') || !files || !files.length) return;
+  const k = _wabKey(wabSel.local_id, wabSel.celular);
+  const ta = document.getElementById('wab-txt');
+  if (ta) wabBorr[k] = ta.value;
+  const lista = wabAdj[k] || [];
+  for (const file of files) {
+    if (lista.length >= WAB_ADJ_MAX) { toast(`⚠️ Hasta ${WAB_ADJ_MAX} por vez: mandá estos y después seguí`); break; }
+    try { lista.push(await _wabPrepararAdj(file)); } catch (e) { toast('⚠️ ' + e.message); }
+  }
+  if (!wabSel || _wabKey(wabSel.local_id, wabSel.celular) !== k) { lista.forEach(a => URL.revokeObjectURL(a.url)); return; }   // cambió de charla
+  if (lista.length) wabAdj[k] = lista; else delete wabAdj[k];
+  waBandejaRenderPie();
+  const t2 = document.getElementById('wab-txt');
+  if (t2) { t2.focus(); t2.setSelectionRange(t2.value.length, t2.value.length); }
+}
+function _wabSumarFoto(file) { return _wabSumarAdj([file]); }
+function _wabQuitarAdj(i) {
+  if (!wabSel) return;
+  const k = _wabKey(wabSel.local_id, wabSel.celular);
+  const ta = document.getElementById('wab-txt');
+  if (ta) wabBorr[k] = ta.value;
+  const lista = wabAdj[k] || [];
+  const [a] = lista.splice(i, 1);
+  if (a) URL.revokeObjectURL(a.url);
+  if (!lista.length) delete wabAdj[k];
+  waBandejaRenderPie();
+  document.getElementById('wab-txt')?.focus();
+}
+// el id del usuario (sub del token): la carpeta del bucket donde puede subir
+function _wabUid() {
+  try { return JSON.parse(atob(String(authToken || '').split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub || ''; } catch (_) { return ''; }
+}
+async function _wabSubirAdj(a) {
+  await _ensureFreshToken();
+  const uid = _wabUid();
+  if (!uid) throw new Error('No se pudo leer tu sesión: recargá la página');
+  const ext = a.tipo === 'image' ? 'jpg' : (WAB_DOC_TIPOS[a.mime] || WAB_VIDEO_TIPOS[a.mime] || 'bin');
+  const path = `subidas/${uid}/${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.${ext}`;
+  const r = await fetch(`${SUPA_URL}/storage/v1/object/wa-enviados/${path}`, {
+    method: 'POST',
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (authToken || SUPA_KEY), 'Content-Type': a.mime, 'x-upsert': 'false' },
+    body: a.blob,
+  });
+  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(`no se pudo subir «${a.nombre}» (${j.message || j.error || 'HTTP ' + r.status})`); }
+  return path;
+}
 async function _wabPrepararFoto(file) {
   if (!file || !/^image\//.test(file.type || '')) throw new Error('Eso no es una foto');
   let bmp;
@@ -4874,37 +4957,15 @@ async function _wabPrepararFoto(file) {
   if (blob.size > WAB_FOTO_MAX) throw new Error('La foto es muy pesada para WhatsApp');
   return { blob, url: URL.createObjectURL(blob), w, h };
 }
-async function _wabSumarFoto(file) {
-  if (!wabSel || !document.getElementById('wab-txt')) return;
-  const k = _wabKey(wabSel.local_id, wabSel.celular);
-  const ta = document.getElementById('wab-txt');
-  if (ta) wabBorr[k] = ta.value;
-  let f;
-  try { f = await _wabPrepararFoto(file); } catch (e) { toast('⚠️ ' + e.message); return; }
-  if (!wabSel || _wabKey(wabSel.local_id, wabSel.celular) !== k) { URL.revokeObjectURL(f.url); return; }   // cambió de charla
-  if (wabImg[k]) URL.revokeObjectURL(wabImg[k].url);
-  wabImg[k] = f;
-  waBandejaRenderPie();
-  const t2 = document.getElementById('wab-txt');
-  if (t2) { t2.focus(); t2.setSelectionRange(t2.value.length, t2.value.length); }
-}
-function _wabQuitarFoto() {
-  if (!wabSel) return;
-  const k = _wabKey(wabSel.local_id, wabSel.celular);
-  const ta = document.getElementById('wab-txt');
-  if (ta) wabBorr[k] = ta.value;
-  if (wabImg[k]) { URL.revokeObjectURL(wabImg[k].url); delete wabImg[k]; }
-  waBandejaRenderPie();
-  document.getElementById('wab-txt')?.focus();
-}
 function _wabPegar(e) {
-  const it = [...((e.clipboardData && e.clipboardData.items) || [])].find(i => i.kind === 'file' && /^image\//.test(i.type));
-  if (!it) return;   // texto: se pega como siempre
+  const cd = e.clipboardData;
+  if (!cd) return;
+  // celdas de Excel o texto de Word traen el texto Y una imagen del recuadro: ahí se pega el texto, como siempre
+  if (String(cd.getData('text/plain') || '').trim()) return;
+  const files = [...(cd.files || [])].length ? [...cd.files] : [...(cd.items || [])].filter(i => i.kind === 'file').map(i => i.getAsFile()).filter(Boolean);
+  if (!files.length) return;
   e.preventDefault();
-  _wabSumarFoto(it.getAsFile());
-}
-function _wabBlobB64(blob) {
-  return new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => mal(new Error('No se pudo leer la foto')); r.readAsDataURL(blob); });
+  _wabSumarAdj(files);
 }
 async function _wabCopiarBorr() {
   if (!wabSel) return;
@@ -4986,13 +5047,13 @@ async function waBandejaEnviar(sugerenciaId) {
   const k = _wabKey(s.local_id, s.celular);
   const ta = document.getElementById('wab-txt');
   const texto = sugerenciaId ? String((wabMsgs.find(x => x.id === sugerenciaId) || {}).texto || '') : String((ta ? ta.value : wabBorr[k]) || '').trim();
-  // (25-nov) con una foto lista, sale la foto y lo escrito va como su texto (puede ir sin texto)
-  const foto = sugerenciaId ? null : wabImg[k] || null;
-  if (!texto.trim() && !foto) { toast('⚠️ Escribí el mensaje primero'); return; }
-  if (foto && texto.length > 1024) { toast('⚠️ El texto de una foto puede tener hasta 1024 letras: acortalo o mandalo aparte'); return; }
+  // (25-nov) con fotos o archivos listos, salen ellos y lo escrito va como texto del primero (puede ir sin texto)
+  const adj = sugerenciaId ? [] : (wabAdj[k] || []).slice();
+  if (!texto.trim() && !adj.length) { toast('⚠️ Escribí el mensaje primero'); return; }
+  if (adj.length && texto.length > 1024) { toast('⚠️ El texto de una foto o un archivo puede tener hasta 1024 letras: acortalo o mandalo aparte'); return; }
   // si el cuadro tiene una sugerencia del bot corregida, viaja su id: queda "editado" y el bot sigue activo
-  // (con foto no: la sugerencia queda para aprobarla o descartarla aparte)
-  const sugId = foto ? undefined : (sugerenciaId || wabEdit[k] || undefined);
+  // (con archivos no: la sugerencia queda para aprobarla o descartarla aparte)
+  const sugId = adj.length ? undefined : (sugerenciaId || wabEdit[k] || undefined);
   // (13-nov-2026) ¿Quién responde? (cara o lista; se recuerda 10 min). Si cancela, no se manda nada.
   const quien = await waQuienAtiende();
   if (!quien) return;
@@ -5000,13 +5061,24 @@ async function waBandejaEnviar(sugerenciaId) {
   if (!(await _wabRegistra('crm.wa_responder', s.local_id, { celular: s.celular, que: 'responder', sugerencia_bot: !!sugerenciaId }, 'charla:' + s.celular))) return;
   if (ta && !sugerenciaId) ta.disabled = true;
   try {
-    const body = { local_id: s.local_id, celular: s.celular, texto, sugerencia_id: sugId, atiende: quien.nombre };
-    if (foto) body.imagen = { base64: await _wabBlobB64(foto.blob), mime: 'image/jpeg' };
-    const j = await _waEnviarFetch(body);
-    if (foto) {
-      // la foto ya está en la PC: se muestra en la charla sin volver a bajarla
-      if (j && j.mensaje_id) wabMedia[j.mensaje_id] = { url: foto.url }; else URL.revokeObjectURL(foto.url);
-      if (wabImg[k] === foto) delete wabImg[k];
+    if (!adj.length) {
+      await _waEnviarFetch({ local_id: s.local_id, celular: s.celular, texto, sugerencia_id: sugId, atiende: quien.nombre });
+    } else {
+      // uno por uno: se sube al bucket y wa-enviar lo pasa a WhatsApp. Si uno falla, el resto queda para volver a mandar.
+      let primero = true;
+      for (const a of adj) {
+        if (_vcFrena()) throw new Error('«Ver como»: es solo para mirar, no se manda nada');
+        if (adj.length > 1) toast(`📤 Mandando ${adj.indexOf(a) + 1} de ${adj.length}…`);
+        const path = await _wabSubirAdj(a);
+        const j = await _waEnviarFetch({ local_id: s.local_id, celular: s.celular, texto: primero ? texto : '', archivo: { path, nombre: a.nombre, mime: a.mime }, atiende: quien.nombre });
+        // ya está en la PC: se ve en la charla sin volver a bajarlo
+        if (j && j.mensaje_id) wabMedia[j.mensaje_id] = { url: a.url }; else URL.revokeObjectURL(a.url);
+        const l = wabAdj[k] || [], i = l.indexOf(a);
+        if (i >= 0) l.splice(i, 1);
+        if (!l.length) delete wabAdj[k];
+        if (primero && !sugerenciaId) { delete wabBorr[k]; if (ta) ta.value = ''; }   // el texto ya salió con el primero
+        primero = false;
+      }
     }
     if (!sugerenciaId || wabEdit[k] === sugerenciaId) delete wabBorr[k];
     delete wabEdit[k];
@@ -5017,7 +5089,9 @@ async function waBandejaEnviar(sugerenciaId) {
     document.getElementById('wab-txt')?.focus();
   } catch(e) {
     toast('❌ No se pudo mandar: ' + e.message);
-    if (ta) { ta.disabled = false; ta.focus(); }
+    if (adj.length) { wabPieFirma = ''; waBandejaRenderPie(); waBandejaCargarChat(true); }   // quedan a la vista los que faltan
+    const t2 = document.getElementById('wab-txt');
+    if (t2) { t2.disabled = false; t2.focus(); }
   }
 }
 function waBandejaSugEditar(id) {
@@ -10374,7 +10448,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v147-wa-modulo-fotos';
+const CRM_VERSION = 'crm-adorno-v148-wa-archivos';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -10522,7 +10596,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=78"></script>
+<script src="manual.js?v=79"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>
