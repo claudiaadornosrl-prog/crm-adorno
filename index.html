@@ -6538,20 +6538,25 @@ async function corIniciar() {
   corContar();
   if (_corActiva()) corEntrar();
 }
-const _corUltNoLeidos = {};   // (25-nov) sin leer de cada casilla en la cuenta anterior, para el sonido
+const _corUltCuenta = {};   // (25-nov) de cada casilla, lo de la cuenta anterior para el sonido: { v, u } o { n }
 async function corContar() {
   if (!corCasillas.some(c => c.configurada)) return;
   const subieron = [];
   try {
     const j = await corApi({ accion: 'contar' });
     (j.casillas || []).forEach(x => { const c = corCasillas.find(k => k.id === x.id); if (c) { if (x.no_leidos != null) c.no_leidos = x.no_leidos; c.error = x.error || null; } });
-    // (25-nov-2026, JP: «ponele sonido cuando llegan los mails») suena si subió el número de sin leer de alguna
-    // casilla respecto de la cuenta anterior de esta página (la primera cuenta solo anota)
+    // (25-nov-2026, JP: «ponele sonido cuando llegan los mails») suena si entró un mail a alguna casilla desde la
+    // cuenta anterior de esta página (la primera cuenta solo anota). (v146, JP: «arreglalo») Se compara uid_sig, el UID
+    // que va a tener el próximo mail de la Entrada: sube solo cuando entra uno, así leer un mail (acá, en el Outlook o en
+    // otra PC) o «Marcar como no leído» no lo cambia. Comparando el número de sin leer, un mail leído y uno nuevo en los
+    // mismos 3 minutos se tapaban. Si la función no manda uid_sig, se compara el número de sin leer como antes
     (j.casillas || []).forEach(x => {
-      if (x.no_leidos == null) return;
-      const n = Number(x.no_leidos), ant = _corUltNoLeidos[x.id];
-      if (ant != null && n > ant) { const c = corCasillas.find(k => k.id === x.id); if (c) subieron.push(c); }
-      _corUltNoLeidos[x.id] = n;
+      const nuevo = x.uid_sig != null ? { v: Number(x.uidv) || 0, u: Number(x.uid_sig) } : x.no_leidos != null ? { n: Number(x.no_leidos) } : null;
+      if (!nuevo) return;
+      const ant = _corUltCuenta[x.id];
+      const subio = ant && (nuevo.u != null ? ant.u != null && ant.v === nuevo.v && nuevo.u > ant.u : ant.n != null && nuevo.n > ant.n);
+      if (subio) { const c = corCasillas.find(k => k.id === x.id); if (c) subieron.push(c); }
+      _corUltCuenta[x.id] = nuevo;
     });
   } catch (e) { console.warn('[correo] contar:', e); }
   if (subieron.length) {
@@ -10221,7 +10226,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v145-sonidos';
+const CRM_VERSION = 'crm-adorno-v146-sonido-mails';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -10369,7 +10374,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=76"></script>
+<script src="manual.js?v=77"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>
