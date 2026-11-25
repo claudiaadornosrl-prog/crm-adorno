@@ -1561,6 +1561,14 @@ html.dark .wab-trans { background: rgba(255,255,255,.08); }
 .wab-pie .wa-sug { margin: 0 0 8px; }
 /* (4-nov-2026) Nuevo pedido desde la charla: botón al lado del cuadro y la tarjeta de Nuevo pedido en una ventana */
 .wab-pie .act.wab-btn-pedido { color: #128c7e; }
+/* (25-nov-2026) foto para mandar: se pega con Ctrl+V, se arrastra o se elige con el clip */
+.wab-pie .act.wab-clip { color: #128c7e; }
+.wab-foto-prev { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; padding: 6px 8px 6px 6px; border: 1px solid #a7f3d0; border-radius: 18px; background: #f0fdf4; }
+.wab-foto-prev img { display: block; max-height: 84px; max-width: 140px; border-radius: 14px; }
+.wab-foto-prev span { flex: 1; font-size: 12px; color: var(--muted); }
+#wab-chat.wab-soltar .wab-msgs { outline: 3px dashed #25d366; outline-offset: -8px; border-radius: 18px; }
+.wab-borr-fuera { margin-top: 6px; color: var(--text); }
+.wab-borr-fuera a { color: #128c7e; font-weight: 600; }
 .wab-ped-cuerpo > .card { border-radius: 0 0 16px 16px; margin: 0; }
 .wab-ped-cuerpo > .card > .card-header { display: none; }
 .wab-vacio { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 13px; padding: 24px; background: #f7f5f2; }
@@ -2519,8 +2527,47 @@ function waConvertir(url) {
   if (modo === 'web') return { url: `https://web.whatsapp.com/send?phone=${phone}${text}`, app: false };
   return null;
 }
+// (25-nov-2026, JP: «que todos los botones que te llevan a WhatsApp te lleven al módulo, porque siguen apuntando al Edge»)
+// WhatsApp Web está bloqueado en las PC de los locales: si el local tiene el número conectado al sistema, cualquier link
+// wa.me del CRM (avisar, abrir el chat, cumpleaños, la ficha de la clienta, las plantillas armadas) abre esa charla en la
+// pestaña WhatsApp, con el mensaje ya escrito en el cuadro. El local: el de la cuenta; para el admin (o quien opera otros
+// locales), el de la charla que ya existe con ese número o el de su último pedido. Sin número del sistema (Oficina) o sin
+// permiso para responder, sigue como antes.
+function _waLocalPara(phone) {
+  const c10 = String(phone || '').slice(-10);
+  const ok = l => !!l && !!waNumeroLocal[l] && puedeOperarLocal(l) && permVe('crm.wa_responder', l);
+  const mio = _locMin(session && session.local_id);
+  if (!session.isAdmin && ok(mio)) return mio;
+  const conv = wabConvs.filter(c => String(c.celular || '').replace(/\D/g, '').slice(-10) === c10 && ok(_locMin(c.local_id)))
+    .sort((a, b) => new Date(b.ult_at || 0) - new Date(a.ult_at || 0))[0];
+  if (conv) return _locMin(conv.local_id);
+  const ped = (pedidosCache || []).filter(p => p.celular && waCelular(p.celular).slice(-10) === c10 && ok(_locMin(p.local_id)))
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
+  return ped ? _locMin(ped.local_id) : '';
+}
+function _waAlModulo(url) {
+  const m = String(url || '').trim().match(/^https:\/\/wa\.me\/(\d{10,15})\/?(?:\?text=(.*))?$/);
+  if (!m || !session || !document.getElementById('wab-lista')) return false;
+  // los números de los locales y de la administración (los pasa Clodi en la charla) no son una clienta: siguen como antes
+  const propios = [...Object.values(WA_LOCAL_NUMBERS).map(x => x.numero), ...Object.values(waNumeroLocal)].map(n => String(n || '').replace(/\D/g, '').slice(-10));
+  if (propios.includes(m[1].slice(-10))) return false;
+  const loc = _waLocalPara(m[1]);
+  if (!loc) return false;
+  let txt = '';
+  try { txt = m[2] ? decodeURIComponent(m[2].replace(/\+/g, ' ')) : ''; } catch (_) { txt = ''; }
+  if (txt) wabBorr[_wabKey(loc, m[1])] = txt;
+  wabPieFirma = '';
+  wabAbrirAlEntrar = { local_id: loc, celular: m[1] };
+  // si el botón estaba en la ficha de la clienta o en el buscador, se cierran para que se vea la charla
+  const cm = document.getElementById('cliente-modal');
+  if (cm && cm.style.display && cm.style.display !== 'none') closeClienteDetail();
+  if (document.getElementById('search-modal')?.classList.contains('active')) closeGlobalSearch();
+  switchTab('whatsapp');
+  return true;
+}
 function waAbrir(url) {
   if (_vcLinkMensaje(url)) { _vcFrena(VC_SIN_MENSAJES); return null; }
+  if (_waAlModulo(url)) return null;
   const c = waConvertir(url);
   if (!c) return _winOpenOrig(url, '_blank');
   if (c.app) { location.href = c.url; return null; }   // protocolo externo: la página del CRM no se va
@@ -2529,6 +2576,7 @@ function waAbrir(url) {
 // Todos los botones de WhatsApp del CRM pasan por acá: los <a href="https://wa.me/..."> y los window.open(wa.me)
 window.open = function (url, name, feats) {
   if (_vcLinkMensaje(url)) { _vcFrena(VC_SIN_MENSAJES); return null; }   // (16-nov) «Ver como»
+  if (typeof url === 'string' && _waAlModulo(url)) return null;   // (25-nov) a la pestaña WhatsApp del CRM
   if (typeof url === 'string' && waConvertir(url)) return waAbrir(url);
   return _winOpenOrig(url, name, feats);
 };
@@ -2538,7 +2586,10 @@ document.addEventListener('click', (e) => {
     if (l && _vcLinkMensaje(l.getAttribute('href'))) { e.preventDefault(); e.stopImmediatePropagation(); _vcFrena(VC_SIN_MENSAJES); return; }
   }
   const a = e.target && e.target.closest ? e.target.closest('a[href^="https://wa.me/"]') : null;
-  if (!a || !waConvertir(a.getAttribute('href'))) return;
+  if (!a) return;
+  // (25-nov) a la pestaña WhatsApp del CRM; el onclick propio del botón (marcar Avisado, etc.) igual se ejecuta
+  if (_waAlModulo(a.getAttribute('href'))) { e.preventDefault(); return; }
+  if (!waConvertir(a.getAttribute('href'))) return;
   e.preventDefault();                 // el onclick propio del botón (marcar Avisado, etc.) igual se ejecuta
   waAbrir(a.getAttribute('href'));
 }, true);
@@ -4314,10 +4365,12 @@ let wabPieFirma = '';         // ídem el pie (así no se pierde lo que se está
 let wabPegado = true;         // el hilo está scrolleado hasta abajo
 const wabMedia = {};          // mensaje_id → { url } | { cargando } | { error }
 const wabBorr = {};           // charla → texto a medio escribir
+const wabImg = {};            // (25-nov) charla → foto lista para mandar { blob, url, w, h } (ya achicada, JPEG)
 const wabEdit = {};           // charla → id de la sugerencia del bot que se está corrigiendo en el cuadro
 const WAB_TIPO_TXT = { image: '📷 Foto', audio: '🎤 Audio', video: '🎥 Video', document: '📄 Archivo', sticker: 'Sticker', location: '📍 Ubicación', contacts: '👤 Contacto', reaction: 'Reacción' };
 const WAB_ICO_VOLVER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>';
 const WAB_ICO_PEDIDO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6"/><path d="M12 9.5v7M8.5 13h7"/></svg>';
+const WAB_ICO_FOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 15-4.5-4.5L7 19"/></svg>';
 const _wabKey = (l, c) => (l || '').toLowerCase() + '|' + String(c || '').replace(/\D/g, '').slice(-10);
 const _wabPanelActivo = () => !!document.getElementById('panel-whatsapp')?.classList.contains('active');
 function _wabConvSel() { return wabSel ? wabConvs.find(c => _wabKey(c.local_id, c.celular) === _wabKey(wabSel.local_id, wabSel.celular)) || null : null; }
@@ -4552,7 +4605,7 @@ async function waBandejaCargarChat(forzar) {
   const c10 = String(s.celular).replace(/\D/g, '').slice(-10);
   let rows;
   try {
-    rows = await supaGet('wa_mensajes', { select: 'id,wa_message_id,direccion,tipo,texto,plantilla,estado,estado_at,creado_at,pedido_id,enviado_por,bot_estado,bot_clasificacion,error,motivo:raw->>motivo,imagen:raw->>imagen,archivo:raw->message->document->>filename,emoji:raw->message->reaction->>emoji,reac_a:raw->message->reaction->>message_id,m_audio:raw->message->audio->>id,trans:raw->>transcripcion,e_image:raw->echo->image->>id,e_audio:raw->echo->audio->>id,e_video:raw->echo->video->>id,e_doc:raw->echo->document->>id,e_sticker:raw->echo->sticker->>id,e_docname:raw->echo->document->>filename',
+    rows = await supaGet('wa_mensajes', { select: 'id,wa_message_id,direccion,tipo,texto,plantilla,estado,estado_at,creado_at,pedido_id,enviado_por,bot_estado,bot_clasificacion,error,motivo:raw->>motivo,imagen:raw->>imagen,archivo:raw->message->document->>filename,emoji:raw->message->reaction->>emoji,reac_a:raw->message->reaction->>message_id,m_audio:raw->message->audio->>id,trans:raw->>transcripcion,e_image:raw->echo->image->>id,e_audio:raw->echo->audio->>id,e_video:raw->echo->video->>id,e_doc:raw->echo->document->>id,e_sticker:raw->echo->sticker->>id,e_docname:raw->echo->document->>filename,o_img:raw->out_media->>id',
       local_id: 'eq.' + s.local_id, or: `(de.like.*${c10},para.like.*${c10})`, tipo: 'neq.status', order: 'id.desc', limit: '300' });
   } catch(e) {
     if (forzar) { const ch = document.getElementById('wab-chat'); if (ch) ch.innerHTML = `<div class="wab-vacio">No se pudo cargar la charla: ${escHtml(_errTxt(e))}</div>`; }
@@ -4592,6 +4645,16 @@ function waBandejaRenderChat() {
     el.dataset.key = k;
     el.innerHTML = `<div class="wab-chat-head" id="wab-head"></div><div class="wab-msgs" id="wab-msgs"></div><div class="wab-pie" id="wab-pie"></div>`;
     wabPieFirma = '';
+    // (25-nov) una foto arrastrada a la charla queda lista para mandar (solo si se puede escribir: está el cuadro)
+    const conFoto = e => !!document.getElementById('wab-txt') && [...((e.dataTransfer && e.dataTransfer.items) || [])].some(i => i.kind === 'file' && /^image\//.test(i.type));
+    el.ondragover = e => { if (!conFoto(e)) return; e.preventDefault(); el.classList.add('wab-soltar'); };
+    el.ondragleave = e => { if (!el.contains(e.relatedTarget)) el.classList.remove('wab-soltar'); };
+    el.ondrop = e => {
+      el.classList.remove('wab-soltar');
+      const f = [...((e.dataTransfer && e.dataTransfer.files) || [])].find(x => /^image\//.test(x.type));
+      if (!f || !document.getElementById('wab-txt')) return;
+      e.preventDefault(); _wabSumarFoto(f);
+    };
   }
   waBandejaRenderHead();
   const m = document.getElementById('wab-msgs');
@@ -4653,6 +4716,7 @@ function _wabBurbujas() {
 const WAB_MEDIA_TIPOS = ['image', 'audio', 'video', 'document', 'sticker'];
 function _wabTipoMedia(x) {
   if (x.direccion === 'in') return WAB_MEDIA_TIPOS.includes(x.tipo) ? x.tipo : (x.m_audio ? 'audio' : '');
+  if (x.tipo === 'image' && x.o_img) return 'image';   // (25-nov) foto mandada desde el CRM (wa-enviar v17)
   const eco = { image: x.e_image, audio: x.e_audio, video: x.e_video, document: x.e_doc, sticker: x.e_sticker }[x.tipo];
   return eco ? x.tipo : '';
 }
@@ -4730,7 +4794,7 @@ function waBandejaRenderPie() {
   const sug = [...wabMsgs].reverse().find(x => x.bot_estado === 'sugerido') || null;
   const ultIn = [...wabMsgs].reverse().find(x => x.direccion === 'in');
   const dentro = !!ultIn && (Date.now() - new Date(ultIn.creado_at).getTime()) < WA_VENTANA_H * 3600 * 1000;
-  const firma = `${k}|${sug ? sug.id : 0}|${dentro}|${wabEdit[k] || 0}|${ultIn ? ultIn.id : 0}|${_wabAtiendeVigente() ? wabAtiende.nombre : ''}|${(wabConvs.find(c => _wabKey(c.local_id, c.celular) === k) || {}).bot_estado || ''}`;
+  const firma = `${k}|${sug ? sug.id : 0}|${dentro}|${wabEdit[k] || 0}|${ultIn ? ultIn.id : 0}|${_wabAtiendeVigente() ? wabAtiende.nombre : ''}|${(wabConvs.find(c => _wabKey(c.local_id, c.celular) === k) || {}).bot_estado || ''}|${wabImg[k] ? wabImg[k].url : ''}`;
   if (firma === wabPieFirma) return;
   wabPieFirma = firma;
   // (12-nov-2026, JP) La Oficina mira las charlas de los locales pero no les responde a sus clientes (wa-enviar también
@@ -4772,9 +4836,80 @@ function waBandejaRenderPie() {
   const firmaHtml = _wabAtiendeVigente()
     ? `<div class="wa-reply-nota" style="margin-top:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">👤 Respondés como <b>${escHtml(wabAtiende.nombre)}</b> <span style="color:var(--muted)">(${_wabAtiendeMinutos()} min más)</span> <a href="#" onclick="waQuienAtiende({ forzar: true }).then(() => { wabPieFirma = ''; waBandejaRenderPie(); }); return false" style="color:#128c7e;font-weight:600">Cambiar</a></div>`
     : '';
-  el.innerHTML = sugHtml + firmaHtml + (dentro
-    ? `<div class="wa-reply">${btnPedido}<textarea id="wab-txt" data-no-upper rows="1" placeholder="Escribí un mensaje (Enter manda · Shift+Enter, otra línea)" oninput="wabBorr['${k}'] = this.value" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); waBandejaEnviar(); }">${escHtml(wabBorr[k] || '')}</textarea>${_act('primary wa', 'waBandejaEnviar()', 'Mandar el mensaje por WhatsApp (Enter)', ICO.enviar)}</div>`
-    : `<div style="display:flex;gap:6px;align-items:center">${btnPedido}<div class="wa-reply-nota" style="margin-top:0;flex:1">${ultIn ? `Pasaron más de ${WA_VENTANA_H} h desde el último mensaje del cliente: WhatsApp no deja escribirle texto libre hasta que vuelva a escribir.` : 'El cliente todavía no escribió en esta charla.'}</div></div>`);
+  // (25-nov-2026, JP: «que en el chat de WhatsApp te deje pegar una imagen») la foto lista para mandar, arriba del cuadro
+  const foto = dentro ? wabImg[k] : null;
+  const fotoHtml = foto
+    ? `<div class="wab-foto-prev"><img src="${foto.url}" alt=""><span>Foto lista para mandar. Lo que escribas abajo va como texto de la foto. Enter la manda.</span>${_act('bad', '_wabQuitarFoto()', 'Sacar la foto (no se manda)', ICO.cruz)}</div>`
+    : '';
+  const btnFoto = _act('wab-clip', "document.getElementById('wab-file').click()", 'Mandar una foto (también la podés pegar con Ctrl+V o arrastrar a la charla)', WAB_ICO_FOTO)
+    + `<input type="file" id="wab-file" accept="image/*" hidden onchange="if (this.files[0]) _wabSumarFoto(this.files[0]); this.value = ''">`;
+  // (25-nov) fuera de las 24 h: si un botón dejó el mensaje armado (cumpleaños, ficha de la clienta…), se muestra para copiarlo
+  const borr = String(wabBorr[k] || '').trim();
+  const borrHtml = !dentro && borr
+    ? `<div class="wab-borr-fuera">El mensaje que ibas a mandar: «${escHtml(borr.length > 300 ? borr.slice(0, 300) + '…' : borr)}» · <a href="#" onclick="_wabCopiarBorr(); return false">Copiarlo</a> para mandarlo desde el celular del local.</div>`
+    : '';
+  el.innerHTML = sugHtml + firmaHtml + fotoHtml + (dentro
+    ? `<div class="wa-reply">${btnPedido}${btnFoto}<textarea id="wab-txt" data-no-upper rows="1" placeholder="${foto ? 'Texto para la foto (opcional) · Enter la manda' : 'Escribí un mensaje (Enter manda · Shift+Enter, otra línea · Ctrl+V pega una foto)'}" oninput="wabBorr['${k}'] = this.value" onpaste="_wabPegar(event)" onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); waBandejaEnviar(); }">${escHtml(wabBorr[k] || '')}</textarea>${_act('primary wa', 'waBandejaEnviar()', foto ? 'Mandar la foto por WhatsApp (Enter)' : 'Mandar el mensaje por WhatsApp (Enter)', ICO.enviar)}</div>`
+    : `<div style="display:flex;gap:6px;align-items:center">${btnPedido}<div class="wa-reply-nota" style="margin-top:0;flex:1">${ultIn ? `Pasaron más de ${WA_VENTANA_H} h desde el último mensaje del cliente: WhatsApp no deja escribirle texto libre hasta que vuelva a escribir.` : 'La clienta todavía no le escribió a este número: WhatsApp no deja escribirle primero (solo salen los avisos automáticos de los pedidos).'}${borrHtml}</div></div>`);
+}
+// (25-nov-2026, JP: «que en el chat de WhatsApp te deje pegar una imagen») Fotos a la clienta: se pegan con Ctrl+V en el
+// cuadro, se arrastran a la charla o se eligen con el clip. Antes de mandarla se achica (1600 px de lado, JPEG) y lo escrito
+// va como texto de la foto. Como el texto, solo dentro de las 24 h. wa-enviar v17 la sube a Meta y guarda una copia en el
+// bucket privado wa-enviados, que wa-media v5 muestra en la charla.
+const WAB_FOTO_LADO = 1600, WAB_FOTO_MAX = 4.5 * 1024 * 1024;
+async function _wabPrepararFoto(file) {
+  if (!file || !/^image\//.test(file.type || '')) throw new Error('Eso no es una foto');
+  let bmp;
+  try { bmp = await createImageBitmap(file); } catch (_) { throw new Error('No se pudo leer la foto (probá con una JPG o PNG)'); }
+  const esc = Math.min(1, WAB_FOTO_LADO / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * esc)), h = Math.max(1, Math.round(bmp.height * esc));
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const cx = cv.getContext('2d');
+  cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h);   // las PNG transparentes salen con fondo blanco (JPEG no tiene transparencia)
+  cx.drawImage(bmp, 0, 0, w, h);
+  if (bmp.close) bmp.close();
+  let q = 0.85, blob = null;
+  do { blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', q)); q -= 0.15; } while (blob && blob.size > WAB_FOTO_MAX && q > 0.3);
+  if (!blob) throw new Error('No se pudo preparar la foto');
+  if (blob.size > WAB_FOTO_MAX) throw new Error('La foto es muy pesada para WhatsApp');
+  return { blob, url: URL.createObjectURL(blob), w, h };
+}
+async function _wabSumarFoto(file) {
+  if (!wabSel || !document.getElementById('wab-txt')) return;
+  const k = _wabKey(wabSel.local_id, wabSel.celular);
+  const ta = document.getElementById('wab-txt');
+  if (ta) wabBorr[k] = ta.value;
+  let f;
+  try { f = await _wabPrepararFoto(file); } catch (e) { toast('⚠️ ' + e.message); return; }
+  if (!wabSel || _wabKey(wabSel.local_id, wabSel.celular) !== k) { URL.revokeObjectURL(f.url); return; }   // cambió de charla
+  if (wabImg[k]) URL.revokeObjectURL(wabImg[k].url);
+  wabImg[k] = f;
+  waBandejaRenderPie();
+  const t2 = document.getElementById('wab-txt');
+  if (t2) { t2.focus(); t2.setSelectionRange(t2.value.length, t2.value.length); }
+}
+function _wabQuitarFoto() {
+  if (!wabSel) return;
+  const k = _wabKey(wabSel.local_id, wabSel.celular);
+  const ta = document.getElementById('wab-txt');
+  if (ta) wabBorr[k] = ta.value;
+  if (wabImg[k]) { URL.revokeObjectURL(wabImg[k].url); delete wabImg[k]; }
+  waBandejaRenderPie();
+  document.getElementById('wab-txt')?.focus();
+}
+function _wabPegar(e) {
+  const it = [...((e.clipboardData && e.clipboardData.items) || [])].find(i => i.kind === 'file' && /^image\//.test(i.type));
+  if (!it) return;   // texto: se pega como siempre
+  e.preventDefault();
+  _wabSumarFoto(it.getAsFile());
+}
+function _wabBlobB64(blob) {
+  return new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => mal(new Error('No se pudo leer la foto')); r.readAsDataURL(blob); });
+}
+async function _wabCopiarBorr() {
+  if (!wabSel) return;
+  const t = String(wabBorr[_wabKey(wabSel.local_id, wabSel.celular)] || '');
+  try { await navigator.clipboard.writeText(t); toast('📋 Mensaje copiado'); } catch (_) { toast('⚠️ No se pudo copiar: seleccionalo y copialo a mano'); }
 }
 
 // ── (4-nov-2026, JP: "desde la charla, si el cliente te solicita algo, poder levantar el pedido con un botón, sin tener
@@ -4851,9 +4986,13 @@ async function waBandejaEnviar(sugerenciaId) {
   const k = _wabKey(s.local_id, s.celular);
   const ta = document.getElementById('wab-txt');
   const texto = sugerenciaId ? String((wabMsgs.find(x => x.id === sugerenciaId) || {}).texto || '') : String((ta ? ta.value : wabBorr[k]) || '').trim();
-  if (!texto.trim()) { toast('⚠️ Escribí el mensaje primero'); return; }
+  // (25-nov) con una foto lista, sale la foto y lo escrito va como su texto (puede ir sin texto)
+  const foto = sugerenciaId ? null : wabImg[k] || null;
+  if (!texto.trim() && !foto) { toast('⚠️ Escribí el mensaje primero'); return; }
+  if (foto && texto.length > 1024) { toast('⚠️ El texto de una foto puede tener hasta 1024 letras: acortalo o mandalo aparte'); return; }
   // si el cuadro tiene una sugerencia del bot corregida, viaja su id: queda "editado" y el bot sigue activo
-  const sugId = sugerenciaId || wabEdit[k] || undefined;
+  // (con foto no: la sugerencia queda para aprobarla o descartarla aparte)
+  const sugId = foto ? undefined : (sugerenciaId || wabEdit[k] || undefined);
   // (13-nov-2026) ¿Quién responde? (cara o lista; se recuerda 10 min). Si cancela, no se manda nada.
   const quien = await waQuienAtiende();
   if (!quien) return;
@@ -4861,7 +5000,14 @@ async function waBandejaEnviar(sugerenciaId) {
   if (!(await _wabRegistra('crm.wa_responder', s.local_id, { celular: s.celular, que: 'responder', sugerencia_bot: !!sugerenciaId }, 'charla:' + s.celular))) return;
   if (ta && !sugerenciaId) ta.disabled = true;
   try {
-    await _waEnviarFetch({ local_id: s.local_id, celular: s.celular, texto, sugerencia_id: sugId, atiende: quien.nombre });
+    const body = { local_id: s.local_id, celular: s.celular, texto, sugerencia_id: sugId, atiende: quien.nombre };
+    if (foto) body.imagen = { base64: await _wabBlobB64(foto.blob), mime: 'image/jpeg' };
+    const j = await _waEnviarFetch(body);
+    if (foto) {
+      // la foto ya está en la PC: se muestra en la charla sin volver a bajarla
+      if (j && j.mensaje_id) wabMedia[j.mensaje_id] = { url: foto.url }; else URL.revokeObjectURL(foto.url);
+      if (wabImg[k] === foto) delete wabImg[k];
+    }
     if (!sugerenciaId || wabEdit[k] === sugerenciaId) delete wabBorr[k];
     delete wabEdit[k];
     wabPieFirma = '';
@@ -7195,13 +7341,15 @@ function pedidoActions(p) {
 
   if (estado === 'Pendiente') {
     if (api) btns += enviarApi('pedido_listo', 'Enviar el aviso por WhatsApp desde el número del local (marca Avisado)');
-    if (waUrl) btns += _actLink(api ? 'wa' : 'primary wa', waUrl, `markEstado(${id},'Avisado')`, api ? 'Abrir el chat en tu WhatsApp' : 'Avisar por WhatsApp (marca Avisado)', waSvg());
+    // (25-nov-2026) con el número del local en el sistema, este botón solo abre la charla en la pestaña WhatsApp: no marca
+    // Avisado (el aviso sale con el botón verde de enviar; desde la charla, si pasaron 24 h, no se puede escribir)
+    if (waUrl) btns += _actLink(api ? 'wa' : 'primary wa', waUrl, api ? '' : `markEstado(${id},'Avisado')`, api ? 'Abrir la charla en la pestaña WhatsApp' : 'Avisar por WhatsApp (marca Avisado)', waSvg());
     btns += _act('', `markListo(${id})`, 'Ya hay stock: pasar a Listo para avisar', ICO.caja);
     btns += plantillas();
 
   } else if (estado === 'Listo para avisar') {
     if (api) btns += enviarApi('pedido_listo', 'Enviar el aviso por WhatsApp desde el número del local (marca Avisado)');
-    if (waUrl) btns += _actLink(api ? 'wa' : 'primary wa', waUrl, `onWaClick(${id})`, api ? 'Abrir el chat en tu WhatsApp' : 'Avisar por WhatsApp (marca Avisado)', waSvg());
+    if (waUrl) btns += _actLink(api ? 'wa' : 'primary wa', waUrl, api ? '' : `onWaClick(${id})`, api ? 'Abrir la charla en la pestaña WhatsApp' : 'Avisar por WhatsApp (marca Avisado)', waSvg());
     btns += _act('', `markEstado(${id},'Avisado')`, 'Ya le avisé por otro medio: marcar Avisado', ICO.campana);
     btns += plantillas();
 
@@ -7413,7 +7561,7 @@ function renderAlertas() {
           </div>
           ${permVe('crm.pedido_gestionar', p.local_id) ? `<div class="alert-actions">
             ${api ? _act('primary wa', `enviarAvisoApi(${p.id},'pedido_listo')`, 'Enviar el aviso por WhatsApp desde el número del local (marca Avisado)', ICO.enviar) : ''}
-            ${waUrl ? _actLink(api ? 'wa' : 'primary wa', waUrl, `onWaClick(${p.id})`, api ? 'Abrir el chat en tu WhatsApp' : 'Avisar por WhatsApp (marca Avisado)', waSvg()) : ''}
+            ${waUrl ? _actLink(api ? 'wa' : 'primary wa', waUrl, api ? '' : `onWaClick(${p.id})`, api ? 'Abrir la charla en la pestaña WhatsApp' : 'Avisar por WhatsApp (marca Avisado)', waSvg()) : ''}
             ${_act('', `markEstado(${p.id},'Avisado')`, 'Ya le avisé por otro medio: marcar Avisado', ICO.campana)}
           </div>` : ''}
         </div>
@@ -10226,7 +10374,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v146-sonido-mails';
+const CRM_VERSION = 'crm-adorno-v147-wa-modulo-fotos';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -10374,7 +10522,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=77"></script>
+<script src="manual.js?v=78"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>
