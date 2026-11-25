@@ -1641,6 +1641,48 @@ html.dark .cor-prox-pill { background: #1e3a8a; color: #dbeafe; }
   .cor-prox { margin: 16px; padding: 28px 20px 24px; }
 }
 html.dark .cor .wab-item.sel { background: #1e3a8a; }
+/* (25-nov-2026, JP: «que nuestro sistema vaya leyendo los mails que van llegando, para hacer un análisis») etiqueta y resumen
+   de cada mail, filtros, la tarjeta del análisis en el mail abierto y el tablero de atención */
+.cor-an { display: flex; gap: 5px; align-items: center; margin-top: 3px; min-width: 0; }
+.cor-an-txt { flex: 1; min-width: 0; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cor-cat { flex-shrink: 0; display: inline-flex; align-items: center; gap: 3px; border-radius: 999px; padding: 1px 8px; font-size: 10.5px; font-weight: 700; background: var(--cc-bg, #f1f5f9); color: var(--cc, #475569); white-space: nowrap; }
+.cor-urg { flex-shrink: 0; border-radius: 999px; padding: 1px 8px; font-size: 10.5px; font-weight: 800; background: #fee2e2; color: #b91c1c; white-space: nowrap; }
+.cor-filtros { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; padding-bottom: 1px; }
+.cor-filtros::-webkit-scrollbar { display: none; }
+.cor-chip.f { padding: 3px 10px; font-size: 11.5px; flex-shrink: 0; }
+.cor-anc { margin: 8px 14px 0; border-radius: 16px; background: #f5f3ff; border: 1px solid #ddd6fe; padding: 10px 14px; font-size: 13px; line-height: 1.5; color: var(--text); max-height: 38vh; overflow-y: auto; flex-shrink: 0; }
+.cor-anc-top { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.cor-anc-top b { font-size: 12px; color: #5b21b6; }
+.cor-anc-sec { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd6fe; }
+.cor-anc-nota { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.cor-anc-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.cor-anc-btn { border: 0; background: #7c3aed; color: #fff; border-radius: 999px; padding: 6px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.cor-anc-btn.sec { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+.cor-tab { height: 100%; overflow-y: auto; max-width: 1180px; margin: 0 auto; }
+.cor-tab-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.cor-tab-top h3 { margin: 0 6px 0 0; font-size: 17px; }
+.cor-tab-nota { font-size: 12px; color: var(--muted); margin: 0 0 12px; line-height: 1.5; }
+.cor-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.cor-kpi { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 12px 16px; }
+.cor-kpi-t { font-weight: 800; font-size: 14px; margin-bottom: 8px; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.cor-kpi-t small { color: var(--muted); font-weight: 500; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cor-kpi-g { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 11.5px; color: var(--muted); }
+.cor-kpi-g b { display: block; font-size: 17px; color: var(--text); line-height: 1.2; }
+.cor-kpi-g .mal b { color: #b91c1c; }
+.cor-kpi-g .bien b { color: #15803d; }
+.cor-sec { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 12px 16px; margin-bottom: 14px; }
+.cor-sec h4 { margin: 0 0 4px; font-size: 14px; }
+.cor-sec .cor-tab-nota { margin-bottom: 8px; }
+.cor-sec table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cor-sec th { text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; padding: 6px 8px; border-bottom: 1px solid var(--border); background: var(--card); white-space: nowrap; }
+.cor-sec td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.cor-sec td.num { text-align: right; white-space: nowrap; }
+.cor-sec .vacio { color: var(--muted); font-size: 12.5px; padding: 6px 0; }
+.cor-ver-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 999px; padding: 3px 11px; font-size: 11.5px; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: inherit; }
+html.dark .cor-anc { background: #2e1065; border-color: #4c1d95; }
+html.dark .cor-anc-top b { color: #ddd6fe; }
+html.dark .cor-anc-sec { border-top-color: #4c1d95; }
+@media (max-width: 760px) { .cor-tab { padding: 10px; } .cor-sec { padding: 10px 12px; } .cor-anc { margin: 8px 8px 0; } }
 html.dark .wab-msgs { background: #0b141a; }
 html.dark .wab-dia { background: #1f2c34; color: #8696a0; }
 html.dark .wab-vacio { background: #111b21; }
@@ -1933,6 +1975,8 @@ html.dark .wab-vacio { background: #111b21; }
         <div class="wab-lista" id="cor-lista"><div class="loading"><span class="spinner"></span> Cargando...</div></div>
         <div class="wab-chat" id="cor-ver"><div class="wab-vacio">Elegí un mail de la lista para leerlo.</div></div>
       </div>
+      <!-- (25-nov-2026, JP) Tablero de atención: lo que el sistema leyó y analizó de las casillas que ve la cuenta -->
+      <div class="cor-tab" id="cor-tab" style="display:none"></div>
     </div>
 
     <!-- ── SATISFACCIÓN ── -->
@@ -3414,6 +3458,7 @@ function pedNuevoCerrar() {
   const m = document.getElementById('ped-nuevo-modal'), card = document.querySelector('#ped-nuevo-cuerpo > .card'), panel = document.getElementById('panel-nuevo');
   if (card && panel) panel.appendChild(card);
   if (m) m.style.display = 'none';
+  corPedidoCtx = null;   // (25-nov) si venía de un mail y se cerró sin guardar, ya no queda atado a ese mail
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5201,7 +5246,8 @@ function updateAlertBadge() {
   const vencidos = pedidosVencidos60().length;
   const mensajes = pedidosConMensajeSinResponder().length;   // (27-oct) WhatsApp sin responder / sugerencias del bot
   const datosCli = sugerenciasCache.length;                   // (27-oct) datos de clientes sacados de los chats
-  const total = listos + vencidos + mensajes + datosCli;
+  const mailsAt = (correoAlertasCache || []).length;          // (25-nov) mails para atender
+  const total = listos + vencidos + mensajes + datosCli + mailsAt;
   const badge = document.getElementById('alertas-badge');
   const tabAl = document.querySelector('.tab-btn[data-tab="pedidos"]');  // (26-oct) la pestaña entera se pone verde · (4-nov) ahora Pedidos, que tiene las alertas arriba
   if (total > 0) {
@@ -5212,6 +5258,7 @@ function updateAlertBadge() {
     if (vencidos > 0) partes.push(vencidos === 1 ? '1 esperando confirmar respuesta' : `${vencidos} esperando confirmar respuesta`);
     if (mensajes > 0) partes.push(mensajes === 1 ? '1 WhatsApp para responder' : `${mensajes} WhatsApp para responder`);
     if (datosCli > 0) partes.push(datosCli === 1 ? '1 cliente para confirmar datos' : `${datosCli} clientes para confirmar datos`);
+    if (mailsAt > 0) partes.push(mailsAt === 1 ? '1 mail para atender' : `${mailsAt} mails para atender`);
     if (tabAl) { tabAl.classList.add('has-alert'); tabAl.title = partes.join(' · '); }
   } else {
     badge.classList.add('hidden');
@@ -5795,6 +5842,7 @@ async function submitPedido() {
     if (!creados.length) {
       throw new Error('No se pudo crear ningún pedido — verificá los datos');
     }
+    if (corPedidoCtx) _corPedidoGuardado(creados[0].id);   // (25-nov) cargado desde un mail: ese mail ya tiene su pedido
     // Cliente nuevo (DNI sin ficha en `clientes`): a la cola para darlo de alta en Dragonfish
     if (dniSinFicha && !clienteDetectado) {
       encolarClienteDragon({ pedido_id: creados[0].id, dni, apellido: apellidoInput, nombre: primerNombreInput,
@@ -6365,6 +6413,32 @@ const ICO = {
 let corCasillas = [], corSel = '', corCarpeta = 'entrada', corLista = [], corHayMas = false, corBusca = '';
 let corListaDe = '', corAbierto = null, corCargando = false, corTimer = null, corRedac = null, corAdjNuevos = [], corAdmin = null, corErr = '';
 const COR_CARPETAS = { entrada: 'Entrada', enviados: 'Enviados', papelera: 'Papelera' };
+// (25-nov-2026, JP: «que nuestro sistema vaya leyendo los mails que van llegando, para hacer un análisis») Cada 5 minutos la
+// función «correo» lee los mails nuevos de las casillas prendidas y la IA les pone categoría, resumen, si hay que contestar,
+// si es urgente, el pedido de una clienta o los datos de una factura (correo_mensajes; el cuerpo del mail no se guarda).
+// Acá: la etiqueta en la lista, filtros, la tarjeta «🤖 Análisis» en el mail abierto, las alertas de Pedidos y el tablero.
+const COR_CAT = {
+  clienta: { t: 'Clienta', i: '🛍️', c: '#6d28d9', b: '#ede9fe' },
+  proveedor: { t: 'Proveedor', i: '📦', c: '#0369a1', b: '#e0f2fe' },
+  factura: { t: 'Factura', i: '🧾', c: '#15803d', b: '#dcfce7' },
+  pagos_impuestos: { t: 'Pagos e impuestos', i: '🏦', c: '#b45309', b: '#fef3c7' },
+  shopping: { t: 'Shopping', i: '🏬', c: '#be185d', b: '#fce7f3' },
+  interno: { t: 'Interno', i: '👥', c: '#334155', b: '#e2e8f0' },
+  publicidad: { t: 'Publicidad', i: '📣', c: '#64748b', b: '#f1f5f9' },
+  otro: { t: 'Otro', i: '✉️', c: '#475569', b: '#f1f5f9' },
+};
+let corFiltro = '', corVista = 'bandeja', corTabDias = 7, corTabDatos = null, corTabCargando = false;
+var corPedidoCtx = null, correoAlertasCache = [];   // var: Pedidos y Nuevo pedido (más arriba) los leen
+function _corCat(k) { const x = COR_CAT[k] || COR_CAT.otro; return `<span class="cor-cat" style="--cc:${x.c};--cc-bg:${x.b}">${x.i} ${escHtml(x.t)}</span>`; }
+function _corAn(m) { return m && m.an && m.an.estado === 'analizado' ? m.an : null; }
+function _corDia(s) { const p = String(s || '').slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : ''; }
+function _corPlata(n, mon) { const v = Number(n) || 0; return (mon === 'USD' ? 'US$ ' : '$ ') + v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function _corHoras(h) { h = Number(h); if (!isFinite(h)) return '—'; if (h < 1) return Math.max(1, Math.round(h * 60)) + ' min'; if (h < 48) return h.toFixed(1).replace('.', ',').replace(/,0$/, '') + ' h'; return Math.round(h / 24) + ' días'; }
+function _corHace(f) {
+  const m = Math.round((Date.now() - new Date(f).getTime()) / 60000); if (!f || isNaN(m)) return '';
+  if (m < 60) return `hace ${Math.max(1, m)} min`; if (m < 48 * 60) return `hace ${Math.round(m / 60)} h`; return `hace ${Math.round(m / 1440)} días`;
+}
+function _corCasNom(id) { const c = corCasillas.find(k => k.id === id); return c ? c.nombre : id; }
 const _corSvg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 const COR_ICO = {
   responder: _corSvg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'),
@@ -6425,6 +6499,89 @@ async function corContar() {
   } catch (e) { console.warn('[correo] contar:', e); }
   corPintarBadge();
   if (_corActiva()) corPintarLista();
+  loadCorreoAlertas().then(() => { renderAlertas(); updateAlertBadge(); });   // (25-nov) los mails para atender, en Alertas
+}
+// (25-nov-2026) Alertas de Pedidos: mails urgentes, para contestar hace más de 3 h y pedidos de clientas sin cargar
+async function loadCorreoAlertas() {
+  if (!session || !corCasillas.length || !permVe('crm.correo_ver')) { correoAlertasCache = []; return; }
+  try { const r = await _rpcBot('correo_alertas', {}, authToken || SUPA_KEY); correoAlertasCache = Array.isArray(r) ? r : []; }
+  catch (e) { console.warn('[correo] alertas:', e); }
+}
+function renderCorreoAlertaCard(x) {
+  const col = x.tipo === 'urgente' ? ['#dc2626', '#fee2e2', '#991b1b', '⚠️ Urgente'] : x.tipo === 'pedido' ? ['#7c3aed', '#ede9fe', '#5b21b6', '🛍️ Pedido por mail'] : ['#2563eb', '#dbeafe', '#1e40af', 'Para contestar'];
+  const id = Number(x.id), cas = escHtml(String(x.casilla_id || '')).replace(/'/g, '');
+  return `<div class="alert-card" style="border-left:4px solid ${col[0]};">
+    <div class="alert-card-header">
+      <div>
+        <div class="alert-sku-tag">✉️ ${escHtml(x.casilla || x.casilla_id || '')}</div>
+        <div class="alert-desc">${escHtml(x.asunto || '(sin asunto)')}</div>
+      </div>
+      <span style="font-size:11px;background:${col[1]};color:${col[2]};padding:3px 8px;border-radius:10px;font-weight:600;white-space:nowrap">${col[3]} · ${escHtml(_corHace(x.fecha))}</span>
+    </div>
+    <div class="alert-body">
+      <div class="alert-client-info">
+        <div class="alert-client-name">${escHtml(x.de_nombre || x.de_email || '')}</div>
+        <div class="alert-client-cel">${escHtml(x.resumen || '')}${x.urgente && x.motivo ? ' · ⚠️ ' + escHtml(x.motivo) : ''}</div>
+      </div>
+      <div class="alert-actions">
+        ${_act('primary', `corIrA('${cas}',${Number(x.uid)})`, 'Abrir el mail', COR_ICO.noleido)}
+        ${x.tipo === 'pedido' && _puedeNuevo() ? _act('', `corPedidoDesdeAlerta(${id})`, 'Cargar el pedido con los datos del mail', ICO.bolsa) : ''}
+        ${_act('', `corResolver(${id})`, 'Listo, ya lo vi (sale de las alertas)', ICO.check)}
+      </div>
+    </div>
+  </div>`;
+}
+// Ir al mail desde una alerta o el tablero: la casilla, la Entrada y el mail abierto
+function corIrA(cas, uid) {
+  if (!corCasillas.some(c => c.id === cas)) { toast('Esa casilla no está en esta cuenta'); return; }
+  if (corRedac && !corDescartar()) return;
+  corSel = cas; corCarpeta = 'entrada'; corBusca = ''; corFiltro = ''; corAbierto = null; corVista = 'bandeja';
+  switchTab('correo');
+  corAbrir(Number(uid));
+}
+async function corResolver(id) {
+  try { await _rpcBot('correo_alerta_resolver', { p_id: Number(id) }, authToken || SUPA_KEY); }
+  catch (e) { _errAviso('❌ No se pudo: ' + e.message); return; }
+  const ahora = new Date().toISOString();
+  correoAlertasCache = correoAlertasCache.filter(x => Number(x.id) !== Number(id));
+  corLista.forEach(m => { if (m.an && Number(m.an.id) === Number(id)) m.an.resuelto_at = ahora; });
+  if (corAbierto && corAbierto.an && Number(corAbierto.an.id) === Number(id)) corAbierto.an.resuelto_at = ahora;
+  if (_corActiva()) { corPintarLista(); if (corVista !== 'tablero') corPintarVer(); }
+  renderAlertas(); updateAlertBadge();
+  toast('✓ Listo: sale de las alertas');
+}
+// Cargar el pedido de una clienta con lo que escribió en el mail (en la ventana de Nuevo pedido)
+function _corPedido(cl, anId, deEmail) {
+  if (!cl) return;
+  if (!_puedeNuevo()) { toast('🔒 Esta cuenta no tiene habilitado cargar pedidos (Hub → Permisos)'); return; }
+  const v = id => (document.getElementById(id) || {}).value || '';
+  const hay = ['f-nombre', 'f-apellido', 'f-dni', 'f-celular'].some(id => v(id).trim());
+  if (hay && !confirm('El formulario de Nuevo pedido tiene datos cargados. ¿Los cambio por los de este mail?')) { pedNuevoAbrir(); return; }
+  ['f-nombre', 'f-apellido', 'f-dni', 'f-fnac', 'f-email', 'f-celular', 'f-notas'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  if (typeof hideClienteDetectado === 'function') hideClienteDetectado();
+  const set = (id, x) => { const el = document.getElementById(id); if (el && x) el.value = x; };
+  set('f-nombre', cl.nombre); set('f-apellido', cl.apellido); set('f-dni', cl.dni);
+  set('f-email', cl.email || deEmail);
+  set('f-celular', String(cl.celular || '').replace(/\D/g, '').slice(-10));
+  const prods = (cl.productos || []).map(p => (Number(p.cantidad) > 1 ? p.cantidad + ' × ' : '') + p.descripcion).join(', ');
+  set('f-notas', 'Pedido tomado por mail' + (prods ? ': ' + prods : ''));
+  pedNuevoAbrir();
+  corPedidoCtx = { id: Number(anId) };
+  ['f-celular', 'f-dni'].forEach(id => { const el = document.getElementById(id); if (el && el.value) el.dispatchEvent(new Event('input')); });   // busca la ficha
+  if (prods) toast('🛍️ Datos del mail cargados. Buscá los artículos: ' + prods);
+}
+function corPedidoDesdeMail() { const a = corAbierto, an = a && a.an; if (an && an.clienta) _corPedido(an.clienta, an.id, a.de_email); }
+function corPedidoDesdeAlerta(id) { const x = correoAlertasCache.find(k => Number(k.id) === Number(id)); if (x && x.clienta) _corPedido(x.clienta, x.id, x.de_email); }
+// lo llama submitPedido: ese mail ya tiene su pedido (sale de las alertas)
+function _corPedidoGuardado(pedidoId) {
+  const ctx = corPedidoCtx; corPedidoCtx = null;
+  if (!ctx || !pedidoId) return;
+  _rpcBot('correo_pedido_cargado', { p_id: ctx.id, p_pedido_id: Number(pedidoId) }, authToken || SUPA_KEY).then(() => {
+    correoAlertasCache = correoAlertasCache.filter(x => Number(x.id) !== ctx.id || x.tipo !== 'pedido');
+    corLista.forEach(m => { if (m.an && Number(m.an.id) === ctx.id) m.an.pedido_id = pedidoId; });
+    if (corAbierto && corAbierto.an && Number(corAbierto.an.id) === ctx.id) { corAbierto.an.pedido_id = pedidoId; if (_corActiva()) corPintarVer(); }
+    renderAlertas(); updateAlertBadge();
+  }).catch(e => console.warn('[correo] pedido cargado:', e));
 }
 function corPintarBadge() {
   const n = corCasillas.reduce((s, c) => s + (Number(c.no_leidos) || 0), 0);
@@ -6436,22 +6593,32 @@ function corEntrar() {
   // (24-nov-2026) sin casillas prendidas para esta cuenta: el cartel de «Próximamente» en vez de la bandeja
   const prox = !corCasillas.length, px = document.getElementById('cor-prox'), cw = document.getElementById('cor');
   if (px) { px.style.display = prox ? '' : 'none'; const ad = px.querySelector('.cor-prox-adm'); if (ad) ad.style.display = session && session.isAdmin ? '' : 'none'; }
-  if (cw) cw.style.display = prox ? 'none' : '';
+  // (25-nov-2026) el tablero de atención va en lugar de la bandeja
+  const tb = document.getElementById('cor-tab'), tab = !prox && corVista === 'tablero';
+  if (cw) cw.style.display = prox || tab ? 'none' : '';
+  if (tb) tb.style.display = tab ? '' : 'none';
   if (prox) return;
+  if (tab) { corTabPintar(); if (!corTabDatos && !corTabCargando) corTabCargar(); return; }
   corPintarLista(); corPintarVer();
   if (corListaDe !== corSel + '|' + corCarpeta + '|' + corBusca) corCargar();
+}
+function corTablero(on) {
+  if (on && corRedac && !corDescartar()) return;
+  corVista = on ? 'tablero' : 'bandeja';
+  if (on) corTabDatos = null;   // siempre los números del momento
+  corEntrar();
 }
 function corElegir(id) {
   if (id === corSel) return;
   if (corRedac && !corDescartar()) return;
-  corSel = id; corCarpeta = 'entrada'; corBusca = ''; corAbierto = null;
+  corSel = id; corCarpeta = 'entrada'; corBusca = ''; corAbierto = null; corFiltro = '';
   document.getElementById('cor')?.classList.remove('con-chat');
   corPintarVer(); corCargar();
 }
 function corElegirCarpeta(x) {
   if (x === corCarpeta) return;
   if (corRedac && !corDescartar()) return;
-  corCarpeta = x; corAbierto = null;
+  corCarpeta = x; corAbierto = null; corFiltro = '';
   document.getElementById('cor')?.classList.remove('con-chat');
   corPintarVer(); corCargar();
 }
@@ -6481,19 +6648,39 @@ function corItem(m) {
   const quien = env ? (m.para || '(sin destinatario)') : (m.de || m.de_email || '(sin remitente)');
   const ini = (quien.replace(/^[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9]+/, '')[0] || '?').toUpperCase();
   const sel = corAbierto && corAbierto.uid === m.uid ? ' sel' : '';
+  // (25-nov-2026) lo que analizó el sistema: la etiqueta y el resumen de una línea
+  const an = _corAn(m);
+  const anHtml = an ? `<div class="cor-an">${an.urgente && !m.respondido && !an.resuelto_at ? '<span class="cor-urg">Urgente</span>' : ''}${_corCat(an.categoria)}<span class="cor-an-txt" title="${escHtml(an.resumen || '')}">${escHtml(an.resumen || '')}</span></div>` : '';
   return `<div class="wab-item${m.leido ? '' : ' nuevo'}${sel}" onclick="corAbrir(${Number(m.uid)})">
     <div class="wab-av">${escHtml(ini)}</div>
     <div class="wab-it-body">
       <div class="wab-it-top"><span class="wab-it-nom">${escHtml(quien)}</span><span class="wab-it-hora">${escHtml(_corFecha(m.fecha))}</span></div>
       <div class="wab-it-bot"><span class="wab-it-prev">${escHtml(m.asunto || '(sin asunto)')}</span>${m.adjuntos ? '<span class="cor-clip" title="Tiene adjuntos">📎</span>' : ''}${m.respondido ? '<span class="cor-clip" title="Ya se respondió">↩</span>' : ''}</div>
+      ${anHtml}
     </div></div>`;
+}
+// (25-nov-2026) filtros de la Entrada por lo que analizó el sistema
+function _corFiltrar(l) {
+  if (!corFiltro || corCarpeta !== 'entrada') return l;
+  if (corFiltro === 'urgente') return l.filter(m => { const a = _corAn(m); return a && a.urgente && !m.respondido && !a.resuelto_at; });
+  if (corFiltro === 'contestar') return l.filter(m => { const a = _corAn(m); return a && a.requiere_respuesta && !m.respondido && !a.resuelto_at; });
+  return l.filter(m => { const a = _corAn(m); return a && a.categoria === corFiltro; });
+}
+function corFiltrar(f) { corFiltro = corFiltro === f ? '' : f; corPintarLista(); }
+function _corFiltrosHtml() {
+  if (corCarpeta !== 'entrada' || !corLista.some(m => _corAn(m))) return '';
+  const cuenta = f => { const g = corFiltro; corFiltro = f; const n = _corFiltrar(corLista).length; corFiltro = g; return n; };
+  const ch = (f, t) => { const n = cuenta(f); return n || corFiltro === f ? `<button class="cor-chip f${corFiltro === f ? ' on' : ''}" onclick="corFiltrar('${f}')">${t}<span style="opacity:.7">${n}</span></button>` : ''; };
+  const cats = Object.keys(COR_CAT).map(k => ch(k, COR_CAT[k].i + ' ' + COR_CAT[k].t)).join('');
+  return `<div class="cor-filtros"><button class="cor-chip f${corFiltro ? '' : ' on'}" onclick="corFiltrar('')">Todos</button>${ch('urgente', '⚠️ Urgentes')}${ch('contestar', '↩ Para contestar')}${cats}</div>`;
 }
 function corPintarLista() {
   const el = document.getElementById('cor-lista'); if (!el) return;
   if (!corCasillas.length) { el.innerHTML = '<div class="wab-lista-vacia">Esta cuenta no tiene casillas de correo asignadas.</div>'; return; }
   const c = _corC();
   const sc = (document.getElementById('cor-items') || {}).scrollTop || 0;
-  const chips = corCasillas.map(k => `<button class="cor-chip${k.id === corSel ? ' on' : ''}${k.error ? ' err' : ''}" onclick="corElegir('${escHtml(k.id)}')" title="${escHtml(k.direccion)}">${escHtml(k.nombre)}${Number(k.no_leidos) ? `<span class="n">${Number(k.no_leidos)}</span>` : ''}</button>`).join('');
+  const chips = corCasillas.map(k => `<button class="cor-chip${k.id === corSel ? ' on' : ''}${k.error ? ' err' : ''}" onclick="corElegir('${escHtml(k.id)}')" title="${escHtml(k.direccion)}">${escHtml(k.nombre)}${Number(k.no_leidos) ? `<span class="n">${Number(k.no_leidos)}</span>` : ''}</button>`).join('')
+    + '<button class="cor-chip" onclick="corTablero(true)" title="Tablero de atención: cuántos mails llegan, cuánto se tarda en contestar, clientas y facturas">📊 Tablero</button>';
   const carps = Object.keys(COR_CARPETAS).map(x => `<button class="cor-chip${x === corCarpeta ? ' on' : ''}" onclick="corElegirCarpeta('${x}')">${COR_CARPETAS[x]}</button>`).join('');
   let estado = '';
   const err = corErr || (corCarpeta === 'entrada' && c && c.error) || '';
@@ -6503,10 +6690,15 @@ function corPintarLista() {
   let items;
   if (corCargando && !corLista.length) items = '<div class="loading"><span class="spinner"></span> Trayendo los mails…</div>';
   else if (!corLista.length) items = `<div class="wab-lista-vacia">${err ? 'No se pudo leer esta carpeta.' : corBusca ? 'No encontré mails con eso.' : 'No hay mails en esta carpeta.'}</div>`;
-  else items = corLista.map(corItem).join('') + (corHayMas ? `<button class="cor-mas" onclick="corCargar(true)"${corCargando ? ' disabled' : ''}>${corCargando ? 'Cargando…' : 'Ver más viejos'}</button>` : '');
+  else {
+    const vis = _corFiltrar(corLista);
+    items = (vis.length ? vis.map(corItem).join('') : '<div class="wab-lista-vacia">No hay mails de ese tipo entre los que se cargaron.</div>')
+      + (corHayMas ? `<button class="cor-mas" onclick="corCargar(true)"${corCargando ? ' disabled' : ''}>${corCargando ? 'Cargando…' : 'Ver más viejos'}</button>` : '');
+  }
   el.innerHTML = `<div class="wab-lista-top">
       <div class="cor-fila">${chips}</div>
       <div class="cor-fila">${carps}${_corPuedeEscribir(c) ? '<button class="cor-escribir" onclick="corRedactar(\'nuevo\')">✏️ Escribir</button>' : ''}</div>
+      ${_corFiltrosHtml()}
       <input type="search" class="wab-busca" id="cor-busca" data-no-upper placeholder="Buscar en ${COR_CARPETAS[corCarpeta].toLowerCase()} (Enter)" value="${escHtml(corBusca)}" onkeydown="if (event.key === 'Enter') corBuscar(this.value)" onsearch="corBuscar(this.value)">
       ${estado}
     </div>
@@ -6563,10 +6755,119 @@ function corPintarVer() {
   const adjs = (a.adjuntos || []).map(x => `<button class="cor-adj" onclick="corAdjunto(${Number(x.i)})" title="Bajar ${escHtml(x.nombre)}">📎 ${escHtml(x.nombre)} <small>${_corTam(x.tam)}</small></button>`).join('');
   el.innerHTML = `<div class="wab-chat-head">${volver}<div class="wab-chat-tit"><b>${escHtml(a.asunto || '(sin asunto)')}</b><span>${escHtml(a.de || '')}</span></div><div class="cor-hd-acts">${acts}</div></div>
     <div class="cor-meta"><b>Fecha:</b> ${escHtml(_corFechaLarga(a.fecha))}<br><b>Para:</b> ${escHtml(a.para || '')}${a.cc ? `<br><b>CC:</b> ${escHtml(a.cc)}` : ''}</div>
+    ${_corAnCard(a)}
     ${adjs ? `<div class="cor-adjs">${adjs}</div>` : ''}
     ${!a.verImg && _corTieneAfuera(a) ? '<div class="cor-img-aviso" id="cor-img-aviso">🖼 Las imágenes de este mail no se cargaron, para que el que lo mandó no sepa que lo abriste. <button class="cor-chip" onclick="corVerImg()">Mostrar imágenes</button></div>' : ''}
     <iframe class="cor-cuerpo" id="cor-cuerpo" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" title="Contenido del mail"></iframe>`;
   document.getElementById('cor-cuerpo').srcdoc = _corDoc(a);
+}
+// (25-nov-2026) La tarjeta «🤖 Análisis» arriba del mail abierto
+function _corAnCard(a) {
+  const an = a && a.an;
+  if (!an || corCarpeta !== 'entrada') return '';
+  if (an.estado === 'pendiente') return '<div class="cor-anc"><div class="cor-anc-top"><b>🤖 Análisis</b></div><span class="cor-anc-nota">Todavía no lo analicé: el sistema lee los mails nuevos cada 5 minutos.</span></div>';
+  if (an.estado !== 'analizado') return '';
+  const pill = (t, c, b) => `<span class="cor-cat" style="--cc:${c};--cc-bg:${b}">${t}</span>`;
+  const resp = an.requiere_respuesta ? (an.respondido ? pill('✓ Contestado', '#15803d', '#dcfce7') : pill('↩ Para contestar', '#b45309', '#fef3c7')) : '';
+  let h = `<div class="cor-anc"><div class="cor-anc-top"><b>🤖 Análisis</b>${an.urgente && !an.respondido ? '<span class="cor-urg">Urgente</span>' : ''}${_corCat(an.categoria)}${resp}</div>`;
+  h += `<div>${escHtml(an.resumen || '')}</div>`;
+  if (an.urgente && an.motivo) h += `<div style="color:#b91c1c;font-size:12.5px;margin-top:2px">⚠️ ${escHtml(an.motivo)}</div>`;
+  if (an.vence && !(an.factura && an.factura.fecha_vto)) h += `<div style="font-size:12.5px;margin-top:2px">📅 Vence el ${escHtml(_corDia(an.vence))}</div>`;
+  if (an.respondido && an.respondido_por) h += `<div class="cor-anc-nota">Lo contestó ${escHtml(an.respondido_por)}${an.respondido_at ? ' · ' + escHtml(_corFechaLarga(an.respondido_at)) : ''}</div>`;
+  const cl = an.clienta;
+  if (cl) {
+    const datos = [[cl.nombre, cl.apellido].filter(Boolean).join(' '), cl.dni ? 'DNI ' + cl.dni : '', cl.celular ? '📱 ' + cl.celular : '', cl.email].filter(Boolean).join(' · ');
+    const prods = (cl.productos || []).map(p => (Number(p.cantidad) > 1 ? p.cantidad + ' × ' : '') + p.descripcion).join(', ');
+    h += `<div class="cor-anc-sec"><b>${cl.es_pedido ? '🛍️ Pedido de una clienta' : '🛍️ Consulta de una clienta'}</b>${an.cliente_globalid ? ' · <span style="color:#15803d;font-weight:600">ya tiene ficha</span>' : ''}${datos ? '<br>' + escHtml(datos) : ''}${prods ? `<br>Pide: ${escHtml(prods)}` : ''}</div>`;
+  }
+  const f = an.factura;
+  if (f) {
+    const tipo = { factura: 'Factura', nota_credito: 'Nota de crédito', nota_debito: 'Nota de débito', recibo: 'Recibo' }[f.tipo] || 'Comprobante';
+    const nro = [f.punto_venta, f.numero].filter(Boolean).join('-');
+    h += `<div class="cor-anc-sec"><b>🧾 ${escHtml(tipo)}${f.letra ? ' ' + escHtml(f.letra) : ''}${nro ? ' ' + escHtml(nro) : ''}</b>`
+      + `${f.emisor || f.cuit_emisor ? '<br>' + escHtml([f.emisor, f.cuit_emisor ? 'CUIT ' + f.cuit_emisor : ''].filter(Boolean).join(' · ')) : ''}`
+      + `${f.total ? '<br>Total ' + escHtml(_corPlata(f.total, f.moneda)) : ''}${f.fecha_emision ? ' · emitida el ' + escHtml(_corDia(f.fecha_emision)) : ''}${f.fecha_vto ? ' · vence el ' + escHtml(_corDia(f.fecha_vto)) : ''}`
+      + '<div class="cor-anc-nota">Queda en Correo › 📊 Tablero › Facturas recibidas.</div></div>';
+  }
+  const acts = [];
+  if (cl && cl.es_pedido) acts.push(an.pedido_id ? '<span class="cor-anc-nota" style="color:#15803d;font-weight:700">✓ Pedido cargado</span>'
+    : (_puedeNuevo() ? '<button class="cor-anc-btn" onclick="corPedidoDesdeMail()">🛍️ Cargar el pedido</button>' : ''));
+  const alerta = !an.resuelto_at && ((cl && cl.es_pedido && !an.pedido_id) || (!an.respondido && (an.urgente || an.requiere_respuesta)));
+  if (alerta) acts.push(`<button class="cor-anc-btn sec" onclick="corResolver(${Number(an.id)})" title="Sale de las alertas de Pedidos">✓ Listo, ya lo vi</button>`);
+  else if (an.resuelto_at) acts.push('<span class="cor-anc-nota">✓ Marcado como visto</span>');
+  if (acts.filter(Boolean).length) h += `<div class="cor-anc-acts">${acts.join('')}</div>`;
+  return h + '</div>';
+}
+
+// (25-nov-2026, JP) Tablero de atención: por casilla, en los últimos 7 o 30 días (sin contar la publicidad)
+async function corTabCargar(dias) {
+  if (dias) corTabDias = dias;
+  corTabCargando = true; corTabPintar();
+  try { corTabDatos = await _rpcBot('correo_tablero', { p_dias: corTabDias }, authToken || SUPA_KEY) || {}; }
+  catch (e) { corTabDatos = { error: e.message }; }
+  corTabCargando = false; corTabPintar();
+}
+function corTabPintar() {
+  const el = document.getElementById('cor-tab'); if (!el) return;
+  const d = corTabDatos;
+  const dch = n => `<button class="cor-chip${corTabDias === n ? ' on' : ''}" onclick="corTabCargar(${n})">${n} días</button>`;
+  let h = `<div class="cor-tab-top"><button class="cor-chip" onclick="corTablero(false)">‹ Bandeja</button><h3>📊 Tablero de atención</h3>${dch(7)}${dch(30)}
+    <button class="cor-chip" onclick="corTabCargar()" title="Volver a calcular">↻ Actualizar</button></div>
+    <p class="cor-tab-nota">Lo arma el sistema con los mails que lee cada 5 minutos de las casillas que ves. La publicidad no cuenta. «Contestado» es que salió una respuesta desde esa casilla (por acá o por el Outlook).</p>`;
+  if (corTabCargando && !d) { el.innerHTML = h + '<div class="loading"><span class="spinner"></span> Calculando…</div>'; return; }
+  if (!d) { el.innerHTML = h; return; }
+  if (d.error) { el.innerHTML = h + `<div class="cor-sec">❌ ${escHtml(d.error)}</div>`; return; }
+  const cas = d.casillas || [];
+  const ver = (x) => `<button class="cor-ver-btn" onclick="corIrA('${escHtml(String(x.casilla_id || '')).replace(/'/g, '')}',${Number(x.uid)})">Abrir</button>`;
+  h += '<div class="cor-kpis">' + (cas.length ? cas.map(c => {
+    const pc = Number(c.para_contestar) ? Math.round(100 * Number(c.contestados) / Number(c.para_contestar)) : null;
+    return `<div class="cor-kpi"><div class="cor-kpi-t">${escHtml(c.nombre)}<small>${escHtml(c.direccion)}</small></div>
+      <div class="cor-kpi-g">
+        <div>Recibidos<b>${Number(c.recibidos) || 0}</b></div>
+        <div>Para contestar<b>${Number(c.para_contestar) || 0}</b></div>
+        <div class="${pc != null && pc >= 90 ? 'bien' : ''}">Contestados<b>${Number(c.contestados) || 0}${pc != null ? ` <small style="font-size:12px;color:var(--muted)">${pc}%</small>` : ''}</b></div>
+        <div class="${Number(c.sin_contestar) ? 'mal' : ''}">Sin contestar<b>${Number(c.sin_contestar) || 0}</b></div>
+        <div>Tarda en contestar<b>${c.horas_mediana != null ? escHtml(_corHoras(c.horas_mediana)) : '—'}</b></div>
+        <div class="${Number(c.urgentes) ? 'mal' : ''}">Urgentes<b>${Number(c.urgentes) || 0}</b></div>
+        <div>Clientas<b>${Number(c.clientas) || 0}</b></div>
+        <div>Facturas<b>${Number(c.facturas) || 0}</b></div>
+      </div>
+      ${Number(c.sin_analizar) ? `<div class="cor-tab-nota" style="margin:8px 0 0">⏳ ${Number(c.sin_analizar)} todavía sin analizar</div>` : ''}
+      ${Number(c.publicidad) ? `<div class="cor-tab-nota" style="margin:4px 0 0">📣 ${Number(c.publicidad)} de publicidad (no cuentan)</div>` : ''}</div>`;
+  }).join('') : '<div class="cor-sec vacio">Todavía no hay casillas con mails leídos.</div>') + '</div>';
+  // Sin contestar
+  const sc = d.sin_contestar || [];
+  h += `<div class="cor-sec"><h4>⏳ Sin contestar (${sc.length})</h4><p class="cor-tab-nota">Mails que esperan una respuesta, del más viejo al más nuevo. «Listo, ya lo vi» en el mail los saca de acá y de las alertas.</p>`
+    + (sc.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Llegó</th><th>Casilla</th><th>De</th><th>Asunto</th><th>Qué pide</th><th></th></tr></thead><tbody>${sc.map(x => `<tr>
+        <td data-valor="${escHtml(x.fecha || '')}" style="white-space:nowrap">${escHtml(_corFecha(x.fecha))}<div class="mini" style="font-size:11px;color:var(--muted)">${escHtml(_corHace(x.fecha))}</div></td>
+        <td>${escHtml(_corCasNom(x.casilla_id))}</td><td>${escHtml(x.de_nombre || x.de_email || '')}</td>
+        <td>${x.urgente ? '<span class="cor-urg">Urgente</span> ' : ''}${escHtml(x.asunto || '(sin asunto)')}</td><td>${escHtml(x.resumen || '')}</td><td>${ver(x)}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="vacio">✅ No hay mails esperando respuesta.</div>') + '</div>';
+  // Clientas
+  const cl = d.clientas || [];
+  h += `<div class="cor-sec"><h4>🛍️ Consultas y pedidos de clientas (${cl.length})</h4><p class="cor-tab-nota">Lo que pidieron o consultaron por mail. Desde el mail, «Cargar el pedido» abre Nuevo pedido con sus datos.</p>`
+    + (cl.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Llegó</th><th>Casilla</th><th>Clienta</th><th>Pide</th><th>Estado</th><th></th></tr></thead><tbody>${cl.map(x => {
+        const k = x.clienta || {};
+        const nom = [k.nombre, k.apellido].filter(Boolean).join(' ') || x.de_nombre || x.de_email || '';
+        const prods = (k.productos || []).map(p => (Number(p.cantidad) > 1 ? p.cantidad + ' × ' : '') + p.descripcion).join(', ') || x.resumen || '';
+        const est = x.pedido_id ? '✓ Pedido cargado' : x.respondido ? '↩ Contestado' : k.es_pedido ? 'Pedido sin cargar' : 'Sin contestar';
+        return `<tr><td data-valor="${escHtml(x.fecha || '')}" style="white-space:nowrap">${escHtml(_corFecha(x.fecha))}</td><td>${escHtml(_corCasNom(x.casilla_id))}</td>
+          <td>${escHtml(nom)}${x.cliente_globalid ? '<div class="mini" style="font-size:11px;color:#15803d">ya tiene ficha</div>' : ''}</td><td>${escHtml(prods)}</td><td>${escHtml(est)}</td><td>${ver(x)}</td></tr>`;
+      }).join('')}</tbody></table></div>` : '<div class="vacio">No llegaron consultas de clientas en estos días.</div>') + '</div>';
+  // Facturas
+  const fa = d.facturas || [];
+  const tot = {}; fa.forEach(x => { const f = x.factura || {}; const m = f.moneda === 'USD' ? 'USD' : 'ARS'; tot[m] = (tot[m] || 0) + (f.tipo === 'nota_credito' ? -1 : 1) * (Number(f.total) || 0); });
+  h += `<div class="cor-sec"><h4>🧾 Facturas recibidas (${fa.length})</h4><p class="cor-tab-nota">Comprobantes que llegaron por mail, con los datos leídos del mail o del PDF. Quedan listos para Compras y Gastos; revisalos contra el original antes de cargarlos.${Object.keys(tot).length ? ' Total: ' + Object.keys(tot).map(m => escHtml(_corPlata(tot[m], m))).join(' + ') + '.' : ''}</p>`
+    + (fa.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Llegó</th><th>Casilla</th><th>Emisor</th><th>CUIT</th><th>Comprobante</th><th>Total</th><th>Vence</th><th></th></tr></thead><tbody>${fa.map(x => {
+        const f = x.factura || {};
+        const tipo = { factura: 'Factura', nota_credito: 'N. crédito', nota_debito: 'N. débito', recibo: 'Recibo' }[f.tipo] || 'Comprobante';
+        return `<tr><td data-valor="${escHtml(x.fecha || '')}" style="white-space:nowrap">${escHtml(_corFecha(x.fecha))}</td><td>${escHtml(_corCasNom(x.casilla_id))}</td>
+          <td>${escHtml(f.emisor || x.de_nombre || x.de_email || '')}</td><td style="white-space:nowrap">${escHtml(f.cuit_emisor || '')}</td>
+          <td style="white-space:nowrap">${escHtml(tipo)}${f.letra ? ' ' + escHtml(f.letra) : ''} ${escHtml([f.punto_venta, f.numero].filter(Boolean).join('-'))}</td>
+          <td class="num" data-valor="${Number(f.total) || 0}">${f.total ? escHtml(_corPlata(f.total, f.moneda)) : ''}</td>
+          <td data-valor="${escHtml(x.vence || f.fecha_vto || '')}" style="white-space:nowrap">${escHtml(_corDia(x.vence || f.fecha_vto))}</td><td>${ver(x)}</td></tr>`;
+      }).join('')}</tbody></table></div>` : '<div class="vacio">No llegaron facturas por mail en estos días.</div>') + '</div>';
+  el.innerHTML = h;
 }
 async function corAdjunto(i) {
   const c = _corC(), a = corAbierto; if (!c || !a || !a.uid) return;
@@ -6750,13 +7051,15 @@ function corAdminPintar() {
         <label style="display:inline-flex;gap:5px;align-items:center"><input type="checkbox" id="cora-ac-${id}"${k.activa ? ' checked' : ''}> Activa</label>
         <span>Clave: secreto <code>${escHtml(k.secreto)}</code></span>
         <button class="cor-chip" id="cora-pr-${id}" onclick="corAdminProbar('${id}')" style="margin-left:auto">Probar conexión</button>
+        ${k.activa ? `<button class="cor-chip" id="cora-rv-${id}" onclick="corAdminRevisar('${id}')" title="Lee los mails nuevos y los analiza ya, sin esperar los 5 minutos">Leer y analizar ahora</button>` : ''}
         <button class="cor-escribir" style="margin-left:0" onclick="corAdminGuardar('${id}')">Guardar</button>
       </div>
       <div class="cor-adm-res" id="cora-res-${id}"></div>
     </div>`;
   };
   el.innerHTML = `<div class="cor-adm-intro">✉️ <b>Correo dentro de Clientes.</b> Cada casilla aparece en la pestaña Correo de las cuentas tildadas en «La ven».
-    Los mails no se copian al sistema: se leen del servidor en el momento, así se ve lo mismo que en el Outlook.<br>
+    El texto de los mails no se copia al sistema: se lee del servidor en el momento, así se ve lo mismo que en el Outlook.
+    Cada 5 minutos el sistema lee los mails nuevos de las casillas activas y los analiza (etiqueta, resumen, si hay que contestar, pedidos de clientas y facturas): de eso se guarda el remitente, el asunto, la fecha y el análisis.<br>
     🔑 <b>Las claves no se cargan acá:</b> van en Supabase → Edge Functions → Secrets, con el nombre que dice cada casilla (por ejemplo <code>CORREO_CLAVE_ALCORTA</code>). Así no pasan por el navegador ni quedan guardadas en la base. Después, «Probar conexión».</div>`
     + (corAdmin.casillas || []).map(card).join('');
 }
@@ -6778,6 +7081,18 @@ async function corAdminProbar(id) {
     if (res) res.innerHTML = `Entrada (leer): ${j.imap === 'ok' ? '✅ anda' : '❌ ' + escHtml(j.imap)}<br>Salida (mandar): ${j.smtp === 'ok' ? '✅ anda' : '❌ ' + escHtml(j.smtp)}`;
   } catch (e) { if (res) res.textContent = '❌ ' + e.message; }
   if (b) { b.disabled = false; b.textContent = 'Probar conexión'; }
+}
+// (25-nov-2026) leer y analizar ya los mails nuevos de una casilla prendida (el sistema igual lo hace solo cada 5 minutos)
+async function corAdminRevisar(id) {
+  const b = document.getElementById('cora-rv-' + id), res = document.getElementById('cora-res-' + id);
+  if (b) { b.disabled = true; b.textContent = 'Leyendo…'; }
+  try {
+    const j = await corApi({ accion: 'revisar', casilla: id });
+    const x = (j.casillas || [])[0];
+    if (res) res.innerHTML = !x ? 'La casilla no está activa.' : x.sin_clave ? '🔑 Falta cargar la clave en Supabase.' : x.error ? '❌ ' + escHtml(x.error)
+      : `✅ ${Number(x.nuevos) || 0} mails nuevos en la Entrada, ${Number(x.enviados) || 0} en Enviados y ${Number(x.analizados) || 0} analizados. Lo que falte se analiza en las próximas vueltas (cada 5 minutos).`;
+  } catch (e) { if (res) res.textContent = '❌ ' + e.message; }
+  if (b) { b.disabled = false; b.textContent = 'Leer y analizar ahora'; }
 }
 
 function _act(cls, onclick, title, svg) {
@@ -7000,7 +7315,8 @@ function renderAlertas() {
   const listos = pedidosCache.filter(p => p.estado === 'Listo para avisar');
   const vencidos = pedidosVencidos60();
   const mensajes = permVe('crm.wa_ver') ? pedidosConMensajeSinResponder() : [];   // (14-nov) Hub: sin «Ver las charlas», sin esta sección
-  const total = listos.length + vencidos.length + mensajes.length + sugerenciasCache.length;
+  const mails = correoAlertasCache || [];   // (25-nov) mails urgentes, para contestar o pedidos de clientas por mail
+  const total = listos.length + vencidos.length + mensajes.length + sugerenciasCache.length + mails.length;
   if (caja) caja.style.display = total ? '' : 'none';
   if (resto) resto.style.display = total ? '' : 'none';
   if (tit) tit.style.display = total ? '' : 'none';
@@ -7099,6 +7415,12 @@ function renderAlertas() {
   if (sugerenciasCache.length) {
     html += `<div class="alert-sec-title" style="color:#5b21b6;${html ? 'margin-top:18px;' : ''}">🪪 ${sugerenciasCache.length} ${sugerenciasCache.length === 1 ? 'cliente con datos para confirmar' : 'clientes con datos para confirmar'}</div>`;
     html += sugerenciasCache.map(renderSugerenciaCard).join('');
+  }
+
+  // (25-nov-2026, JP) Sección 5: mails que analizó el sistema y hay que atender (urgentes, sin contestar, pedidos por mail)
+  if (mails.length) {
+    html += `<div class="alert-sec-title" style="color:#2563eb;${html ? 'margin-top:18px;' : ''}">✉️ ${mails.length} ${mails.length === 1 ? 'mail para atender' : 'mails para atender'}</div>`;
+    html += mails.map(renderCorreoAlertaCard).join('');
   }
   el.innerHTML = html;
 }
@@ -9838,7 +10160,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 })();
 
-const CRM_VERSION = 'crm-adorno-v143-nuevo-ventana';
+const CRM_VERSION = 'crm-adorno-v144-correo-analisis';
 const _verNum = v => Number((String(v || '').match(/-v(\d+)/) || [])[1] || 0);
 let crmVersionNueva = '';
 function crmPintarVersion() {
@@ -9986,7 +10308,7 @@ document.addEventListener('input', function(e) {
     <button class="resp-luego" onclick="respSheet('despues')">Después</button>
   </div>
 </div>
-<script src="manual.js?v=74"></script>
+<script src="manual.js?v=75"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>
